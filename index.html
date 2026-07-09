@@ -1,0 +1,1809 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0d0f14">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Piano Dojo">
+<link rel="manifest" href='data:application/manifest+json,{"name":"Piano Dojo","short_name":"PianoDojo","display":"standalone","background_color":"#0d0f14","theme_color":"#0d0f14","start_url":"."}'>
+<title>Piano Dojo</title>
+<style>
+  :root{
+    --bg:#0d0f14; --bg2:#151823; --bg3:#1d2130; --line:#2a2f42;
+    --txt:#e8eaf2; --dim:#8b91a7; --acc:#f5b840; --acc2:#e0891f;
+    --ok:#3ecf7a; --bad:#ff5c6c; --blue:#5b9cff; --purple:#a78bfa;
+    --r:14px;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%}
+  body{
+    background:var(--bg); color:var(--txt);
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+    overscroll-behavior:none; user-select:none;-webkit-user-select:none;
+  }
+  #app{max-width:520px;margin:0 auto;min-height:100%;display:flex;flex-direction:column}
+  main{flex:1;padding:16px 16px 90px}
+
+  /* ---------- header ---------- */
+  header{padding:14px 16px 0;display:flex;align-items:center;justify-content:space-between}
+  .logo{font-weight:800;font-size:18px;letter-spacing:.5px}
+  .logo span{color:var(--acc)}
+  .streak{font-weight:700;font-size:14px;background:var(--bg2);border:1px solid var(--line);
+    padding:6px 12px;border-radius:20px}
+
+  /* ---------- cards ---------- */
+  .card{background:var(--bg2);border:1px solid var(--line);border-radius:var(--r);padding:16px;margin-bottom:12px}
+  .hero{background:linear-gradient(135deg,#1a1e2e,#232840);border:1px solid var(--line)}
+  .hero .lvl{font-size:12px;color:var(--dim);text-transform:uppercase;letter-spacing:1px}
+  .hero .lvlname{font-size:22px;font-weight:800;margin:2px 0 10px;color:var(--acc)}
+  .xpbar{height:8px;background:#0009;border-radius:4px;overflow:hidden}
+  .xpbar i{display:block;height:100%;background:linear-gradient(90deg,var(--acc2),var(--acc));border-radius:4px;transition:width .4s}
+  .hero .xptxt{font-size:12px;color:var(--dim);margin-top:6px}
+
+  .btn{display:inline-block;border:none;border-radius:12px;padding:13px 20px;font-size:15px;font-weight:700;
+    cursor:pointer;background:var(--acc);color:#1a1200;width:100%;text-align:center;margin-top:12px}
+  .btn:active{transform:scale(.97)}
+  .btn.ghost{background:var(--bg3);color:var(--txt);border:1px solid var(--line)}
+  .btn.small{width:auto;padding:9px 16px;font-size:13px;margin-top:0}
+  .btn.ok{background:var(--ok);color:#02180b}
+  .btn:disabled{opacity:.4;pointer-events:none}
+
+  /* ---------- module list ---------- */
+  .mod{margin-bottom:20px}
+  .mod h2{font-size:13px;color:var(--dim);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:8px;padding-left:4px}
+  .lesson{display:flex;align-items:center;gap:12px;background:var(--bg2);border:1px solid var(--line);
+    border-radius:var(--r);padding:14px;margin-bottom:8px;cursor:pointer}
+  .lesson:active{background:var(--bg3)}
+  .lesson.locked{opacity:.38;pointer-events:none}
+  .lesson .ico{width:38px;height:38px;border-radius:11px;display:flex;align-items:center;justify-content:center;
+    font-size:18px;background:var(--bg3);flex-shrink:0}
+  .lesson.done .ico{background:#153524;color:var(--ok)}
+  .lesson .t{flex:1;min-width:0}
+  .lesson .t b{display:block;font-size:15px}
+  .lesson .t small{color:var(--dim);font-size:12px}
+  .lesson .xp{font-size:12px;font-weight:700;color:var(--acc);flex-shrink:0}
+  .lesson.done .xp{color:var(--ok)}
+
+  /* ---------- overlay (lesson view) ---------- */
+  .overlay{position:fixed;inset:0;background:var(--bg);z-index:50;overflow-y:auto;display:none}
+  .overlay.open{display:block}
+  .overlay .inner{max-width:520px;margin:0 auto;padding:16px 16px 40px}
+  .topbar{display:flex;align-items:center;gap:12px;margin-bottom:14px;position:sticky;top:0;background:var(--bg);padding:12px 0;z-index:5}
+  .topbar .back{width:38px;height:38px;border-radius:11px;background:var(--bg2);border:1px solid var(--line);
+    color:var(--txt);font-size:18px;cursor:pointer}
+  .topbar b{font-size:16px}
+
+  .theory{line-height:1.55;font-size:15px}
+  .theory h3{color:var(--acc);font-size:16px;margin:18px 0 6px}
+  .theory p{margin-bottom:10px;color:#c9cde0}
+  .theory ul{margin:0 0 10px 18px;color:#c9cde0}
+  .theory li{margin-bottom:5px}
+  .theory .tip{background:#1a2438;border-left:3px solid var(--blue);padding:10px 12px;border-radius:0 10px 10px 0;
+    margin:12px 0;font-size:14px;color:#c9d6f0}
+  .theory .warn{background:#2e1a20;border-left:3px solid var(--bad);padding:10px 12px;border-radius:0 10px 10px 0;
+    margin:12px 0;font-size:14px;color:#f0c9ce}
+  .theory .formula{background:var(--bg3);border:1px solid var(--line);border-radius:10px;padding:12px;
+    text-align:center;font-weight:800;font-size:17px;margin:12px 0;letter-spacing:.5px}
+  .theory kbd{background:var(--bg3);border:1px solid var(--line);border-radius:6px;padding:1px 7px;
+    font-family:inherit;font-weight:700;color:var(--acc)}
+
+  /* ---------- keyboard ---------- */
+  .kbdwrap{margin:14px 0;touch-action:none}
+  .kbd{position:relative;height:170px;border-radius:10px;overflow:hidden;background:#000}
+  .key{position:absolute;top:0;cursor:pointer}
+  .key.white{height:100%;background:linear-gradient(#fdfdfd,#e8e8ec);border:1px solid #999;border-radius:0 0 6px 6px;z-index:1}
+  .key.black{height:60%;background:linear-gradient(#3a3a42,#111);border-radius:0 0 5px 5px;z-index:2;border:1px solid #000}
+  .key.white span{position:absolute;bottom:5px;left:0;right:0;text-align:center;font-size:10px;color:#888;font-weight:700}
+  .key.white.sel{background:linear-gradient(#ffe9b0,var(--acc))}
+  .key.black.sel{background:linear-gradient(#c99a2e,var(--acc2))}
+  .key.white.hint{background:linear-gradient(#cfe4ff,#8db8f5)}
+  .key.black.hint{background:linear-gradient(#3b6db5,#2a4d80)}
+  .key.flash{background:var(--ok)!important}
+
+  /* ---------- exercise ---------- */
+  .exhead{text-align:center;margin:8px 0 4px}
+  .exhead .target{font-size:34px;font-weight:800;letter-spacing:1px}
+  .exhead .sub{color:var(--dim);font-size:13px;margin-top:3px}
+  .exprog{display:flex;gap:5px;justify-content:center;margin:10px 0}
+  .exprog i{width:9px;height:9px;border-radius:50%;background:var(--bg3);border:1px solid var(--line)}
+  .exprog i.on{background:var(--acc);border-color:var(--acc)}
+  .exprog i.bad{background:var(--bad);border-color:var(--bad)}
+  .exrow{display:flex;gap:10px;margin-top:10px}
+  .exrow .btn{margin-top:0}
+  .fb{text-align:center;min-height:22px;font-weight:700;font-size:14px;margin-top:10px}
+  .fb.ok{color:var(--ok)} .fb.bad{color:var(--bad)}
+  .chips{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:10px 0}
+  .chip{padding:8px 14px;border-radius:10px;background:var(--bg3);border:1px solid var(--line);font-weight:700;font-size:15px}
+  .chip.cur{background:var(--acc);color:#1a1200;border-color:var(--acc)}
+  .chip.done{background:#153524;color:var(--ok);border-color:#1d4a31}
+  .quizopt{display:block;width:100%;text-align:left;background:var(--bg2);border:1px solid var(--line);
+    color:var(--txt);border-radius:12px;padding:14px;font-size:15px;margin-bottom:8px;cursor:pointer;font-weight:600}
+  .quizopt.right{background:#153524;border-color:var(--ok)}
+  .quizopt.wrong{background:#3a1a20;border-color:var(--bad)}
+  .quizwhy{background:var(--bg3);border-radius:10px;padding:12px;font-size:14px;color:#c9cde0;margin-top:4px;line-height:1.5}
+  .earbtns{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+  .earbtns .btn{margin-top:0}
+  .checkstep{display:flex;gap:10px;align-items:flex-start;background:var(--bg2);border:1px solid var(--line);
+    border-radius:12px;padding:12px;margin-bottom:8px;font-size:14px;line-height:1.45;color:#c9cde0}
+  .checkstep b{color:var(--txt)}
+  .checkstep .n{background:var(--acc);color:#1a1200;min-width:24px;height:24px;border-radius:8px;display:flex;
+    align-items:center;justify-content:center;font-weight:800;font-size:13px;flex-shrink:0}
+
+  /* ---------- metronome ---------- */
+  .metro{display:flex;align-items:center;gap:14px;background:var(--bg2);border:1px solid var(--line);
+    border-radius:var(--r);padding:14px;margin:12px 0}
+  .metro .bpm{font-size:26px;font-weight:800;min-width:78px;text-align:center}
+  .metro .bpm small{display:block;font-size:11px;color:var(--dim);font-weight:600}
+  .metro .adj{width:40px;height:40px;border-radius:11px;background:var(--bg3);border:1px solid var(--line);
+    color:var(--txt);font-size:20px;font-weight:700;cursor:pointer}
+  .metro .go{flex:1}
+  .metro.beat{border-color:var(--acc)}
+
+  /* ---------- tabs ---------- */
+  nav{position:fixed;bottom:0;left:0;right:0;background:rgba(13,15,20,.92);backdrop-filter:blur(12px);
+    border-top:1px solid var(--line);z-index:40}
+  nav .in{max-width:520px;margin:0 auto;display:flex}
+  nav button{flex:1;background:none;border:none;color:var(--dim);padding:10px 0 max(10px,env(safe-area-inset-bottom));
+    font-size:11px;font-weight:700;cursor:pointer}
+  nav button .i{display:block;font-size:20px;margin-bottom:2px}
+  nav button.on{color:var(--acc)}
+
+  /* ---------- toast ---------- */
+  #toast{position:fixed;top:18px;left:50%;transform:translateX(-50%) translateY(-80px);background:var(--bg3);
+    border:1px solid var(--acc);color:var(--txt);padding:12px 22px;border-radius:14px;font-weight:700;
+    z-index:100;transition:transform .35s;font-size:15px;white-space:nowrap}
+  #toast.show{transform:translateX(-50%) translateY(0)}
+
+  .shake{animation:shake .35s}
+  @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-7px)}75%{transform:translateX(7px)}}
+  .statgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .stat{background:var(--bg2);border:1px solid var(--line);border-radius:var(--r);padding:14px;text-align:center}
+  .stat b{display:block;font-size:24px;color:var(--acc)}
+  .stat small{color:var(--dim);font-size:12px}
+  h1.page{font-size:22px;font-weight:800;margin-bottom:14px}
+  .cheat{font-size:14px;line-height:1.6;color:#c9cde0}
+  .cheat b{color:var(--acc)}
+  .cheat .row{padding:8px 0;border-bottom:1px solid var(--line)}
+  .selrow{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+  .selrow .tag{padding:8px 14px;border-radius:20px;background:var(--bg3);border:1px solid var(--line);
+    font-size:13px;font-weight:700;cursor:pointer}
+  .selrow .tag.on{background:var(--acc);color:#1a1200;border-color:var(--acc)}
+  .key.black span{position:absolute;bottom:5px;left:0;right:0;text-align:center;font-size:8px;color:#ccc;font-weight:700}
+  .daily .row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);cursor:pointer}
+  .daily .row:last-of-type{border-bottom:none}
+  .daily .st{width:26px;height:26px;border-radius:9px;background:var(--bg3);display:flex;align-items:center;
+    justify-content:center;font-size:14px;flex-shrink:0}
+  .daily .row.ok .st{background:#153524;color:var(--ok)}
+  .daily .row span{flex:1;font-size:14px;font-weight:600}
+  .daily .row.ok span{color:var(--dim);text-decoration:line-through}
+  .daily .bonus{font-size:12px;color:var(--dim);text-align:center;margin-top:8px}
+  .week{display:flex;gap:6px;align-items:flex-end;height:78px;margin-top:14px}
+  .week .col{flex:1;display:flex;flex-direction:column;justify-content:flex-end;height:100%;gap:4px;text-align:center}
+  .week .bar{background:linear-gradient(180deg,var(--acc),var(--acc2));border-radius:4px;min-height:2px}
+  .week .col.z .bar{background:var(--bg3)}
+  .week small{font-size:10px;color:var(--dim);font-weight:700}
+
+  /* ---------- voix / tuner ---------- */
+  .tuner{margin:14px 0;text-align:center}
+  .tuner .vnote{font-size:54px;font-weight:800;line-height:1}
+  .gauge{position:relative;height:52px;margin:14px 0;border-radius:12px;background:var(--bg3);border:1px solid var(--line);overflow:hidden}
+  .gauge .zone{position:absolute;left:38%;width:24%;top:0;bottom:0;background:rgba(62,207,122,.16)}
+  .gauge .center{position:absolute;left:50%;top:0;bottom:0;width:2px;background:var(--ok);opacity:.55;transform:translateX(-1px)}
+  .gauge .ndl{position:absolute;top:6px;bottom:6px;width:6px;border-radius:3px;background:var(--acc);left:50%;transform:translateX(-3px);transition:left .06s linear}
+  .gauge.intune .ndl{background:var(--ok)}
+  .hold{height:8px;background:var(--bg3);border-radius:4px;overflow:hidden;margin-top:8px}
+  .hold i{display:block;height:100%;width:0;background:var(--ok);border-radius:4px;transition:width .08s}
+  .breathe{width:150px;height:150px;border-radius:50%;margin:18px auto;
+    background:radial-gradient(circle,var(--acc2),var(--bg3));display:flex;align-items:center;justify-content:center;
+    font-weight:800;font-size:18px;color:#1a1200;transition:transform 3.8s ease-in-out}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="logo">PIANO<span>DOJO</span></div>
+    <div class="streak" id="streakBadge">🔥 0</div>
+  </header>
+  <main id="main"></main>
+  <nav><div class="in">
+    <button data-tab="parcours" class="on"><span class="i">🥋</span>Parcours</button>
+    <button data-tab="dojo"><span class="i">⚔️</span>Dojo</button>
+    <button data-tab="voix"><span class="i">🎤</span>Voix</button>
+    <button data-tab="outils"><span class="i">🛠</span>Outils</button>
+  </div></nav>
+</div>
+<div class="overlay" id="overlay"><div class="inner" id="overlayInner"></div></div>
+<div id="toast"></div>
+
+<script>
+/* ================================================================
+   PIANO DOJO — apprendre le piano par la théorie, sans solfège
+   ================================================================ */
+
+/* ---------------- données musicales ---------------- */
+const NOTE = ['C','C#','D','Eb','E','F','F#','G','Ab','A','Bb','B'];
+const NOTE_FR = ['Do','Do#','Ré','Mib','Mi','Fa','Fa#','Sol','Lab','La','Sib','Si'];
+const CHORD_TYPES = {
+  maj:  {iv:[0,4,7],    suf:'',     nom:'majeur'},
+  min:  {iv:[0,3,7],    suf:'m',    nom:'mineur'},
+  dom7: {iv:[0,4,7,10], suf:'7',    nom:'7 (dominante)'},
+  maj7: {iv:[0,4,7,11], suf:'maj7', nom:'majeur 7'},
+  m7:   {iv:[0,3,7,10], suf:'m7',   nom:'mineur 7'},
+};
+const chordName = (root,t,bass=null) =>
+  NOTE[root] + CHORD_TYPES[t].suf + (bass!=null ? '/'+NOTE[bass] : '');
+const chordNotes = (root,t) => CHORD_TYPES[t].iv.map(i=>NOTE[(root+i)%12]).join(' – ');
+/* voicing jouable : basse demandée en bas, les autres notes empilées juste au-dessus */
+function voicingFor(root,t,bass=null){
+  const need=CHORD_TYPES[t].iv.map(x=>(root+x)%12);
+  const bassPc=(bass!=null?bass:root)%12;
+  let cur=48+bassPc;
+  const v=[cur], rest=need.filter(p=>p!==bassPc);
+  let scan=cur+1;
+  while(rest.length && scan<77){
+    const i=rest.indexOf(scan%12);
+    if(i>-1){ v.push(scan); rest.splice(i,1); }
+    scan++;
+  }
+  return v;
+}
+const isBlack = m => [1,3,6,8,10].includes(m%12);
+
+const LEVELS = [
+  [0,'Touriste du clavier'],[120,'Ceinture blanche'],[300,'Ceinture jaune'],
+  [550,'Ceinture orange'],[850,'Ceinture verte'],[1200,'Ceinture bleue'],
+  [1700,'Ceinture marron'],[2300,'Ceinture noire'],[3200,'Sensei']
+];
+
+/* ---------------- état / sauvegarde ---------------- */
+const DEFAULT_STATE = {xp:0, done:{}, streak:0, lastDay:null, earBest:0, daily:null, hist:{}, best:{}, labels:false, voice:{}};
+let S = load();
+function load(){
+  try{ return Object.assign({},DEFAULT_STATE,JSON.parse(localStorage.getItem('pianodojo')||'{}')); }
+  catch(e){ return {...DEFAULT_STATE}; }
+}
+function save(){ localStorage.setItem('pianodojo',JSON.stringify(S)); }
+function levelOf(xp){
+  let cur=LEVELS[0], next=null;
+  for(let i=0;i<LEVELS.length;i++){ if(xp>=LEVELS[i][0]) cur=LEVELS[i]; else {next=LEVELS[i]; break;} }
+  return {name:cur[1], base:cur[0], next};
+}
+function award(xp){
+  const before=levelOf(S.xp).name;
+  S.xp+=xp;
+  const today=new Date().toISOString().slice(0,10);
+  S.hist[today]=(S.hist[today]||0)+xp;
+  Object.keys(S.hist).forEach(k=>{ if(Date.now()-new Date(k).getTime()>15*864e5) delete S.hist[k]; });
+  if(S.lastDay!==today){
+    const y=new Date(Date.now()-864e5).toISOString().slice(0,10);
+    S.streak = (S.lastDay===y) ? S.streak+1 : 1;
+    S.lastDay=today;
+  }
+  save(); updateHeader();
+  const after=levelOf(S.xp).name;
+  if(after!==before) setTimeout(()=>toast('🥋 Nouveau grade : '+after),1400);
+}
+function updateHeader(){ document.getElementById('streakBadge').textContent='🔥 '+S.streak; }
+const todayStr=()=>new Date().toISOString().slice(0,10);
+function ensureDaily(){
+  const t=todayStr();
+  if(!S.daily || S.daily.date!==t){ S.daily={date:t, done:[false,false,false], bonus:false}; save(); }
+  return S.daily;
+}
+function dailyMark(i){
+  const d=ensureDaily();
+  if(d.done[i]) return;
+  d.done[i]=true; save();
+  if(d.done.every(Boolean) && !d.bonus){
+    d.bonus=true; save(); award(30);
+    setTimeout(()=>toast('📅 Séance du jour complète · +30 XP'),900);
+  }
+}
+
+/* ---------------- audio ---------------- */
+let AC=null;
+function ac(){
+  if(!AC) AC=new (window.AudioContext||window.webkitAudioContext)();
+  if(AC.state==='suspended') AC.resume();
+  return AC;
+}
+function playNote(midi, dur=1.4, vel=.4, when=0){
+  const ctx=ac(), t=ctx.currentTime+when;
+  const f=440*Math.pow(2,(midi-69)/12);
+  const g=ctx.createGain(), lp=ctx.createBiquadFilter();
+  lp.type='lowpass'; lp.frequency.value=Math.min(f*7,9500); lp.Q.value=.5;
+  g.connect(lp); lp.connect(ctx.destination);
+  g.gain.setValueAtTime(0,t);
+  g.gain.linearRampToValueAtTime(vel,t+.006);
+  g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+  [[1,1,0],[2,.32,5],[2.997,.1,-5],[4.003,.05,0],[5.01,.02,3]].forEach(([m,a,d])=>{
+    const o=ctx.createOscillator(), og=ctx.createGain();
+    o.type='sine'; o.frequency.value=f*m; o.detune.value=d; og.gain.value=a;
+    o.connect(og); og.connect(g); o.start(t); o.stop(t+dur+.1);
+  });
+}
+function chime(){ [72,76,79,84].forEach((m,i)=>playNote(m,.7,.22,i*.07)); }
+function playChord(midis, dur=1.6, strum=.028){
+  midis.slice().sort((a,b)=>a-b).forEach((m,i)=>playNote(m,dur,.35,i*strum));
+}
+function buzz(){ if(navigator.vibrate) navigator.vibrate(80); }
+function tada(){ if(navigator.vibrate) navigator.vibrate([30,40,30]); }
+
+/* ---------------- métronome ---------------- */
+const Metro = {
+  bpm:70, on:false, timer:null, nextT:0, beat:0, el:null,
+  click(t,accent){
+    const ctx=ac(), o=ctx.createOscillator(), g=ctx.createGain();
+    o.frequency.value=accent?1500:900; g.gain.setValueAtTime(accent?.5:.3,t);
+    g.gain.exponentialRampToValueAtTime(.001,t+.05);
+    o.connect(g); g.connect(ctx.destination); o.start(t); o.stop(t+.06);
+  },
+  start(){
+    this.stop(); this.on=true; const ctx=ac();
+    this.nextT=ctx.currentTime+.05; this.beat=0;
+    this.timer=setInterval(()=>{
+      while(this.nextT<ctx.currentTime+.12){
+        this.click(this.nextT,this.beat%4===0);
+        if(this.el){ this.el.classList.add('beat'); setTimeout(()=>this.el&&this.el.classList.remove('beat'),100); }
+        this.beat++; this.nextT+=60/this.bpm;
+      }
+    },25);
+  },
+  stop(){ this.on=false; if(this.timer){clearInterval(this.timer); this.timer=null;} }
+};
+function metroWidget(bpm){
+  Metro.bpm=bpm||Metro.bpm;
+  const d=document.createElement('div'); d.className='metro';
+  d.innerHTML=`<button class="adj" data-d="-5">−</button>
+    <div class="bpm"><span>${Metro.bpm}</span><small>BPM</small></div>
+    <button class="adj" data-d="5">+</button>
+    <button class="btn small go">▶ Lancer</button>`;
+  Metro.el=d;
+  const span=d.querySelector('.bpm span'), go=d.querySelector('.go');
+  d.querySelectorAll('.adj').forEach(b=>b.onclick=()=>{
+    Metro.bpm=Math.max(40,Math.min(200,Metro.bpm+ +b.dataset.d)); span.textContent=Metro.bpm;
+  });
+  go.onclick=()=>{
+    if(Metro.on){ Metro.stop(); go.textContent='▶ Lancer'; }
+    else { Metro.start(); go.textContent='◼ Stop'; }
+  };
+  return d;
+}
+
+/* ---------------- clavier ---------------- */
+function buildKeyboard(lo, hi, onTap){
+  const wrap=document.createElement('div'); wrap.className='kbdwrap';
+  const kbd=document.createElement('div'); kbd.className='kbd'; wrap.appendChild(kbd);
+  const whites=[]; for(let m=lo;m<=hi;m++) if(!isBlack(m)) whites.push(m);
+  const wW=100/whites.length;
+  whites.forEach((m,i)=>{
+    const k=document.createElement('div'); k.className='key white'; k.dataset.midi=m;
+    k.style.left=(i*wW)+'%'; k.style.width=wW+'%';
+    if(S.labels) k.innerHTML=`<span>${NOTE[m%12]}</span>`;
+    else if(m%12===0) k.innerHTML=`<span>C${Math.floor(m/12)-1}</span>`;
+    kbd.appendChild(k);
+  });
+  for(let m=lo;m<=hi;m++){
+    if(!isBlack(m)) continue;
+    const wIdx=whites.filter(w=>w<m).length, bw=wW*.62;
+    const k=document.createElement('div'); k.className='key black'; k.dataset.midi=m;
+    k.style.left=(wIdx*wW-bw/2)+'%'; k.style.width=bw+'%';
+    if(S.labels) k.innerHTML=`<span>${NOTE[m%12]}</span>`;
+    kbd.appendChild(k);
+  }
+  kbd.addEventListener('pointerdown',e=>{
+    const k=e.target.closest('.key'); if(!k) return;
+    e.preventDefault(); onTap(+k.dataset.midi,k);
+  });
+  wrap.kbd=kbd;
+  wrap.keyEl=m=>kbd.querySelector(`[data-midi="${m}"]`);
+  wrap.clearSel=()=>kbd.querySelectorAll('.sel,.hint').forEach(k=>k.classList.remove('sel','hint'));
+  return wrap;
+}
+
+/* ================================================================
+   CURRICULUM
+   ================================================================ */
+const CURRICULUM = [
+{ id:'m0', title:'Module 0 · Fondations', lessons:[
+  { id:'m0l1', icon:'🗺', title:'La carte du clavier', sub:'12 notes, demi-tons, repères', xp:40,
+    theory:`
+<p>Tu sais jouer des accords. Bien. Maintenant on vérifie que tu comprends <b>le terrain</b> — parce qu'un pianiste qui cherche ses notes est un pianiste lent.</p>
+<h3>12 notes, pas plus</h3>
+<p>Le clavier n'a que <b>12 notes différentes</b> : C, C#, D, Eb, E, F, F#, G, Ab, A, Bb, B — puis ça recommence, une octave plus haut. Tout le reste, c'est de la répétition.</p>
+<p>Correspondance avec les noms français : <kbd>C=Do</kbd> <kbd>D=Ré</kbd> <kbd>E=Mi</kbd> <kbd>F=Fa</kbd> <kbd>G=Sol</kbd> <kbd>A=La</kbd> <kbd>B=Si</kbd>. Ici on utilise les lettres, comme sur les grilles d'accords.</p>
+<h3>Le demi-ton : ton unité de mesure</h3>
+<p>Un <b>demi-ton</b> = la plus petite distance possible = deux touches voisines, <i>noires comprises</i>. C → C# = un demi-ton. Un <b>ton</b> = deux demi-tons.</p>
+<div class="warn">Piège classique : entre <b>E et F</b> et entre <b>B et C</b>, il n'y a PAS de touche noire. E→F = un demi-ton direct. Retiens-le, tout le reste de la théorie repose dessus.</div>
+<h3>Tes repères visuels</h3>
+<ul>
+<li><b>C</b> = la blanche juste à gauche du <b>groupe de 2 noires</b></li>
+<li><b>F</b> = la blanche juste à gauche du <b>groupe de 3 noires</b></li>
+<li>C# et Db = <b>la même touche</b>, deux noms différents (selon le contexte)</li>
+</ul>
+<div class="tip">Au vrai piano : ferme les yeux, pose la main, trouve tous les C au toucher (le groupe de 2 noires se sent sous les doigts). 2 minutes par jour jusqu'à ce que ce soit instantané.</div>`,
+    ex:{type:'quiz', qs:[
+      {q:'Un demi-ton, c\'est…', opts:['La distance entre deux touches blanches','La plus petite distance entre deux touches voisines (noires comprises)','L\'écart entre deux notes de même nom'], a:1,
+       why:'Demi-ton = touches voisines, noires comprises. C→C# est un demi-ton, C→D en fait deux (un ton).'},
+      {q:'Entre E et F, il y a…', opts:['Un ton','Un demi-ton','Deux tons'], a:1,
+       why:'Pas de touche noire entre E et F : elles sont voisines directes → un demi-ton. Pareil pour B→C.'},
+      {q:'C# et Db, c\'est…', opts:['Deux touches différentes','La même touche avec deux noms','Une erreur de notation'], a:1,
+       why:'Même touche, deux noms — on dit qu\'elles sont "enharmoniques". Le nom dépend du contexte de la tonalité.'},
+      {q:'Combien de notes différentes avant que ça se répète ?', opts:['7','8','12'], a:2,
+       why:'12 : les 7 blanches + les 5 noires. Après, on repart une octave plus haut.'},
+      {q:'Comment repérer un C instantanément ?', opts:['Juste à gauche du groupe de 2 touches noires','Juste à gauche du groupe de 3 touches noires','Au centre exact du clavier'], a:0,
+       why:'C est toujours collé à gauche des 2 noires. F est collé à gauche des 3 noires. Ce sont tes deux ancres visuelles.'}
+    ]}},
+  { id:'m0l2', icon:'🧱', title:'Majeur = 4+3, mineur = 3+4', sub:'Construire n\'importe quel accord', xp:60,
+    theory:`
+<p>Tu joues Gm et Am de mémoire. Très bien — mais la mémoire, ça lâche. La <b>formule</b>, jamais. À partir de maintenant tu ne mémorises plus les accords : tu les <b>construis</b>.</p>
+<h3>La formule</h3>
+<div class="formula">MAJEUR = fondamentale + 4 demi-tons + 3 demi-tons<br>MINEUR = fondamentale + 3 demi-tons + 4 demi-tons</div>
+<p>Exemple <b>C majeur</b> : C, compte 4 demi-tons → E, compte 3 → G. <b>C–E–G</b>.<br>
+Exemple <b>C mineur</b> : C, compte 3 → Eb, compte 4 → G. <b>C–Eb–G</b>.</p>
+<p>Remarque : seule la <b>note du milieu</b> (la tierce) change. C'est elle qui décide de l'humeur — majeur lumineux, mineur sombre. La quinte (G) ne bouge pas.</p>
+<div class="tip">Compte les touches physiquement les premières fois, noires comprises. Au bout de 20 accords construits, tu n'auras plus besoin de compter.</div>
+<h3>Pourquoi c'est puissant</h3>
+<p>Avec cette formule, tu peux jouer <b>les 24 accords de base</b> — y compris F#m, Ab, Bbm que tu n'as probablement jamais joués. Aucun accord "difficile" : juste des accords que tu n'as pas encore construits.</p>`,
+    ex:{type:'chord', gen:{types:['maj','min'], roots:[0,2,4,5,7,9,11,1,3], count:8}, sub:'N\'importe quelle octave. Construis, ne devine pas.'}},
+  { id:'m0l3', icon:'👹', title:'BOSS : les 24 accords', sub:'Toutes les tonalités, sans exception', xp:100,
+    theory:`
+<p>Premier boss. 12 accords tirés au hasard parmi les 24 (majeurs et mineurs, <b>toutes</b> les fondamentales — y compris les noires).</p>
+<p>Règles du dojo :</p>
+<ul>
+<li>Tu construis avec 4+3 / 3+4, tu ne devines pas.</li>
+<li>Les accords sur touches noires (F#, Ab, Bb, C#, Eb) comptent double dans ta tête : ce sont eux qui séparent les débutants des pianistes.</li>
+<li>Objectif : <b>10/12 minimum</b>. En dessous, tu recommences. C'est pas une punition, c'est de l'entraînement.</li>
+</ul>
+<div class="tip">Au vrai piano, rejoue ces 12 accords après. L'app valide ta tête, le piano valide tes doigts.</div>`,
+    ex:{type:'chord', gen:{types:['maj','min'], roots:[0,1,2,3,4,5,6,7,8,9,10,11], count:12}, pass:10, sub:'Boss : 10/12 minimum pour valider.'}},
+]},
+{ id:'m1', title:'Module 1 · Renversements', lessons:[
+  { id:'m1l1', icon:'🔄', title:'Un accord, trois positions', sub:'Renversements & notation slash', xp:60,
+    theory:`
+<p>Voici le secret le mieux gardé des débutants : ce qui fait "pianiste", ce n'est pas de connaître plus d'accords. C'est de savoir jouer <b>les mêmes accords autrement</b>.</p>
+<h3>Le principe</h3>
+<p>C majeur = C, E, G. Mais rien ne t'oblige à mettre C en bas :</p>
+<ul>
+<li><b>Position fondamentale</b> : C–E–G (C en bas)</li>
+<li><b>1er renversement</b> : E–G–C (E en bas)</li>
+<li><b>2e renversement</b> : G–C–E (G en bas)</li>
+</ul>
+<p>Mêmes notes, même accord, couleur légèrement différente. On note ça avec un slash : <kbd>C/E</kbd> = "accord de C avec E à la basse".</p>
+<h3>Pourquoi tu en as besoin MAINTENANT</h3>
+<p>Sans renversements, passer de C à F t'oblige à <b>sauter</b> avec toute la main. Avec renversements, tu passes de C (C–E–G) à F/C (C–F–A) en bougeant <b>deux doigts d'un demi-ton et d'un ton</b>. Le pouce ne bouge pas. C'est ça, le jeu fluide.</p>
+<div class="warn">C'est le module le plus important de tout le parcours. Si tu le bâcles, tout le reste sera laborieux. Si tu le maîtrises, tout le reste sera facile.</div>`,
+    ex:{type:'chord', items:[
+      {root:0,t:'maj',bass:4},{root:0,t:'maj',bass:7},{root:5,t:'maj',bass:9},
+      {root:5,t:'maj',bass:0},{root:7,t:'maj',bass:11},{root:7,t:'maj',bass:2},
+      {root:9,t:'min',bass:0},{root:9,t:'min',bass:4}
+    ], sub:'La note après le / doit être la plus GRAVE.'}},
+  { id:'m1l2', icon:'🌊', title:'Enchaîner sans sauter', sub:'Voice leading : le geste du pianiste', xp:70,
+    theory:`
+<p>Maintenant on applique. Le principe s'appelle le <b>voice leading</b> : entre deux accords, chaque note bouge le moins possible.</p>
+<h3>L'enchaînement modèle : C → F → G → C</h3>
+<ul>
+<li><b>C</b> : C–E–G (fondamentale)</li>
+<li><b>F/C</b> : C–F–A (le C ne bouge pas, E→F, G→A)</li>
+<li><b>G/B</b> : B–D–G (tout descend d'un cran)</li>
+<li><b>C</b> : C–E–G (retour maison)</li>
+</ul>
+<p>Ta main reste dans la <b>même zone de 6 touches blanches</b>. Zéro saut. Voilà pourquoi les pianistes ont l'air de ne pas bouger les mains : ils ne bougent pas les mains.</p>
+<div class="tip">Au vrai piano : joue ce cycle en boucle, 10 fois, lentement. Regarde ta main : si elle saute, recommence. Le but est que tes doigts trouvent l'accord suivant <i>avant</i> de le jouer.</div>`,
+    ex:{type:'prog', rounds:2, chords:[
+      {root:0,t:'maj'},{root:5,t:'maj',bass:0},{root:7,t:'maj',bass:11},{root:0,t:'maj'}
+    ], sub:'Respecte les basses indiquées (slash).'}},
+]},
+{ id:'m2', title:'Module 2 · Le langage des degrés', lessons:[
+  { id:'m2l1', icon:'🏛', title:'Les chiffres romains', sub:'Le code universel des musiciens', xp:40,
+    theory:`
+<p>Pourquoi "Let It Be", "No Woman No Cry" et la moitié de la pop sonnent pareil ? Parce qu'elles utilisent <b>la même progression</b>, jouée dans des tonalités différentes. Pour voir ça, il faut le langage des <b>degrés</b>.</p>
+<h3>Le principe</h3>
+<p>Prends la gamme de Do majeur : C D E F G A B. Numérote chaque note : C=1, D=2, E=3… On construit un accord sur chaque degré, et on le note en chiffres romains :</p>
+<div class="formula">I = C &nbsp; ii = Dm &nbsp; iii = Em &nbsp; IV = F &nbsp; V = G &nbsp; vi = Am &nbsp; vii° = B°</div>
+<ul>
+<li><b>MAJUSCULE</b> (I, IV, V) = accord majeur</li>
+<li><b>minuscule</b> (ii, iii, vi) = accord mineur</li>
+<li>Ce schéma majeur/mineur est <b>le même dans toutes les tonalités majeures</b>. C'est une loi, pas une coïncidence.</li>
+</ul>
+<h3>La traduction instantanée</h3>
+<p>"I–V–vi–IV en Do" = C–G–Am–F. La même en Sol ? Compte à partir de G : <b>G–D–Em–C</b>. Même chanson, autre hauteur. C'est ça, <b>transposer</b> — et toi tu sais le faire par le calcul, pas par cœur.</p>
+<div class="tip">Les degrés à connaître par cœur en priorité : <b>I, IV, V, vi</b>. Ils couvrent 80 % de la musique populaire. Littéralement.</div>`,
+    ex:{type:'quiz', qs:[
+      {q:'En Do majeur, le degré V est…', opts:['F','G','Am'], a:1,
+       why:'Compte : C(1) D(2) E(3) F(4) G(5). Le V de Do majeur est Sol majeur.'},
+      {q:'"vi" en minuscule signifie…', opts:['Un accord majeur','Un accord mineur','Un accord de 7e'], a:1,
+       why:'Minuscule = mineur, majuscule = majeur. En Do : vi = Am.'},
+      {q:'I–V–vi–IV en Sol majeur donne…', opts:['G–D–Em–C','G–C–Am–F','C–G–Am–F'], a:0,
+       why:'Gamme de Sol : G A B C D E F#. I=G, V=D, vi=Em, IV=C.'},
+      {q:'À quoi servent les chiffres romains ?', opts:['À compliquer les choses','À décrire une progression indépendamment de la tonalité','À noter le rythme'], a:1,
+       why:'Une progression en degrés se joue dans n\'importe quelle tonalité. C\'est le langage universel des musiciens.'},
+      {q:'En Fa majeur (F G A Bb C D E), le vi est…', opts:['Dm','D','Am'], a:0,
+       why:'Le 6e degré de Fa est D, et vi est mineur → Dm.'}
+    ]}},
+  { id:'m2l2', icon:'🎼', title:'I–V–vi–IV : la progression à 1000 hits', sub:'En Do majeur', xp:70,
+    theory:`
+<p>La progression <b>I–V–vi–IV</b> : des Beatles à Adele en passant par tout ce qui passe à la radio. En Do : <b>C – G – Am – F</b>.</p>
+<h3>Joue-la intelligemment</h3>
+<p>Version débutant (sauts partout) : C, G, Am, F en position fondamentale. Interdit à partir d'aujourd'hui.</p>
+<p>Version dojo (voice leading) :</p>
+<ul>
+<li><b>C</b> : C–E–G</li>
+<li><b>G/B</b> : B–D–G</li>
+<li><b>Am</b> : A–C–E</li>
+<li><b>F/A</b> : A–C–F</li>
+</ul>
+<p>Chaque passage = un ou deux doigts qui glissent. Ici l'exercice accepte <b>n'importe quel renversement</b> : à toi de choisir le plus proche du précédent.</p>
+<div class="tip">Au vrai piano : boucle-la jusqu'à pouvoir la jouer les yeux fermés en parlant à quelqu'un. C'est ton nouveau "chez toi".</div>`,
+    ex:{type:'prog', rounds:2, free:true, chords:[
+      {root:0,t:'maj'},{root:7,t:'maj'},{root:9,t:'min'},{root:5,t:'maj'}
+    ], sub:'Renversements libres — choisis le chemin le plus court.'}},
+  { id:'m2l3', icon:'🧭', title:'Transpose : même logique, autre tonalité', sub:'I–V–vi–IV en Sol puis en Fa', xp:80,
+    theory:`
+<p>Un musicien qui ne sait jouer qu'en Do est un touriste. On transpose : même progression I–V–vi–IV, deux nouvelles tonalités.</p>
+<h3>En Sol majeur</h3>
+<p>Gamme : G A B C D E F#. Donc I=G, V=D, vi=Em, IV=C → <b>G – D – Em – C</b>.</p>
+<h3>En Fa majeur</h3>
+<p>Gamme : F G A Bb C D E. Donc I=F, V=C, vi=Dm, IV=Bb → <b>F – C – Dm – Bb</b>.</p>
+<div class="warn">Oui, il y a un Bb. Oui, c'est une touche noire. Non, tu ne l'évites pas : Bb majeur = Bb–D–F, formule 4+3 comme d'habitude. Les touches noires n'ont aucun pouvoir sur toi.</div>
+<p>L'exercice enchaîne les deux tonalités. Prends ton temps, construis chaque accord.</p>`,
+    ex:{type:'prog', rounds:1, free:true, chords:[
+      {root:7,t:'maj'},{root:2,t:'maj'},{root:4,t:'min'},{root:0,t:'maj'},
+      {root:5,t:'maj'},{root:0,t:'maj'},{root:2,t:'min'},{root:10,t:'maj'}
+    ], sub:'4 accords en Sol, puis 4 en Fa. Renversements libres.'}},
+]},
+{ id:'m3', title:'Module 3 · La main gauche', lessons:[
+  { id:'m3l1', icon:'🐘', title:'La basse, c\'est la fondamentale', sub:'Deux mains, premier vrai son de piano', xp:50,
+    theory:`
+<p>Jusqu'ici tu joues d'une main. Un piano, ça se joue à deux. La bonne nouvelle : la main gauche du débutant intelligent est <b>très simple</b>.</p>
+<h3>La règle n°1</h3>
+<div class="formula">Main gauche = LA FONDAMENTALE de l'accord, une octave plus bas</div>
+<p>Accord de C à droite → un C grave à gauche. Accord de F/A à droite → un <b>F</b> à gauche (la fondamentale, pas la basse du renversement !). C'est la main gauche qui dit le nom de l'accord ; du coup la main droite est libre de renverser comme elle veut.</p>
+<h3>Montée en puissance</h3>
+<ul>
+<li>Niveau 1 : une note (la fondamentale)</li>
+<li>Niveau 2 : l'octave (C grave + C au-dessus, pouce-auriculaire)</li>
+<li>Niveau 3 : la quinte (C + G) — stable, sonne bien partout</li>
+</ul>
+<div class="tip">Ce module se joue sur ton VRAI piano. L'app te donne le programme et le métronome ; tes doigts font le travail. La validation est sur l'honneur — te mentir à toi-même ne fera progresser personne.</div>`,
+    ex:{type:'practice', bpm:60, steps:[
+      ['Pose le cycle','Main droite : C → F/C → G/B → C (le cycle du module 1). Main gauche : la fondamentale correspondante (C, F, G, C) une octave plus bas.'],
+      ['Métronome à 60','Un accord par clic accentué (donc tenu 4 temps). Change PENDANT le dernier temps, pas après.'],
+      ['4 tours propres d\'affilée','Sans hésitation entre les accords. Si tu hésites, le compteur repart à zéro. Sérieusement.'],
+      ['Niveau 2','Refais pareil avec l\'octave à la main gauche (C+C, F+F, G+G).']
+    ]}},
+  { id:'m3l2', icon:'🌀', title:'Le pattern 1-5-8', sub:'La main gauche qui sonne pro', xp:60,
+    theory:`
+<p>Le pattern <b>1-5-8</b> : fondamentale, quinte, octave, joués <b>en arpège</b> (l'une après l'autre). C'est LA main gauche des ballades — des berceuses aux génériques de films.</p>
+<h3>Sur C</h3>
+<p>1 = C (auriculaire) · 5 = G (index) · 8 = C au-dessus (pouce). Tu joues 1–5–8–5, en boucle, une note par temps.</p>
+<h3>La magie</h3>
+<p>Ce pattern ne contient <b>ni tierce ni couleur</b> : il fonctionne tel quel sur les accords majeurs ET mineurs. Sur Am : A–E–A. Sur F : F–C–F. Tu déplaces la main, le motif ne change jamais.</p>
+<div class="tip">Difficulté réelle : jouer la main gauche en arpège PENDANT que la droite tient l'accord. C'est le premier vrai exercice d'indépendance des mains. Lent d'abord. Le métronome n'est pas décoratif.</div>`,
+    ex:{type:'practice', bpm:60, steps:[
+      ['Main gauche seule','1-5-8-5 sur C, une note par clic, à 60 BPM. Puis sur Am, F, G. Une minute par accord.'],
+      ['Les deux mains','Main droite plaque l\'accord sur le 1er temps et le tient. Main gauche joue 1-5-8-5. Sur C uniquement, jusqu\'à ce que ce soit stable.'],
+      ['Le cycle complet','C → G → Am → F avec ce pattern, 4 temps par accord, 4 tours sans arrêt.'],
+      ['Monte à 70-75 BPM','Seulement si les 4 tours à 60 sont vraiment propres.']
+    ]}},
+]},
+{ id:'m4', title:'Module 4 · Le rythme', lessons:[
+  { id:'m4l1', icon:'🥁', title:'La pulsation avant tout', sub:'Noires, blanches, la pompe', xp:50,
+    theory:`
+<p>Vérité dure : un accord faux dans le rythme passe inaperçu ; un accord juste hors rythme ruine tout. Le rythme n'est pas un chapitre, c'est <b>le</b> chapitre.</p>
+<h3>Le vocabulaire minimal (sans partition)</h3>
+<ul>
+<li><b>Pulsation</b> : le battement régulier — ce que ton pied tape. Le métronome le matérialise.</li>
+<li><b>Mesure</b> : les pulsations se groupent par 4 (le "4/4", ultra-majoritaire). Le clic aigu du métronome = temps 1.</li>
+<li><b>Ronde</b> = tenir 4 temps. <b>Blanche</b> = 2 temps. <b>Noire</b> = 1 temps.</li>
+</ul>
+<h3>Trois patterns d'accompagnement</h3>
+<ul>
+<li><b>Pattern A (ronde)</b> : plaque l'accord sur le temps 1, tiens 4 temps. Ce que tu fais déjà.</li>
+<li><b>Pattern B (blanches)</b> : plaque sur 1 et sur 3.</li>
+<li><b>Pattern C (la pompe)</b> : plaque sur chaque temps — 1, 2, 3, 4. Le son pop/rock de base.</li>
+</ul>
+<div class="tip">Le test du vrai rythme : tu dois pouvoir <b>chanter ou parler</b> par-dessus. Si jouer t'empêche de compter à voix haute ("1, 2, 3, 4"), c'est que ce n'est pas encore acquis.</div>`,
+    ex:{type:'practice', bpm:65, steps:[
+      ['Pattern A','I–V–vi–IV en Do (C–G–Am–F), un accord par mesure, plaqué sur le temps 1. 4 tours en comptant À VOIX HAUTE.'],
+      ['Pattern B','Même progression, accord plaqué sur les temps 1 et 3. 4 tours.'],
+      ['Pattern C — la pompe','Accord plaqué sur chaque temps. 4 tours. Garde le poignet souple, frappe depuis le poignet, pas depuis l\'épaule.'],
+      ['Mélange','Un tour en A, un tour en B, un tour en C, sans t\'arrêter entre les tours.']
+    ]}},
+  { id:'m4l2', icon:'💫', title:'Croches et arpèges', sub:'Diviser le temps en deux', xp:60,
+    theory:`
+<p>Dernière brique rythmique de base : la <b>croche</b> = un demi-temps. Entre deux clics du métronome, tu joues DEUX notes régulières. On compte : « 1-et-2-et-3-et-4-et ».</p>
+<h3>L'arpège main droite</h3>
+<p>Au lieu de plaquer C–E–G, égrène les notes : C (1) E (et) G (2) E (et)… Le motif <b>bas-milieu-haut-milieu</b> en croches, c'est l'accompagnement de ballade par excellence.</p>
+<h3>Combiné main gauche</h3>
+<p>Main gauche : fondamentale tenue (ou octave) sur le temps 1. Main droite : arpège en croches. Ce combo = 80 % des ballades piano que tu entends.</p>
+<div class="warn">Régularité &gt; vitesse. Des croches inégales à 60 BPM sonnent amateur ; des croches parfaites à 60 BPM sonnent pro. Le métronome tranche, pas ton impression.</div>`,
+    ex:{type:'practice', bpm:60, steps:[
+      ['Croches sur une note','Main droite, un seul C : deux frappes régulières par clic, en comptant "1-et-2-et…". 8 mesures parfaitement égales.'],
+      ['Arpège bas-milieu-haut-milieu','Sur C : C-E-G-E en croches (2 temps le motif, donc 2 motifs par mesure). Puis sur Am, F, G.'],
+      ['Deux mains','Gauche : fondamentale sur le temps 1, tenue. Droite : arpège en croches. Cycle C–G–Am–F, 4 tours.'],
+      ['Test final','Le même cycle en chantonnant n\'importe quoi par-dessus. Si tu peux, c\'est acquis.']
+    ]}},
+]},
+{ id:'m5', title:'Module 5 · Les accords de 7e', lessons:[
+  { id:'m5l1', icon:'🎨', title:'La 7e : trois couleurs', sub:'maj7, m7, 7 — le son adulte', xp:70,
+    theory:`
+<p>Tes accords de 3 notes sont corrects mais un peu… scolaires. On ajoute une 4e note : la <b>septième</b>. C'est le moment où ton piano commence à sonner comme un disque.</p>
+<h3>Les trois formules (à partir de l'accord de base)</h3>
+<div class="formula">Xmaj7 = majeur + 11 demi-tons &nbsp;·&nbsp; X7 = majeur + 10 &nbsp;·&nbsp; Xm7 = mineur + 10</div>
+<p>Plus simple à retenir en partant de l'octave :</p>
+<ul>
+<li><b>Cmaj7</b> (C–E–G–B) : la 7e est <b>1 demi-ton sous l'octave</b>. Couleur : rêveuse, élégante, jazz doux.</li>
+<li><b>C7</b> (C–E–G–Bb) : <b>2 demi-tons sous l'octave</b>. Couleur : blues, tension qui veut se résoudre.</li>
+<li><b>Cm7</b> (C–Eb–G–Bb) : mineur + 7e à 2 demi-tons sous l'octave. Couleur : soul, feutré, néo-soul.</li>
+</ul>
+<div class="tip">Joue C, puis Cmaj7, puis C7, puis Cm7 à la suite et ÉCOUTE la couleur changer. La théorie te dit où poser les doigts ; tes oreilles te disent pourquoi.</div>`,
+    ex:{type:'chord', items:[
+      {root:0,t:'maj7'},{root:9,t:'m7'},{root:2,t:'m7'},{root:7,t:'dom7'},
+      {root:5,t:'maj7'},{root:4,t:'m7'},{root:0,t:'dom7'},{root:10,t:'maj7'}
+    ], sub:'4 notes. Construis depuis la formule, pas au hasard.'}},
+  { id:'m5l2', icon:'🕴', title:'ii–V–I : la cadence reine', sub:'Dm7 → G7 → Cmaj7', xp:80,
+    theory:`
+<p>Le <b>ii–V–I</b> : la progression la plus jouée de l'histoire du jazz, et l'ADN de la moitié de la soul et de la bossa. En Do : <b>Dm7 → G7 → Cmaj7</b>.</p>
+<h3>Pourquoi elle fonctionne</h3>
+<p>C'est une histoire en trois actes : le ii prépare (tension douce), le V crée l'urgence (le 7 de dominante veut <i>vraiment</i> se résoudre), le Imaj7 apaise. Départ → tension → maison.</p>
+<h3>Le geste malin</h3>
+<p>Encore le voice leading : de Dm7 (D–F–A–C) à G7, ne saute pas : joue <b>G7/B</b> (B–D–F–G, ou simplement B–F au minimum). Puis Cmaj7 (C–E–G–B). Les notes glissent, elles ne sautent pas.</p>
+<div class="tip">Ce ii–V–I, transpose-le plus tard dans d'autres tonalités (Em7–A7–Dmaj7…). C'est un investissement à vie : il est PARTOUT.</div>`,
+    ex:{type:'prog', rounds:2, free:true, chords:[
+      {root:2,t:'m7'},{root:7,t:'dom7'},{root:0,t:'maj7'}
+    ], sub:'Renversements libres. Écoute la tension se résoudre.'}},
+]},
+{ id:'m6', title:'Module 6 · Gammes & improvisation', lessons:[
+  { id:'m6l1', icon:'🪜', title:'La gamme majeure : 2-2-1-2-2-2-1', sub:'D\'où viennent les accords', xp:60,
+    theory:`
+<p>Tu utilises la gamme majeure depuis le module 2 sans le savoir. Officialisons.</p>
+<h3>La formule (en demi-tons)</h3>
+<div class="formula">2 – 2 – 1 – 2 – 2 – 2 – 1</div>
+<p>Depuis C : C +2→ D +2→ E +1→ F +2→ G +2→ A +2→ B +1→ C. Que des blanches — c'est pour ça que Do majeur est la tonalité "facile".</p>
+<p>Depuis G : G A B <b>C</b> D E <b>F#</b> G. Le F# n'est pas une décoration : c'est la formule qui l'exige.</p>
+<h3>Le lien avec TOUT le reste</h3>
+<ul>
+<li>Les <b>degrés</b> du module 2 ? Les notes de cette gamme, numérotées.</li>
+<li>Les <b>accords</b> de la tonalité ? Une note de la gamme sur deux, empilées.</li>
+<li>La <b>mélodie</b> d'une chanson en Do ? À 95 % des notes de cette gamme.</li>
+</ul>
+<div class="tip">Doigté main droite pour C majeur : pouce-index-majeur (C-D-E), puis le pouce PASSE DESSOUS (F), et index-majeur-annulaire-auriculaire (G-A-B-C). Le passage du pouce est LE geste technique du piano — lent et propre d'abord.</div>`,
+    ex:{type:'scale', root:0, pattern:[0,2,4,5,7,9,11,12], name:'Do majeur', sub:'Joue la gamme en montant, note par note. Commence sur n\'importe quel C.'}},
+  { id:'m6l2', icon:'🎤', title:'La pentatonique : improviser sans fausse note', sub:'Tes premières phrases à toi', xp:80,
+    theory:`
+<p>Moment que tu attends sans le savoir : <b>improviser</b>. Et voici l'arme parfaite du débutant : la <b>pentatonique mineure de La</b> : <b>A – C – D – E – G</b>. Cinq notes, que des blanches.</p>
+<h3>Le deal magique</h3>
+<p>Sur une progression en Do majeur / La mineur (C–G–Am–F, Am–F–C–G…), <b>aucune de ces 5 notes ne peut sonner faux</b>. Aucune. Tu peux les jouer dans n'importe quel ordre, n'importe quel rythme : ça fonctionne. L'improvisation sans le vertige.</p>
+<h3>Comment improviser (vraiment)</h3>
+<ul>
+<li><b>Phrase courte + silence.</b> 3-4 notes, puis tais-toi. Le silence fait partie de la musique.</li>
+<li><b>Question / réponse.</b> Une phrase qui monte (question), une qui descend (réponse).</li>
+<li><b>Répète-toi.</b> Une phrase jouée deux fois est un motif ; dix idées à la suite, c'est du bruit.</li>
+</ul>
+<div class="tip">Au vrai piano : main gauche boucle Am–F–C–G (accords plaqués, 1 par mesure), main droite improvise sur les 5 notes. 10 minutes. C'est le moment le plus important de ta semaine de pratique.</div>`,
+    ex:{type:'scale', root:9, pattern:[0,3,5,7,10,12], name:'Pentatonique mineure de La', sub:'Monte la gamme note par note. Commence sur un A.'}},
+]},
+{ id:'m7', title:'Module 7 · L\'oreille', lessons:[
+  { id:'m7l1', icon:'👂', title:'Majeur ou mineur ?', sub:'Entendre avant de savoir', xp:80,
+    theory:`
+<p>Dernier étage de la fusée : <b>l'oreille</b>. Tout ce que tu as appris avec les yeux et la logique, ton oreille doit l'apprendre aussi — c'est elle qui te permettra de jouer ce que tu entends, de repérer une progression dans une chanson, de te corriger seul.</p>
+<h3>L'exercice</h3>
+<p>L'app joue un accord. Tu dis : majeur ou mineur. C'est tout — et c'est difficile au début, puis un jour ça devient évident, comme distinguer un visage souriant d'un visage triste.</p>
+<h3>Les repères</h3>
+<ul>
+<li><b>Majeur</b> : ouvert, lumineux, résolu. Le son "tout va bien".</li>
+<li><b>Mineur</b> : voilé, intérieur, mélancolique. Le son "il se passe quelque chose".</li>
+<li>Si tu hésites : chante intérieurement la note du milieu. C'est elle qui porte l'émotion.</li>
+</ul>
+<div class="warn">Ne clique pas au hasard pour finir vite : chaque réponse au pif entraîne ton oreille à ne pas écouter. Mieux vaut 10 vraies écoutes que 30 clics.</div>`,
+    ex:{type:'ear', kinds:['maj','min'], count:10, pass:8, sub:'Objectif : 8/10 minimum.'}},
+  { id:'m7l2', icon:'🏆', title:'BOSS FINAL : les couleurs de 7e', sub:'maj7, m7 ou 7 à l\'oreille', xp:120,
+    theory:`
+<p>Boss final du parcours. L'app joue un accord de 7e : tu identifies <b>maj7, m7 ou 7</b>. C'est le niveau "musicien qui écoute" — beaucoup de guitaristes avec 5 ans de pratique en sont incapables.</p>
+<h3>Tes repères émotionnels</h3>
+<ul>
+<li><b>maj7</b> : suspendu, rêveur, générique de film des années 80. Ça flotte.</li>
+<li><b>7</b> : frottement, blues, envie de bouger. Ça DOIT se résoudre quelque part.</li>
+<li><b>m7</b> : rond, feutré, lounge. Triste mais confortable.</li>
+</ul>
+<p>Objectif : <b>7/10</b>. Rate-le, recommence demain — l'oreille progresse en dormant, littéralement (consolidation nocturne, c'est documenté).</p>
+<p>Après ce boss : le parcours est fini, pas ton apprentissage. Le Dojo reste ouvert pour t'entraîner en illimité, et chaque module se rejoue. Un grade, ça s'entretient.</p>`,
+    ex:{type:'ear', kinds:['maj7','m7','dom7'], count:10, pass:7, sub:'Boss final : 7/10 minimum.'}},
+]},
+];
+const ALL_LESSONS = CURRICULUM.flatMap(m=>m.lessons);
+
+/* ================================================================
+   RENDU DES ONGLETS
+   ================================================================ */
+const main=document.getElementById('main');
+let curTab='parcours';
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('nav button').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on'); curTab=b.dataset.tab; Metro.stop(); Mic.release(); render();
+});
+function render(){
+  main.innerHTML='';
+  if(curTab==='parcours') renderParcours();
+  else if(curTab==='dojo') renderDojo();
+  else if(curTab==='voix') renderVoix();
+  else renderOutils();
+}
+
+/* ---------------- Parcours ---------------- */
+function nextLesson(){
+  return ALL_LESSONS.find(l=>!S.done[l.id]) || null;
+}
+function renderParcours(){
+  const lv=levelOf(S.xp);
+  const pct = lv.next ? Math.round((S.xp-lv.base)/(lv.next[0]-lv.base)*100) : 100;
+  const nl=nextLesson();
+  const doneCount=Object.keys(S.done).length;
+  const hero=document.createElement('div');
+  hero.className='card hero';
+  hero.innerHTML=`
+    <div class="lvl">Grade actuel</div>
+    <div class="lvlname">${lv.name}</div>
+    <div class="xpbar"><i style="width:${pct}%"></i></div>
+    <div class="xptxt">${S.xp} XP${lv.next?` · ${lv.next[0]-S.xp} XP avant « ${lv.next[1]} »`:' · grade maximum'} · ${doneCount}/${ALL_LESSONS.length} leçons · ${S.hist[todayStr()]||0} XP aujourd'hui</div>
+    ${nl?`<button class="btn" id="resume">▶ ${doneCount===0?'Commencer':'Reprendre'} : ${nl.title}</button>`
+        :'<button class="btn ok" disabled>Parcours terminé — le Dojo t\'attend</button>'}`;
+  main.appendChild(hero);
+  if(nl) hero.querySelector('#resume').onclick=()=>openLesson(nl);
+
+  const d=ensureDaily();
+  const daily=document.createElement('div'); daily.className='card daily';
+  daily.innerHTML=`<b style="font-size:15px">📅 Séance du jour · ~15 min</b>`;
+  const tasks=[
+    ['⚡','Échauffement : sprint de 10 accords', ()=>dojoChords()],
+    ['📖', nl ? 'Leçon : '+nl.title : 'Révision : une leçon au hasard',
+      ()=>openLesson(nl || ALL_LESSONS[Math.floor(Math.random()*ALL_LESSONS.length)])],
+    ['👂','Oreille : une série d\'écoute', ()=>dojoEar()],
+  ];
+  tasks.forEach(([ic,txt,fn],i)=>{
+    const r=document.createElement('div'); r.className='row'+(d.done[i]?' ok':'');
+    r.innerHTML=`<div class="st">${d.done[i]?'✓':ic}</div><span>${txt}</span><small style="color:var(--dim)">›</small>`;
+    if(!d.done[i]) r.onclick=fn;
+    daily.appendChild(r);
+  });
+  const bn=document.createElement('div'); bn.className='bonus';
+  bn.textContent = d.bonus ? '🔥 Séance complète — bonus encaissé.' : 'Les 3 dans la journée = +30 XP bonus.';
+  daily.appendChild(bn);
+  main.appendChild(daily);
+
+  let unlocked=true;
+  CURRICULUM.forEach(mod=>{
+    const md=document.createElement('div'); md.className='mod';
+    md.innerHTML=`<h2>${mod.title}</h2>`;
+    mod.lessons.forEach(l=>{
+      const done=!!S.done[l.id];
+      const el=document.createElement('div');
+      el.className='lesson'+(done?' done':'')+(unlocked||done?'':' locked');
+      el.innerHTML=`<div class="ico">${done?'✓':l.icon}</div>
+        <div class="t"><b>${l.title}</b><small>${l.sub}</small></div>
+        <div class="xp">${done?'✓ '+l.xp:l.xp+' XP'}</div>`;
+      el.onclick=()=>openLesson(l);
+      md.appendChild(el);
+      if(!done) unlocked=false;
+    });
+    main.appendChild(md);
+  });
+}
+
+/* ---------------- Dojo (entraînement libre, salles à débloquer) ---------------- */
+const DRILLS=[
+  {id:'mix', icon:'🎯', title:'SESSION MIXTE', req:'m0l2',
+   desc:()=>'Un peu de tout ce que tu as déjà vu, mélangé au hasard. S\'enrichit automatiquement à chaque leçon validée. +25 XP.',
+   run:()=>dojoMix()},
+  {id:'sprint', icon:'⚡', title:'Sprint d\'accords', req:'m0l2',
+   desc:()=>'10 accords aléatoires, chronométrés.'+(S.best.sprint?` Record sans faute : <b style="color:var(--acc)">${S.best.sprint}s</b>.`:' Fais un sans-faute pour poser un record.'),
+   run:()=>dojoChords()},
+  {id:'inv', icon:'🔄', title:'Renversements', req:'m1l1',
+   desc:()=>'10 accords slash aléatoires — les bonnes notes ET la bonne basse en bas.'+(S.best.inv?` Record sans faute : <b style="color:var(--acc)">${S.best.inv}s</b>.`:''),
+   run:()=>dojoInv()},
+  {id:'vl', icon:'🌊', title:'Enchaînements fluides', req:'m1l2',
+   desc:()=>'Un cycle à basses imposées, tonalité tirée au sort. Zéro saut de main.',
+   run:()=>dojoVL()},
+  {id:'deg', icon:'🏛', title:'Quiz des degrés', req:'m2l1',
+   desc:()=>'Degrés et progressions dans des tonalités aléatoires, questions générées à l\'infini.',
+   run:()=>dojoDeg()},
+  {id:'prog', icon:'🎲', title:'Progression aléatoire', req:'m2l2',
+   desc:()=>'L\'app tire une progression connue dans une tonalité au hasard. Joue-la.',
+   run:()=>dojoProg()},
+  {id:'namer', icon:'🕵️', title:'Qui est cet accord ?', req:'m0l2',
+   desc:()=>'L\'app montre et joue un accord : à toi de le nommer. Théorie inversée.',
+   run:()=>dojoNamer()},
+  {id:'sev', icon:'🎨', title:'Sprint des 7e', req:'m5l1',
+   desc:()=>'maj7, m7, 7 — huit accords à 4 notes.'+(S.best.sev?` Record sans faute : <b style="color:var(--acc)">${S.best.sev}s</b>.`:' Le son adulte se travaille.'),
+   run:()=>dojoSev()},
+  {id:'scale', icon:'🪜', title:'Gammes', req:'m6l1',
+   desc:()=>'Gamme majeure (ou pentatonique) depuis une fondamentale tirée au sort.',
+   run:()=>dojoScale()},
+  {id:'ear', icon:'👂', title:'Salle d\'écoute', req:null,
+   desc:()=>'Ear training en continu : majeur/mineur, ou les 7e si tu oses.'+(S.earBest?` Record : <b style="color:var(--acc)">${S.earBest}/10</b>.`:''),
+   run:()=>dojoEar()},
+];
+const lessonById=id=>ALL_LESSONS.find(l=>l.id===id);
+const moduleOf=l=>CURRICULUM.find(m=>m.lessons.includes(l));
+function renderDojo(){
+  const nOpen=DRILLS.filter(d=>!d.req||S.done[d.req]).length;
+  main.innerHTML=`<h1 class="page">Le Dojo</h1>
+  <p style="color:var(--dim);font-size:14px;margin:-6px 0 14px">Entraînement illimité — +10 XP par série. <b style="color:var(--acc)">${nOpen}/${DRILLS.length} salles ouvertes</b> : les leçons du parcours débloquent les suivantes.</p>`;
+  DRILLS.forEach(d=>{
+    const open=!d.req||S.done[d.req];
+    const c=document.createElement('div'); c.className='card';
+    if(open){
+      c.innerHTML=`<b style="font-size:16px">${d.icon} ${d.title}</b><p style="color:var(--dim);font-size:13px;margin:4px 0 0">${d.desc()}</p>`;
+      const b=document.createElement('button'); b.className='btn ghost'; b.textContent='Lancer';
+      b.onclick=d.run; c.appendChild(b);
+    } else {
+      const l=lessonById(d.req);
+      c.style.opacity=.45;
+      c.innerHTML=`<b style="font-size:16px">🔒 ${d.title}</b>
+        <p style="color:var(--dim);font-size:13px;margin:4px 0 0">Se débloque en validant « ${l.title} » (${moduleOf(l).title}).</p>`;
+    }
+    main.appendChild(c);
+  });
+}
+function dojoChords(){
+  openCustom('⚡ Sprint d\'accords',(inner,close)=>{
+    inner.insertAdjacentHTML('beforeend',`<p style="color:var(--dim);font-size:14px;margin-bottom:6px">Types d'accords :</p>`);
+    const row=document.createElement('div'); row.className='selrow';
+    const sel=new Set(['maj','min']);
+    Object.entries(CHORD_TYPES).forEach(([k,v])=>{
+      const t=document.createElement('div'); t.className='tag'+(sel.has(k)?' on':''); t.textContent=v.suf||'maj';
+      t.onclick=()=>{ sel.has(k)?sel.delete(k):sel.add(k); t.classList.toggle('on'); };
+      row.appendChild(t);
+    });
+    inner.appendChild(row);
+    const go=document.createElement('button'); go.className='btn'; go.textContent='C\'est parti';
+    go.onclick=()=>{
+      if(!sel.size) return toast('Choisis au moins un type');
+      inner.innerHTML='';
+      const t0=Date.now();
+      runChord(inner,{gen:{types:[...sel],roots:[0,1,2,3,4,5,6,7,8,9,10,11],count:10},sub:'Série chronométrée — 10 accords.'},
+        (ok,score,failed)=>{
+          if(ok){
+            const secs=Math.round((Date.now()-t0)/1000);
+            dailyMark(0); award(10);
+            let msg=`+10 XP · ${secs}s`;
+            if(!failed && (!S.best.sprint || secs<S.best.sprint)){ S.best.sprint=secs; save(); msg+=' · 🏆 RECORD'; }
+            toast(msg);
+          }
+          close();
+        });
+    };
+    inner.appendChild(go);
+  });
+}
+function dojoNamer(){
+  openCustom('🕵️ Qui est cet accord ?',(inner,close)=>{
+    inner.insertAdjacentHTML('beforeend',`<p style="color:var(--dim);font-size:14px;margin-bottom:10px">Choisis ton niveau :</p>`);
+    const b1=document.createElement('button'); b1.className='btn ghost'; b1.textContent='Majeurs / mineurs';
+    const b2=document.createElement('button'); b2.className='btn ghost'; b2.textContent='Avec les 7e';
+    const go=types=>{ inner.innerHTML='';
+      runNamer(inner,{types,count:10,sub:'Regarde, écoute, nomme.'},(ok,score)=>{
+        award(10); toast(`+10 XP · ${score}/10`); close();
+      });
+    };
+    b1.onclick=()=>go(['maj','min']); b2.onclick=()=>go(['maj','min','maj7','m7','dom7']);
+    inner.appendChild(b1); inner.appendChild(b2);
+  });
+}
+function dojoEar(){
+  openCustom('👂 Salle d\'écoute',(inner,close)=>{
+    inner.insertAdjacentHTML('beforeend',`<p style="color:var(--dim);font-size:14px;margin-bottom:10px">Choisis ton niveau :</p>`);
+    const b1=document.createElement('button'); b1.className='btn ghost'; b1.textContent='Majeur / mineur';
+    const b2=document.createElement('button'); b2.className='btn ghost'; b2.textContent='maj7 / m7 / 7';
+    const go=k=>{ inner.innerHTML='';
+      runEar(inner,{kinds:k,count:10,pass:0,sub:'Série libre.'},(ok,score)=>{
+        if(score>S.earBest){S.earBest=score;save();}
+        dailyMark(2); award(10); toast(`+10 XP · ${score}/10`); close();
+      });
+    };
+    b1.onclick=()=>go(['maj','min']); b2.onclick=()=>go(['maj7','m7','dom7']);
+    inner.appendChild(b1); inner.appendChild(b2);
+  });
+}
+const DOJO_PROGS=[
+  {name:'I–V–vi–IV', deg:[[0,'maj'],[7,'maj'],[9,'min'],[5,'maj']]},
+  {name:'vi–IV–I–V', deg:[[9,'min'],[5,'maj'],[0,'maj'],[7,'maj']]},
+  {name:'I–IV–V–IV', deg:[[0,'maj'],[5,'maj'],[7,'maj'],[5,'maj']]},
+  {name:'ii–V–I', deg:[[2,'m7'],[7,'dom7'],[0,'maj7']]},
+  {name:'I–vi–IV–V', deg:[[0,'maj'],[9,'min'],[5,'maj'],[7,'maj']]},
+];
+function dojoProg(){
+  const p=DOJO_PROGS[Math.floor(Math.random()*DOJO_PROGS.length)];
+  const key=[0,2,5,7,9][Math.floor(Math.random()*5)];
+  const chords=p.deg.map(([d,t])=>({root:(key+d)%12,t}));
+  openCustom(`🎲 ${p.name} en ${NOTE[key]}`,(inner,close)=>{
+    runProg(inner,{rounds:1,free:true,chords,sub:`${p.name} — tonalité de ${NOTE[key]} (${NOTE_FR[key]})`},
+      ok=>{ if(ok){award(10); toast('+10 XP');} close(); });
+  });
+}
+
+/* ---------- générateurs des nouvelles salles ---------- */
+function genInvItems(n,types){
+  const items=[];
+  while(items.length<n){
+    const root=Math.floor(Math.random()*12);
+    const t=types[Math.floor(Math.random()*types.length)];
+    const iv=CHORD_TYPES[t].iv;
+    const bass=(root+iv[1+Math.floor(Math.random()*(iv.length-1))])%12;
+    items.push({root,t,bass});
+  }
+  return items;
+}
+const MAJ_SCALE=[0,2,4,5,7,9,11];
+const DEGS=[['I',0,'maj'],['ii',1,'min'],['iii',2,'min'],['IV',3,'maj'],['V',4,'maj'],['vi',5,'min']];
+const DEG_KEYS=[0,7,5,2,9,4,10];
+function genDegQs(n){
+  const qs=[];
+  while(qs.length<n){
+    const key=DEG_KEYS[Math.floor(Math.random()*DEG_KEYS.length)];
+    const scaleStr=MAJ_SCALE.map(s=>NOTE[(key+s)%12]).join(' ');
+    if(Math.random()<.65){
+      const [dn,dd,dt]=DEGS[1+Math.floor(Math.random()*5)];
+      const good=chordName((key+MAJ_SCALE[dd])%12,dt);
+      const opts=new Set([good]);
+      while(opts.size<3){
+        const o=DEGS[1+Math.floor(Math.random()*5)];
+        opts.add(chordName((key+MAJ_SCALE[o[1]])%12,o[2]));
+      }
+      const arr=[...opts].sort(()=>Math.random()-.5);
+      qs.push({q:`En ${NOTE[key]} majeur, le degré ${dn} est…`, opts:arr, a:arr.indexOf(good),
+        why:`Gamme de ${NOTE[key]} : ${scaleStr}. Le ${dn} est ${good}${dt==='min'?' (minuscule = mineur)':''}.`});
+    } else {
+      const prog=Math.random()<.5
+        ? {n:'I–V–vi–IV',d:[[0,'maj'],[4,'maj'],[5,'min'],[3,'maj']]}
+        : {n:'vi–IV–I–V',d:[[5,'min'],[3,'maj'],[0,'maj'],[4,'maj']]};
+      const str=k2=>prog.d.map(([di,t])=>chordName((k2+MAJ_SCALE[di])%12,t)).join('–');
+      const good=str(key);
+      const opts=new Set([good]);
+      while(opts.size<3) opts.add(str(DEG_KEYS[Math.floor(Math.random()*DEG_KEYS.length)]));
+      const arr=[...opts].sort(()=>Math.random()-.5);
+      qs.push({q:`${prog.n} en ${NOTE[key]} majeur donne…`, opts:arr, a:arr.indexOf(good),
+        why:`Gamme de ${NOTE[key]} : ${scaleStr}. On compte les degrés dessus → ${good}.`});
+    }
+  }
+  return qs;
+}
+const VL_KEYS=[0,2,5,7,9];
+function vlCycle(key){
+  return Math.random()<.5
+    ? [{root:key,t:'maj'},{root:(key+5)%12,t:'maj',bass:key},{root:(key+7)%12,t:'maj',bass:(key+11)%12},{root:key,t:'maj'}]
+    : [{root:key,t:'maj'},{root:(key+9)%12,t:'min',bass:key},{root:(key+5)%12,t:'maj',bass:key},{root:(key+7)%12,t:'maj',bass:(key+11)%12},{root:key,t:'maj'}];
+}
+function genScaleEx(){
+  if(S.done['m6l2'] && Math.random()<.4){
+    const r=[9,4,2][Math.floor(Math.random()*3)];
+    return {root:r,pattern:[0,3,5,7,10,12],name:'Penta mineure de '+NOTE[r],sub:'Formule 3-2-2-3-2. Commence dans le grave.'};
+  }
+  const r=[0,7,5,2,9,10][Math.floor(Math.random()*6)];
+  return {root:r,pattern:[0,2,4,5,7,9,11,12],name:NOTE[r]+' majeur',sub:'Formule 2-2-1-2-2-2-1. Commence dans le grave.'};
+}
+
+/* ---------- nouvelles salles ---------- */
+function dojoInv(){
+  openCustom('🔄 Renversements',(inner,close)=>{
+    inner.insertAdjacentHTML('beforeend',`<p style="color:var(--dim);font-size:14px;margin-bottom:10px">La note après le / doit être la plus GRAVE. ${S.done['m5l1']?'Choisis ton niveau :':''}</p>`);
+    const go=types=>{
+      inner.innerHTML='';
+      const t0=Date.now();
+      runChord(inner,{items:genInvItems(10,types),sub:'10 renversements — notes ET basse.'},(ok,score,failed)=>{
+        if(ok){
+          const secs=Math.round((Date.now()-t0)/1000);
+          dailyMark(0); award(10);
+          let msg=`+10 XP · ${secs}s`;
+          if(!failed && (!S.best.inv||secs<S.best.inv)){ S.best.inv=secs; save(); msg+=' · 🏆 RECORD'; }
+          toast(msg);
+        }
+        close();
+      });
+    };
+    if(S.done['m5l1']){
+      const b1=document.createElement('button'); b1.className='btn ghost'; b1.textContent='Triades (maj / min)';
+      const b2=document.createElement('button'); b2.className='btn ghost'; b2.textContent='Avec les 7e (4 notes)';
+      b1.onclick=()=>go(['maj','min']); b2.onclick=()=>go(['maj','min','m7','dom7','maj7']);
+      inner.appendChild(b1); inner.appendChild(b2);
+    } else {
+      const b=document.createElement('button'); b.className='btn'; b.textContent='C\'est parti';
+      b.onclick=()=>go(['maj','min']); inner.appendChild(b);
+    }
+  });
+}
+function dojoVL(){
+  const key=VL_KEYS[Math.floor(Math.random()*VL_KEYS.length)];
+  const chords=vlCycle(key);
+  openCustom(`🌊 Enchaînement en ${NOTE[key]}`,(inner,close)=>{
+    runProg(inner,{rounds:2,chords,sub:'Basses imposées (slash) : c\'est le chemin sans saut. 2 tours.'},
+      ok=>{ if(ok){award(10); toast('+10 XP');} close(); });
+  });
+}
+function dojoDeg(){
+  openCustom('🏛 Quiz des degrés',(inner,close)=>{
+    runQuiz(inner,{qs:genDegQs(6)},ok=>{ if(ok){award(10); toast('+10 XP');} close(); });
+  });
+}
+function dojoSev(){
+  openCustom('🎨 Sprint des 7e',(inner,close)=>{
+    const t0=Date.now();
+    runChord(inner,{gen:{types:['maj7','m7','dom7'],roots:[0,1,2,3,4,5,6,7,8,9,10,11],count:8},sub:'8 accords de 7e — 4 notes chacun.'},(ok,score,failed)=>{
+      if(ok){
+        const secs=Math.round((Date.now()-t0)/1000);
+        dailyMark(0); award(10);
+        let msg=`+10 XP · ${secs}s`;
+        if(!failed && (!S.best.sev||secs<S.best.sev)){ S.best.sev=secs; save(); msg+=' · 🏆 RECORD'; }
+        toast(msg);
+      }
+      close();
+    });
+  });
+}
+function dojoScale(){
+  const ex=genScaleEx();
+  openCustom('🪜 '+ex.name,(inner,close)=>{
+    runScale(inner,ex,ok=>{ if(ok){award(10); toast('+10 XP');} close(); });
+  });
+}
+
+/* ---------- session mixte : pioche dans tout ce qui est débloqué ---------- */
+function mixSegments(){
+  const segs=[], R12=[0,1,2,3,4,5,6,7,8,9,10,11];
+  if(S.done['m0l2']) segs.push(['Accords','chord',{gen:{types:['maj','min'],roots:R12,count:3},sub:'Formule, pas mémoire.'}]);
+  if(S.done['m1l1']) segs.push(['Renversements','chord',{items:genInvItems(3,['maj','min']),sub:'La basse imposée en bas.'}]);
+  if(S.done['m2l1']) segs.push(['Degrés','quiz',{qs:genDegQs(3)}]);
+  if(S.done['m1l2']){
+    const key=VL_KEYS[Math.floor(Math.random()*VL_KEYS.length)];
+    segs.push(['Enchaînement','prog',{rounds:1,chords:vlCycle(key),sub:'Basses imposées, tonalité de '+NOTE[key]+'.'}]);
+  }
+  if(S.done['m5l1']) segs.push(['Les 7e','chord',{gen:{types:['maj7','m7','dom7'],roots:R12,count:3},sub:'4 notes.'}]);
+  if(S.done['m6l1']) segs.push(['Gamme','scale',genScaleEx()]);
+  segs.push(['Oreille','ear',{kinds:S.done['m7l2']?['maj7','m7','dom7']:['maj','min'],count:3,pass:0,sub:'Écoute avant de cliquer.'}]);
+  return segs;
+}
+function dojoMix(){
+  const segs=mixSegments();
+  openCustom('🎯 Session mixte',(inner,close)=>{
+    const runners={quiz:runQuiz,chord:runChord,prog:runProg,scale:runScale,ear:runEar};
+    let k=0;
+    const step=()=>{
+      inner.querySelectorAll('.mixseg').forEach(x=>x.remove());
+      if(k>=segs.length){
+        const d=document.createElement('div'); d.className='mixseg';
+        d.innerHTML=`<div class="exhead"><div class="target">🎯</div>
+          <div class="sub">Session mixte bouclée — ${segs.length} discipline${segs.length>1?'s':''}. Elle grossira à chaque leçon validée. C'est ça, l'entretien du grade.</div></div>`;
+        inner.appendChild(d);
+        dailyMark(0); dailyMark(2); award(25); toast('+25 XP · session mixte');
+        setTimeout(close,1600); return;
+      }
+      const [name,type,ex]=segs[k];
+      const d=document.createElement('div'); d.className='mixseg';
+      d.innerHTML=`<p style="text-align:center;color:var(--acc);font-size:13px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:2px">Partie ${k+1}/${segs.length} — ${name}</p>`;
+      const exDiv=document.createElement('div'); d.appendChild(exDiv);
+      inner.appendChild(d);
+      runners[type](exDiv,ex,()=>{ k++; step(); });
+    };
+    step();
+  });
+}
+
+/* ---------------- Outils ---------------- */
+function renderOutils(){
+  main.innerHTML=`<h1 class="page">Outils</h1>`;
+  const c1=document.createElement('div'); c1.className='card';
+  c1.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center">
+    <b style="font-size:16px">🎹 Clavier libre</b>
+    <div class="tag${S.labels?' on':''}" id="lbltog" style="padding:6px 12px;border-radius:16px;background:${S.labels?'var(--acc)':'var(--bg3)'};color:${S.labels?'#1a1200':'var(--txt)'};border:1px solid var(--line);font-size:12px;font-weight:700;cursor:pointer">Aa noms</div>
+  </div>
+  <p style="color:var(--dim);font-size:13px;margin:4px 0 8px">Pour chercher, vérifier, jouer.</p>`;
+  const kb=buildKeyboard(48,76,(m,k)=>{ playNote(m); k.classList.add('flash'); setTimeout(()=>k.classList.remove('flash'),200); });
+  c1.appendChild(kb); main.appendChild(c1);
+  c1.querySelector('#lbltog').onclick=()=>{ S.labels=!S.labels; save(); renderOutils(); };
+
+  const c2=document.createElement('div'); c2.className='card';
+  c2.innerHTML=`<b style="font-size:16px">🕰 Métronome</b>`;
+  c2.appendChild(metroWidget(Metro.bpm)); main.appendChild(c2);
+
+  const c3=document.createElement('div'); c3.className='card';
+  c3.innerHTML=`<b style="font-size:16px">📋 Aide-mémoire</b>
+  <div class="cheat" style="margin-top:8px">
+    <div class="row"><b>Majeur</b> : 4 + 3 demi-tons (C–E–G)</div>
+    <div class="row"><b>Mineur</b> : 3 + 4 demi-tons (C–Eb–G)</div>
+    <div class="row"><b>maj7</b> : majeur + 7e à 1 demi-ton sous l'octave (C–E–G–B)</div>
+    <div class="row"><b>7</b> : majeur + 7e à 2 demi-tons sous l'octave (C–E–G–Bb)</div>
+    <div class="row"><b>m7</b> : mineur + 7e à 2 demi-tons sous l'octave (C–Eb–G–Bb)</div>
+    <div class="row"><b>Gamme majeure</b> : 2-2-1-2-2-2-1</div>
+    <div class="row"><b>Penta mineure</b> : 3-2-2-3-2 (Am : A-C-D-E-G)</div>
+    <div class="row"><b>Degrés majeurs</b> : I ii iii IV V vi vii°</div>
+    <div class="row"><b>En Do</b> : C Dm Em F G Am B°</div>
+    <div class="row"><b>Hits éternels</b> : I–V–vi–IV · vi–IV–I–V · ii–V–I</div>
+  </div>`;
+  main.appendChild(c3);
+
+  const c4=document.createElement('div'); c4.className='card';
+  const days=[...Array(7)].map((_,k)=>{
+    const dt=new Date(Date.now()-(6-k)*864e5);
+    return { xp:S.hist[dt.toISOString().slice(0,10)]||0, lbl:'DLMMJVS'[dt.getDay()] };
+  });
+  const mx=Math.max(...days.map(d=>d.xp),1);
+  c4.innerHTML=`<b style="font-size:16px">📊 Stats</b>
+  <div class="statgrid" style="margin-top:10px">
+    <div class="stat"><b>${S.xp}</b><small>XP total</small></div>
+    <div class="stat"><b>${S.streak}</b><small>jours de suite</small></div>
+    <div class="stat"><b>${Object.keys(S.done).length}/${ALL_LESSONS.length}</b><small>leçons validées</small></div>
+    <div class="stat"><b>${S.hist[todayStr()]||0}</b><small>XP aujourd'hui</small></div>
+    <div class="stat"><b>${S.earBest||'–'}</b><small>record oreille /10</small></div>
+    <div class="stat"><b>${S.best.sprint?S.best.sprint+'s':'–'}</b><small>record sprint sans faute</small></div>
+    ${S.best.inv?`<div class="stat"><b>${S.best.inv}s</b><small>record renversements</small></div>`:''}
+    ${S.best.sev?`<div class="stat"><b>${S.best.sev}s</b><small>record sprint des 7e</small></div>`:''}
+  </div>
+  <div class="week">${days.map(d=>`<div class="col${d.xp?'':' z'}"><div class="bar" style="height:${Math.max(3,Math.round(d.xp/mx*100))}%"></div><small>${d.lbl}</small></div>`).join('')}</div>
+  <div style="text-align:center;font-size:11px;color:var(--dim);margin-top:6px">XP des 7 derniers jours — la régularité se voit ici.</div>`;
+  main.appendChild(c4);
+}
+
+/* ================================================================
+   VUE LEÇON + MOTEURS D'EXERCICES
+   ================================================================ */
+const overlay=document.getElementById('overlay');
+const overlayInner=document.getElementById('overlayInner');
+function closeOverlay(){ overlay.classList.remove('open'); Metro.stop(); Mic.release(); render(); }
+function openCustom(title,fill){
+  overlayInner.innerHTML=`<div class="topbar"><button class="back">←</button><b>${title}</b></div>`;
+  overlayInner.querySelector('.back').onclick=closeOverlay;
+  overlay.classList.add('open'); overlay.scrollTop=0;
+  fill(overlayInner, closeOverlay);
+}
+function openLesson(l){
+  openCustom(l.title,(inner)=>{
+    const th=document.createElement('div'); th.className='theory'; th.innerHTML=l.theory;
+    inner.appendChild(th);
+    const go=document.createElement('button'); go.className='btn';
+    go.textContent= S.done[l.id] ? '↻ Refaire l\'exercice (+10 XP)' : '⚔️ Passer à la pratique';
+    inner.appendChild(go);
+    go.onclick=()=>{
+      th.remove(); go.remove();
+      const exDiv=document.createElement('div'); inner.appendChild(exDiv);
+      const doneCb=(success)=>{
+        if(!success){ closeOverlay(); return; }
+        chime();
+        if(!S.done[l.id]){ S.done[l.id]=true; award(l.xp); toast(`✅ Leçon validée · +${l.xp} XP`); }
+        else { award(10); toast('↻ Révision · +10 XP'); }
+        dailyMark(1);
+        if(l.ex.type==='ear') dailyMark(2);
+        setTimeout(closeOverlay,600);
+      };
+      const ex=l.ex;
+      if(ex.type==='quiz') runQuiz(exDiv,ex,doneCb);
+      else if(ex.type==='chord') runChord(exDiv,ex,doneCb);
+      else if(ex.type==='prog') runProg(exDiv,ex,doneCb);
+      else if(ex.type==='scale') runScale(exDiv,ex,doneCb);
+      else if(ex.type==='ear') runEar(exDiv,ex,doneCb);
+      else if(ex.type==='practice') runPractice(exDiv,ex,doneCb);
+    };
+  });
+}
+function toast(msg){
+  const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
+  clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('show'),2200);
+}
+function progDots(el,total,idx,badIdx=new Set()){
+  el.innerHTML='';
+  for(let i=0;i<total;i++){
+    const d=document.createElement('i');
+    if(badIdx.has(i)) d.className='bad'; else if(i<idx) d.className='on';
+    el.appendChild(d);
+  }
+}
+
+/* ---------- moteur : QUIZ ---------- */
+function runQuiz(el,ex,cb){
+  let i=0, wrong=0;
+  const show=()=>{
+    const q=ex.qs[i];
+    el.innerHTML=`<div class="exhead"><div class="sub">Question ${i+1}/${ex.qs.length}</div>
+      <div style="font-size:18px;font-weight:700;margin:8px 0 14px">${q.q}</div></div>`;
+    const dots=document.createElement('div'); dots.className='exprog'; el.appendChild(dots);
+    progDots(dots,ex.qs.length,i);
+    q.opts.forEach((o,oi)=>{
+      const b=document.createElement('button'); b.className='quizopt'; b.textContent=o;
+      b.onclick=()=>{
+        el.querySelectorAll('.quizopt').forEach(x=>x.style.pointerEvents='none');
+        if(oi===q.a){ b.classList.add('right'); tada(); }
+        else { b.classList.add('wrong'); wrong++; buzz();
+          el.querySelectorAll('.quizopt')[q.a].classList.add('right'); }
+        const why=document.createElement('div'); why.className='quizwhy'; why.textContent=q.why;
+        el.appendChild(why);
+        const nx=document.createElement('button'); nx.className='btn';
+        nx.textContent= i+1<ex.qs.length ? 'Suivant →' : 'Terminer';
+        nx.onclick=()=>{ i++; if(i<ex.qs.length) show(); else finish(); };
+        el.appendChild(nx);
+      };
+      el.appendChild(b);
+    });
+  };
+  const finish=()=>{
+    const score=ex.qs.length-wrong;
+    if(wrong===0) el.innerHTML=`<div class="exhead"><div class="target">🎯 ${score}/${ex.qs.length}</div><div class="sub">Sans faute. C'est comme ça qu'on travaille.</div></div>`;
+    else if(score>=Math.ceil(ex.qs.length*0.6)) el.innerHTML=`<div class="exhead"><div class="target">${score}/${ex.qs.length}</div><div class="sub">Validé — mais relis les explications des erreurs avant de partir.</div></div>`;
+    else { el.innerHTML=`<div class="exhead"><div class="target">${score}/${ex.qs.length}</div><div class="sub">Insuffisant. Relis la théorie et reviens : la base doit être solide.</div></div>`;
+      const rb=document.createElement('button'); rb.className='btn'; rb.textContent='↻ Recommencer';
+      rb.onclick=()=>{ i=0; wrong=0; show(); }; el.appendChild(rb); return; }
+    setTimeout(()=>cb(true),1200);
+  };
+  show();
+}
+
+/* ---------- moteur : ACCORDS ---------- */
+function genChordItems(gen){
+  const items=[]; const used=new Set();
+  while(items.length<gen.count){
+    const root=gen.roots[Math.floor(Math.random()*gen.roots.length)];
+    const t=gen.types[Math.floor(Math.random()*gen.types.length)];
+    const k=root+t; if(used.has(k)) continue; used.add(k);
+    items.push({root,t});
+  }
+  return items;
+}
+function runChord(el,ex,cb){
+  const items = ex.items || genChordItems(ex.gen);
+  const pass = ex.pass || items.length;
+  let i=0, fails=0, score=0; const badIdx=new Set(), failedItems=new Set();
+  const sel=new Set();
+  el.innerHTML=`<div class="exhead"><div class="target" id="tgt"></div><div class="sub">${ex.sub||''}</div>
+    <button class="btn small ghost" id="listen" style="margin-top:8px">🔊 Écouter la cible</button></div>
+    <div class="exprog" id="dots"></div><div id="kb"></div>
+    <div class="fb" id="fb"></div>
+    <div class="exrow"><button class="btn ghost" id="clr">Effacer</button><button class="btn" id="val">Valider</button></div>`;
+  el.querySelector('#listen').onclick=()=>{
+    const it=items[i]; if(it) playChord(voicingFor(it.root,it.t,it.bass),1.6);
+  };
+  const kb=buildKeyboard(48,72,(m,k)=>{
+    if(sel.has(m)){ sel.delete(m); k.classList.remove('sel'); }
+    else { sel.add(m); k.classList.add('sel'); playNote(m,.9); }
+  });
+  el.querySelector('#kb').appendChild(kb);
+  const tgt=el.querySelector('#tgt'), fb=el.querySelector('#fb'), dots=el.querySelector('#dots');
+  const show=()=>{
+    const it=items[i]; sel.clear(); kb.clearSel();
+    tgt.textContent=chordName(it.root,it.t,it.bass);
+    fb.textContent=''; fb.className='fb'; fails=0;
+    progDots(dots,items.length,i,badIdx);
+  };
+  const check=()=>{
+    const it=items[i];
+    if(!sel.size){ fb.textContent='Sélectionne des touches d\'abord.'; fb.className='fb bad'; return; }
+    const need=CHORD_TYPES[it.t].iv.map(x=>(it.root+x)%12);
+    const pcs=[...new Set([...sel].map(m=>m%12))];
+    let ok = pcs.length===need.length && need.every(p=>pcs.includes(p));
+    if(ok && it.bass!=null) ok = (Math.min(...sel)%12)===it.bass;
+    if(ok){
+      score++; playChord([...sel]); tada();
+      fb.textContent='✓ '+chordName(it.root,it.t)+' — '+chordNotes(it.root,it.t); fb.className='fb ok';
+      setTimeout(()=>{ i++; if(i<items.length) show(); else finish(); },900);
+    } else {
+      fails++; failedItems.add(i);
+      buzz(); kb.kbd.classList.add('shake'); setTimeout(()=>kb.kbd.classList.remove('shake'),400);
+      if(fails===1) fb.textContent= it.bass!=null
+        ? '✗ Vérifie les notes ET la basse (note la plus grave = '+NOTE[it.bass]+').'
+        : '✗ Recompte : '+(CHORD_TYPES[it.t].iv.length>3?'4 notes.':'majeur = 4+3, mineur = 3+4.');
+      else if(fails===2) fb.textContent='✗ Les notes : '+chordNotes(it.root,it.t);
+      else {
+        fb.textContent='Regarde les touches bleues, joue-les, et retiens le geste.';
+        voicingFor(it.root,it.t,it.bass).forEach(m=>{ const k=kb.keyEl(m); if(k) k.classList.add('hint'); });
+      }
+      fb.className='fb bad';
+      if(fails>=3) badIdx.add(i);
+    }
+  };
+  el.querySelector('#clr').onclick=()=>{ sel.clear(); kb.clearSel(); };
+  el.querySelector('#val').onclick=check;
+  const finish=()=>{
+    const okPass=score>=pass;
+    el.innerHTML=`<div class="exhead"><div class="target">${okPass?'🥋':'👹'} ${score}/${items.length}</div>
+      <div class="sub">${okPass ? (score===items.length?'Sans faute. Le dojo est fier.':'Validé. Les accords ratés : refais-les au vrai piano.')
+      : 'En dessous de '+pass+'/'+items.length+'. On ne négocie pas avec les fondations : recommence.'}</div></div>`;
+    if(!okPass){ const rb=document.createElement('button'); rb.className='btn'; rb.textContent='↻ Recommencer';
+      rb.onclick=()=>{ el.innerHTML=''; runChord(el,ex,cb); }; el.appendChild(rb); return; }
+    setTimeout(()=>cb(true,score,failedItems.size),1300);
+  };
+  show();
+}
+
+/* ---------- moteur : PROGRESSION ---------- */
+function runProg(el,ex,cb){
+  const seq=[]; for(let r=0;r<ex.rounds;r++) seq.push(...ex.chords);
+  let i=0, fails=0; const sel=new Set();
+  el.innerHTML=`<div class="exhead"><div class="sub">${ex.sub||''}</div>
+    <button class="btn small ghost" id="demo" style="margin-top:8px">🔊 Écouter la progression</button></div>
+    <div class="chips" id="chips"></div><div id="kb"></div>
+    <div class="fb" id="fb"></div>
+    <div class="exrow"><button class="btn ghost" id="clr">Effacer</button><button class="btn" id="val">Valider</button></div>`;
+  el.querySelector('#demo').onclick=()=>{
+    ex.chords.forEach((c,ci)=>setTimeout(()=>playChord(voicingFor(c.root,c.t,ex.free?null:c.bass),1.1),ci*950));
+  };
+  const kb=buildKeyboard(48,72,(m,k)=>{
+    if(sel.has(m)){ sel.delete(m); k.classList.remove('sel'); }
+    else { sel.add(m); k.classList.add('sel'); playNote(m,.9); }
+  });
+  el.querySelector('#kb').appendChild(kb);
+  const chips=el.querySelector('#chips'), fb=el.querySelector('#fb');
+  const draw=()=>{
+    chips.innerHTML='';
+    seq.forEach((c,ci)=>{
+      const s=document.createElement('div');
+      s.className='chip'+(ci===i?' cur':ci<i?' done':'');
+      s.textContent=chordName(c.root,c.t, ex.free?null:c.bass);
+      chips.appendChild(s);
+    });
+  };
+  const show=()=>{ sel.clear(); kb.clearSel(); fb.textContent=''; fb.className='fb'; fails=0; draw(); };
+  el.querySelector('#clr').onclick=()=>{ sel.clear(); kb.clearSel(); };
+  el.querySelector('#val').onclick=()=>{
+    const c=seq[i];
+    if(!sel.size){ fb.textContent='Sélectionne des touches d\'abord.'; fb.className='fb bad'; return; }
+    const need=CHORD_TYPES[c.t].iv.map(x=>(c.root+x)%12);
+    const pcs=[...new Set([...sel].map(m=>m%12))];
+    let ok = pcs.length===need.length && need.every(p=>pcs.includes(p));
+    if(ok && !ex.free && c.bass!=null) ok=(Math.min(...sel)%12)===c.bass;
+    if(ok){
+      playChord([...sel]); tada();
+      fb.textContent='✓ '+chordName(c.root,c.t); fb.className='fb ok';
+      setTimeout(()=>{ i++; if(i<seq.length) show(); else {
+        el.innerHTML=`<div class="exhead"><div class="target">🌊</div>
+          <div class="sub">Progression bouclée. Maintenant, la vraie version : au piano, en boucle, sans regarder.</div></div>`;
+        setTimeout(()=>cb(true),1300);
+      }},800);
+    } else {
+      fails++; buzz(); kb.kbd.classList.add('shake'); setTimeout(()=>kb.kbd.classList.remove('shake'),400);
+      fb.textContent= fails>=2 ? '✗ '+chordName(c.root,c.t)+' = '+chordNotes(c.root,c.t)+(!ex.free&&c.bass!=null?' · basse : '+NOTE[c.bass]:'')
+        : '✗ Pas ça. Construis-le calmement.';
+      fb.className='fb bad';
+    }
+  };
+  show();
+}
+
+/* ---------- moteur : GAMME ---------- */
+function runScale(el,ex,cb){
+  const pcSeq=ex.pattern.map(p=>(ex.root+p)%12);
+  let idx=0, startMidi=null, resets=0;
+  el.innerHTML=`<div class="exhead"><div class="target">${ex.name}</div><div class="sub">${ex.sub||''}</div></div>
+    <div class="exprog" id="dots"></div><div id="kb"></div><div class="fb" id="fb"></div>`;
+  const dots=el.querySelector('#dots'), fb=el.querySelector('#fb');
+  const kb=buildKeyboard(48,76,(m,k)=>{
+    playNote(m,.8);
+    if(idx===0 && m%12===pcSeq[0] && m+ex.pattern[ex.pattern.length-1]>76){
+      fb.textContent='Bonne note, mais trop haut — le sommet sortirait du clavier. Commence plus grave.';
+      fb.className='fb bad'; return;
+    }
+    const expected = idx===0 ? null : startMidi+ex.pattern[idx];
+    const okTap = idx===0 ? (m%12===pcSeq[0]) : (m===expected);
+    if(okTap){
+      if(idx===0) startMidi=m;
+      k.classList.add('flash'); setTimeout(()=>k.classList.remove('flash'),250);
+      idx++;
+      progDots(dots,ex.pattern.length,idx);
+      if(idx>=ex.pattern.length){
+        tada();
+        fb.textContent='✓ Gamme complète.'; fb.className='fb ok';
+        el.querySelectorAll('.key').forEach(x=>x.style.pointerEvents='none');
+        setTimeout(()=>{
+          el.innerHTML=`<div class="exhead"><div class="target">🪜</div>
+          <div class="sub">Bien. Maintenant au vrai piano : la même, mains séparées, avec le bon doigté. Lentement.</div></div>`;
+          setTimeout(()=>cb(true),1300);
+        },800);
+      } else {
+        fb.textContent='Note '+(idx+1)+'/'+ex.pattern.length+' — la suivante est à '+(ex.pattern[idx]-ex.pattern[idx-1])+' demi-ton(s).';
+        fb.className='fb';
+      }
+    } else {
+      buzz(); resets++;
+      idx=0; startMidi=null;
+      progDots(dots,ex.pattern.length,0);
+      fb.textContent= resets>=3
+        ? '✗ On repart du début. Formule : '+ex.pattern.slice(1).map((p,j)=>p-ex.pattern[j]).join('-')
+        : '✗ Mauvaise note — on repart de la première.';
+      fb.className='fb bad';
+    }
+  });
+  el.querySelector('#kb').appendChild(kb);
+  progDots(dots,ex.pattern.length,0);
+  fb.textContent='Commence sur '+NOTE[pcSeq[0]]+' ('+NOTE_FR[pcSeq[0]]+').';
+}
+
+/* ---------- moteur : OREILLE ---------- */
+function runEar(el,ex,cb){
+  let i=0, score=0, answered=false, cur=null; const badIdx=new Set();
+  const label={maj:'Majeur',min:'Mineur',maj7:'maj7',m7:'m7',dom7:'7'};
+  el.innerHTML=`<div class="exhead"><div class="target">👂</div><div class="sub">${ex.sub||''}</div></div>
+    <div class="exprog" id="dots"></div>
+    <button class="btn ghost" id="replay">🔊 Réécouter</button>
+    <div class="earbtns" id="btns"></div><div class="fb" id="fb"></div>`;
+  const dots=el.querySelector('#dots'), fb=el.querySelector('#fb'), btns=el.querySelector('#btns');
+  ex.kinds.forEach(k=>{
+    const b=document.createElement('button'); b.className='btn ghost'; b.textContent=label[k]; b.dataset.k=k;
+    b.onclick=()=>answer(k,b); btns.appendChild(b);
+  });
+  if(ex.kinds.length===3) btns.style.gridTemplateColumns='1fr 1fr 1fr';
+  const play=()=>{ if(!cur) return;
+    playChord(CHORD_TYPES[cur.t].iv.map(x=>cur.rootMidi+x),1.8,.03); };
+  el.querySelector('#replay').onclick=play;
+  const next=()=>{
+    answered=false;
+    cur={ t:ex.kinds[Math.floor(Math.random()*ex.kinds.length)],
+          rootMidi:52+Math.floor(Math.random()*13) };
+    fb.textContent=''; fb.className='fb';
+    btns.querySelectorAll('.btn').forEach(b=>{ b.classList.remove('ok'); b.style.opacity=1; b.style.pointerEvents='auto'; });
+    progDots(dots,ex.count,i,badIdx);
+    setTimeout(play,400);
+  };
+  const answer=(k,b)=>{
+    if(answered) return; answered=true;
+    btns.querySelectorAll('.btn').forEach(x=>x.style.pointerEvents='none');
+    if(k===cur.t){ score++; b.classList.add('ok'); tada(); fb.textContent='✓ C\'était bien '+label[cur.t]+'.'; fb.className='fb ok'; }
+    else { buzz(); fb.textContent='✗ C\'était '+label[cur.t]+'. Réécoute-le dans ta tête.'; fb.className='fb bad'; badIdx.add(i);
+      btns.querySelector(`[data-k="${cur.t}"]`).classList.add('ok'); }
+    setTimeout(()=>{ i++; if(i<ex.count) next(); else finish(); },1400);
+  };
+  const finish=()=>{
+    const okPass=score>=(ex.pass||0);
+    el.innerHTML=`<div class="exhead"><div class="target">${okPass?'👂':'😵'} ${score}/${ex.count}</div>
+      <div class="sub">${okPass ? 'Ton oreille s\'ouvre. Reviens demain : elle progresse en dormant.'
+        : 'En dessous de '+ex.pass+'/'+ex.count+'. Normal au début — réécoute chaque couleur, puis recommence.'}</div></div>`;
+    if(score>S.earBest){ S.earBest=score; save(); }
+    if(!okPass){ const rb=document.createElement('button'); rb.className='btn'; rb.textContent='↻ Recommencer';
+      rb.onclick=()=>{ el.innerHTML=''; runEar(el,ex,cb); }; el.appendChild(rb); return; }
+    setTimeout(()=>cb(true,score),1300);
+  };
+  next();
+}
+
+/* ---------- moteur : NOMMER L'ACCORD ---------- */
+function runNamer(el,ex,cb){
+  let i=0, score=0; const badIdx=new Set();
+  el.innerHTML=`<div class="exhead"><div class="target">🕵️</div><div class="sub">${ex.sub||''}</div></div>
+    <div class="exprog" id="dots"></div><div id="kb"></div>
+    <button class="btn small ghost" id="replay" style="display:block;margin:0 auto">🔊 Réécouter</button>
+    <div class="earbtns" id="btns"></div><div class="fb" id="fb"></div>`;
+  const kb=buildKeyboard(48,72,m=>playNote(m,.8));
+  el.querySelector('#kb').appendChild(kb);
+  const dots=el.querySelector('#dots'), fb=el.querySelector('#fb'), btns=el.querySelector('#btns');
+  let cur=null;
+  const play=()=>{ if(cur) playChord(cur.v,1.5); };
+  el.querySelector('#replay').onclick=play;
+  const next=()=>{
+    kb.clearSel();
+    const root=Math.floor(Math.random()*12);
+    const t=ex.types[Math.floor(Math.random()*ex.types.length)];
+    cur={root,t,v:voicingFor(root,t)};
+    cur.v.forEach(m=>{ const k=kb.keyEl(m); if(k) k.classList.add('hint'); });
+    const good=chordName(root,t);
+    const opts=new Set([good]);
+    while(opts.size<4){
+      const r2=Math.floor(Math.random()*12), t2=ex.types[Math.floor(Math.random()*ex.types.length)];
+      opts.add(chordName(r2,t2));
+    }
+    btns.innerHTML='';
+    [...opts].sort(()=>Math.random()-.5).forEach(o=>{
+      const b=document.createElement('button'); b.className='btn ghost'; b.textContent=o;
+      b.onclick=()=>{
+        btns.querySelectorAll('.btn').forEach(x=>x.style.pointerEvents='none');
+        if(o===good){ score++; b.classList.add('ok'); tada(); fb.textContent='✓ Oui : '+chordNotes(root,t); fb.className='fb ok'; }
+        else { buzz(); badIdx.add(i); fb.textContent='✗ C\'était '+good+' : '+chordNotes(root,t); fb.className='fb bad';
+          [...btns.querySelectorAll('.btn')].find(x=>x.textContent===good).classList.add('ok'); }
+        setTimeout(()=>{ i++; if(i<ex.count) next(); else fin(); },1400);
+      };
+      btns.appendChild(b);
+    });
+    fb.textContent=''; fb.className='fb';
+    progDots(dots,ex.count,i,badIdx);
+    setTimeout(play,300);
+  };
+  const fin=()=>{
+    el.innerHTML=`<div class="exhead"><div class="target">🕵️ ${score}/${ex.count}</div>
+      <div class="sub">${score===ex.count?'Rien ne t\'échappe.':'Les ratés : reconstruis-les avec la formule, pas de par-cœur.'}</div></div>`;
+    setTimeout(()=>cb(true,score),1200);
+  };
+  next();
+}
+
+/* ---------- moteur : PRATIQUE (vrai piano) ---------- */
+function runPractice(el,ex,cb){
+  el.innerHTML=`<div class="exhead"><div class="target">🎹</div>
+    <div class="sub">Cet exercice se joue sur ton vrai piano. L'app te donne le cadre, tes doigts font le reste.</div></div>`;
+  ex.steps.forEach(([t,d],i)=>{
+    const s=document.createElement('div'); s.className='checkstep';
+    s.innerHTML=`<div class="n">${i+1}</div><div><b>${t}</b><br>${d}</div>`;
+    el.appendChild(s);
+  });
+  el.appendChild(metroWidget(ex.bpm));
+  const warn=document.createElement('p');
+  warn.style.cssText='color:var(--dim);font-size:13px;text-align:center;margin:8px 0';
+  warn.textContent='Validation sur l\'honneur. Tricher ici, c\'est voler ton futur toi.';
+  el.appendChild(warn);
+  const b=document.createElement('button'); b.className='btn ok';
+  b.textContent='✓ Fait proprement, 4 fois de suite';
+  b.onclick=()=>{ Metro.stop(); cb(true); };
+  el.appendChild(b);
+}
+
+/* ================================================================
+   VOIX — détection de hauteur (micro) + exercices
+   ================================================================ */
+/* autocorrélation (ACF+) : renvoie la fréquence fondamentale, ou -1 si rien */
+function autoCorrelate(buf, sr){
+  let SIZE=buf.length, rms=0;
+  for(let i=0;i<SIZE;i++){ rms+=buf[i]*buf[i]; }
+  rms=Math.sqrt(rms/SIZE);
+  if(rms<0.01) return -1;
+  let r1=0, r2=SIZE-1; const th=0.2;
+  for(let i=0;i<SIZE/2;i++) if(Math.abs(buf[i])<th){ r1=i; break; }
+  for(let i=1;i<SIZE/2;i++) if(Math.abs(buf[SIZE-i])<th){ r2=SIZE-i; break; }
+  const b=buf.slice(r1,r2); SIZE=b.length;
+  const c=new Array(SIZE).fill(0);
+  for(let i=0;i<SIZE;i++) for(let j=0;j<SIZE-i;j++) c[i]+=b[j]*b[j+i];
+  let d=0; while(d<SIZE-1 && c[d]>c[d+1]) d++;
+  let maxv=-1, maxp=-1;
+  for(let i=d;i<SIZE;i++) if(c[i]>maxv){ maxv=c[i]; maxp=i; }
+  let T0=maxp;
+  if(T0>0 && T0<SIZE-1){ const x1=c[T0-1],x2=c[T0],x3=c[T0+1]; const a=(x1+x3-2*x2)/2, bb=(x3-x1)/2; if(a) T0=T0-bb/(2*a); }
+  if(T0<=0) return -1;
+  return sr/T0;
+}
+const A4=440;
+const midiName = m => NOTE[((m%12)+12)%12] + (Math.floor(m/12)-1);
+function pitchInfo(f){ const mf=12*Math.log2(f/A4)+69; const m=Math.round(mf); return {midi:m, cents:Math.round((mf-m)*100)}; }
+
+const Mic = {
+  stream:null, analyser:null, buf:null, raf:null, running:false,
+  async ensure(){
+    if(this.stream) return true;
+    if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return false;
+    try{ this.stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}}); return true; }
+    catch(e){ return false; }
+  },
+  async run(cb){
+    if(!await this.ensure()) return false;
+    const ctx=ac();
+    const src=ctx.createMediaStreamSource(this.stream);
+    this.analyser=ctx.createAnalyser(); this.analyser.fftSize=2048;
+    src.connect(this.analyser);
+    this.buf=new Float32Array(this.analyser.fftSize);
+    this.running=true;
+    const loop=()=>{ if(!this.running) return;
+      this.analyser.getFloatTimeDomainData(this.buf);
+      cb(autoCorrelate(this.buf, ctx.sampleRate));
+      this.raf=requestAnimationFrame(loop); };
+    loop(); return true;
+  },
+  stop(){ this.running=false; if(this.raf){ cancelAnimationFrame(this.raf); this.raf=null; } },
+  release(){ this.stop(); if(this.stream){ this.stream.getTracks().forEach(t=>t.stop()); this.stream=null; this.analyser=null; } }
+};
+
+function renderVoix(){
+  main.innerHTML=`<h1 class="page">La Voix</h1>
+  <p style="color:var(--dim);font-size:14px;margin:-6px 0 14px">Ta voix est un instrument — elle se travaille comme le clavier. Les exercices marqués 🎤 utilisent le micro (rien n'est enregistré).</p>`;
+  const mk=(title,desc,fn)=>{
+    const c=document.createElement('div'); c.className='card';
+    c.innerHTML=`<b style="font-size:16px">${title}</b><p style="color:var(--dim);font-size:13px;margin:4px 0 0">${desc}</p>`;
+    const b=document.createElement('button'); b.className='btn ghost'; b.textContent='Lancer';
+    b.onclick=fn; c.appendChild(b); main.appendChild(c);
+  };
+  mk('🎯 Justesse 🎤',
+    'L\'app joue une note, tu la chantes : l\'aiguille te dit en direct si tu es juste, trop haut ou trop bas.'+(S.voice.justBest?` Record : <b style="color:var(--acc)">${S.voice.justBest}/8</b>.`:''),
+    runJustesse);
+  mk('📏 Ta tessiture 🎤',
+    'Trouve ta note la plus grave et la plus aiguë. L\'app mesure ton étendue vocale.'+(S.voice.low!=null?` Actuel : <b style="color:var(--acc)">${midiName(S.voice.low)} → ${midiName(S.voice.high)}</b>.`:''),
+    runRange);
+  mk('🌀 Échauffement guidé',
+    'Vocalises montantes jouées au piano : sirènes, bourdons de lèvres, gammes, arpèges. 5 min avant de chanter.',
+    runWarmup);
+  mk('🗣 Diction',
+    'Virelangues au métronome. Impeccable 3 fois de suite, puis on accélère. Ta bouche va transpirer.',
+    runDiction);
+  mk('🫁 Souffle',
+    'Tiens un son le plus longtemps possible. Le souffle, c\'est le moteur du chant.'+(S.voice.breathBest?` Record : <b style="color:var(--acc)">${S.voice.breathBest}s</b>.`:''),
+    runBreath);
+}
+
+function micError(inner,close){
+  inner.innerHTML=`<div class="fb bad" style="font-size:15px;line-height:1.5">Micro indisponible ou refusé.<br>Autorise le micro pour ce site dans ton navigateur, puis relance l'exercice.</div>`;
+  const b=document.createElement('button'); b.className='btn'; b.textContent='← Retour'; b.onclick=close; inner.appendChild(b);
+}
+
+/* ---------- Justesse (jeu de justesse au micro) ---------- */
+function runJustesse(){
+  openCustom('🎯 Justesse',(inner,close)=>{
+    const lo=S.voice.low!=null?Math.max(50,S.voice.low+3):55;
+    const hi=S.voice.high!=null?Math.min(74,S.voice.high-3):67;
+    const N=8, targets=[];
+    while(targets.length<N){ const m=lo+Math.floor(Math.random()*(hi-lo+1)); if(targets[targets.length-1]!==m) targets.push(m); }
+    inner.innerHTML=`<p style="color:var(--dim);font-size:14px;margin-bottom:10px">L'app joue une note. Chante-la sur « a » et tiens-la jusqu'à ce que l'aiguille reste au centre (vert). 8 notes.</p>
+      <button class="btn" id="start">🎤 Activer le micro & commencer</button>`;
+    inner.querySelector('#start').onclick=async()=>{
+      if(!await Mic.ensure()) return micError(inner,close);
+      let i=0, score=0, hold=0, guard=false;
+      inner.innerHTML=`<div class="exprog" id="dots"></div>
+        <div class="tuner"><div class="vnote" id="vnote">–</div>
+          <div class="sub" id="cible" style="color:var(--dim)"></div>
+          <div class="gauge" id="gauge"><div class="zone"></div><div class="center"></div><div class="ndl" id="ndl"></div></div>
+          <div class="hold"><i id="holdbar"></i></div>
+          <div class="fb" id="fb"></div></div>
+        <div class="exrow"><button class="btn ghost" id="replay">🔊 Rejouer</button><button class="btn ghost" id="skip">Passer</button></div>`;
+      const dots=inner.querySelector('#dots'), gauge=inner.querySelector('#gauge'), ndl=inner.querySelector('#ndl'),
+            vnote=inner.querySelector('#vnote'), cible=inner.querySelector('#cible'), fb=inner.querySelector('#fb'), holdbar=inner.querySelector('#holdbar');
+      const show=()=>{ hold=0; guard=false; holdbar.style.width='0'; fb.textContent=''; fb.className='fb';
+        cible.textContent='Cible : '+midiName(targets[i]); progDots(dots,N,i);
+        setTimeout(()=>playNote(targets[i],1.4),300); };
+      const nextNote=hit=>{ if(guard) return; guard=true; if(hit) score++; i++;
+        if(i<N) show(); else finish(); };
+      const finish=()=>{ Mic.stop();
+        const okv=score>=6;
+        inner.innerHTML=`<div class="exhead"><div class="target">${okv?'🎯':'🎤'} ${score}/${N}</div>
+          <div class="sub">${okv?'Belle justesse — ton oreille et ta voix se parlent.':'La justesse vient avec les répétitions. Refais une série, tu sentiras la différence.'}</div></div>`;
+        if(score>(S.voice.justBest||0)){ S.voice.justBest=score; save(); }
+        award(10); toast('+10 XP · justesse '+score+'/'+N); setTimeout(close,1700); };
+      inner.querySelector('#replay').onclick=()=>playNote(targets[i],1.4);
+      inner.querySelector('#skip').onclick=()=>nextNote(false);
+      Mic.run(f=>{
+        if(guard) return;
+        if(f<=0){ vnote.textContent='–'; ndl.style.left='50%'; gauge.classList.remove('intune'); if(hold>0) hold=Math.max(0,hold-1); return; }
+        const {midi}=pitchInfo(f);
+        const targetHz=A4*Math.pow(2,(targets[i]-69)/12);
+        let rc=Math.round(1200*Math.log2(f/targetHz));
+        while(rc>600) rc-=1200; while(rc<-600) rc+=1200; /* pardon d'octave */
+        vnote.textContent=midiName(midi);
+        const c=Math.max(-50,Math.min(50,rc)); ndl.style.left=(50+c)+'%';
+        const intune=Math.abs(rc)<=25; gauge.classList.toggle('intune',intune);
+        hold = intune ? hold+1 : Math.max(0,hold-2);
+        holdbar.style.width=Math.min(100,hold/16*100)+'%';
+        fb.textContent = intune?'Tiens…' : (rc<0?'Plus haut ↑':'Plus bas ↓'); fb.className='fb'+(intune?' ok':'');
+        if(hold>=16){ tada(); nextNote(true); }
+      });
+      show();
+    };
+  });
+}
+
+/* ---------- Tessiture (étendue vocale au micro) ---------- */
+function runRange(){
+  openCustom('📏 Ta tessiture',(inner,close)=>{
+    inner.innerHTML=`<p style="color:var(--dim);font-size:14px;margin-bottom:10px">Chante un « a » tenu. Descends aussi grave que possible (sans forcer), puis monte aussi aigu que tu peux confortablement. L'app garde tes extrêmes.</p>
+      <button class="btn" id="start">🎤 Activer le micro</button>`;
+    inner.querySelector('#start').onclick=async()=>{
+      if(!await Mic.ensure()) return micError(inner,close);
+      let lo=null, hi=null, stable=0, lastM=null;
+      inner.innerHTML=`<div class="tuner"><div class="vnote" id="vnote">–</div><div class="sub" style="color:var(--dim)">note détectée — tiens-la 1 seconde pour la valider</div></div>
+        <div class="statgrid"><div class="stat"><b id="glo">–</b><small>plus grave</small></div><div class="stat"><b id="ghi">–</b><small>plus aigu</small></div></div>
+        <div class="fb" id="fb" style="margin-top:10px"></div>
+        <button class="btn" id="done">Terminer & enregistrer</button>`;
+      const vnote=inner.querySelector('#vnote'), glo=inner.querySelector('#glo'), ghi=inner.querySelector('#ghi'), fb=inner.querySelector('#fb');
+      Mic.run(f=>{
+        if(f<=0){ vnote.textContent='–'; stable=0; lastM=null; return; }
+        const {midi}=pitchInfo(f);
+        if(midi<36||midi>88){ return; }
+        vnote.textContent=midiName(midi);
+        if(midi===lastM) stable++; else { stable=0; lastM=midi; }
+        if(stable>=8){
+          if(lo===null||midi<lo){ lo=midi; glo.textContent=midiName(lo); }
+          if(hi===null||midi>hi){ hi=midi; ghi.textContent=midiName(hi); }
+        }
+      });
+      inner.querySelector('#done').onclick=()=>{ Mic.stop();
+        if(lo===null){ fb.textContent='Aucune note stable captée — réessaie en tenant bien le son.'; fb.className='fb bad'; Mic.run(()=>{}); return; }
+        S.voice.low = S.voice.low==null?lo:Math.min(S.voice.low,lo);
+        S.voice.high= S.voice.high==null?hi:Math.max(S.voice.high,hi); save();
+        const semis=hi-lo;
+        inner.innerHTML=`<div class="exhead"><div class="target">📏 ${midiName(lo)} → ${midiName(hi)}</div>
+          <div class="sub">${semis} demi-tons, soit ${(semis/12).toFixed(1)} octave(s). ${semis>=24?'Belle étendue.':'Ça s\'élargit avec l\'échauffement régulier.'}</div></div>`;
+        award(10); toast('+10 XP · tessiture mesurée'); setTimeout(close,2000);
+      };
+    };
+  });
+}
+
+/* ---------- Échauffement guidé (piano) ---------- */
+const WARMUPS=[
+  {name:'Sirène', gliss:true, txt:'Sur « ouh », glisse du grave vers l\'aigu puis redescends — souple, comme une sirène.'},
+  {name:'Bourdon de lèvres', pat:[0,2,4,5,7,5,4,2,0], txt:'Fais vibrer tes lèvres (brrr) en suivant les notes. Détend le visage.'},
+  {name:'Mi–Mê–Ma–Mô–Mou', pat:[0,2,4,5,7,5,4,2,0], txt:'Chante « mi-mê-ma-mô-mou » sur la montée puis la descente. Bouche mobile.'},
+  {name:'Arpège sur « a »', pat:[0,4,7,12,7,4,0], txt:'Chante l\'accord note par note, bien posé sur le souffle.'},
+];
+function runWarmup(){
+  openCustom('🌀 Échauffement',(inner,close)=>{
+    let wi=0; const START=55;
+    const step=()=>{
+      if(wi>=WARMUPS.length){
+        inner.innerHTML=`<div class="exhead"><div class="target">🌀</div><div class="sub">Échauffé. Ta voix est prête — va chanter.</div></div>`;
+        award(15); toast('+15 XP · échauffement'); setTimeout(close,1500); return;
+      }
+      const w=WARMUPS[wi]; let root=START;
+      inner.innerHTML=`<p style="text-align:center;color:var(--acc);font-weight:800;letter-spacing:1px;text-transform:uppercase;font-size:13px">Exercice ${wi+1}/${WARMUPS.length}</p>
+        <div class="exhead"><div class="target" style="font-size:24px">${w.name}</div><div class="sub">${w.txt}</div></div>
+        <div class="fb" id="lad" style="min-height:20px">Départ : ${midiName(root)}</div>
+        <button class="btn" id="play">🔊 Jouer & chanter</button>
+        <div class="exrow"><button class="btn ghost" id="down">▼ ½ ton</button><button class="btn ghost" id="up">▲ ½ ton</button></div>
+        <button class="btn ok" id="next" style="margin-top:12px">Exercice suivant →</button>`;
+      const lad=inner.querySelector('#lad');
+      const playPat=()=>{
+        if(w.gliss){ for(let k=0;k<=12;k++) playNote(root+k,.16,.3,k*.08);
+          for(let k=11;k>=0;k--) playNote(root+k,.16,.3,(24-k)*.08); }
+        else w.pat.forEach((p,ci)=>playNote(root+p,.5,.35,ci*.42));
+      };
+      inner.querySelector('#play').onclick=playPat;
+      inner.querySelector('#up').onclick=()=>{ root=Math.min(START+9,root+1); lad.textContent='Départ : '+midiName(root); playPat(); };
+      inner.querySelector('#down').onclick=()=>{ root=Math.max(START-5,root-1); lad.textContent='Départ : '+midiName(root); playPat(); };
+      inner.querySelector('#next').onclick=()=>{ wi++; step(); };
+    };
+    step();
+  });
+}
+
+/* ---------- Diction (virelangues + métronome) ---------- */
+const VIRELANGUES=[
+  {id:'chasseur', txt:'Un chasseur sachant chasser doit savoir chasser sans son chien.'},
+  {id:'archi', txt:'Les chaussettes de l\'archiduchesse sont-elles sèches, archi-sèches ?'},
+  {id:'tortues', txt:'Trois tortues trottaient sur un trottoir très étroit.'},
+  {id:'the', txt:'Ton thé t\'a-t-il ôté ta toux ?'},
+  {id:'didon', txt:'Didon dîna, dit-on, du dos d\'un dodu dindon.'},
+  {id:'chiens', txt:'Cinq chiens chassent six chats.'},
+  {id:'roue', txt:'La roue sur la rue roule, la rue sous la roue reste.'},
+];
+function runDiction(){
+  openCustom('🗣 Diction',(inner,close)=>{
+    let v=VIRELANGUES[Math.floor(Math.random()*VIRELANGUES.length)], bpm=60;
+    const draw=()=>{
+      Metro.stop();
+      const best=(S.voice.diction&&S.voice.diction[v.id])||0;
+      inner.innerHTML=`<div class="exhead"><div class="sub">Dis-le NET, chaque syllabe sur le tempo. 3 fois sans accroc → tu accélères.</div></div>
+        <div class="card" style="font-size:18px;font-weight:700;text-align:center;line-height:1.5">${v.txt}</div>
+        <p style="text-align:center;color:var(--dim);font-size:13px;margin-bottom:4px">Tempo actuel : <b style="color:var(--acc)">${bpm} BPM</b>${best?` · record ici : ${best} BPM`:''}</p>
+        <div id="ms"></div>
+        <button class="btn ok" id="nailed">✓ Impeccable 3× — accélérer</button>
+        <button class="btn ghost" id="other">Autre virelangue</button>`;
+      inner.querySelector('#ms').appendChild(metroWidget(bpm));
+      inner.querySelector('#nailed').onclick=()=>{
+        if(!S.voice.diction) S.voice.diction={};
+        if(bpm>(S.voice.diction[v.id]||0)){ S.voice.diction[v.id]=bpm; award(5); save(); toast('+5 XP · record '+bpm+' BPM'); }
+        else toast(bpm+' BPM validé');
+        bpm+=10; draw();
+      };
+      inner.querySelector('#other').onclick=()=>{ v=VIRELANGUES[Math.floor(Math.random()*VIRELANGUES.length)]; bpm=60; draw(); };
+    };
+    draw();
+  });
+}
+
+/* ---------- Souffle (tenue de note chronométrée) ---------- */
+function runBreath(){
+  openCustom('🫁 Souffle',(inner,close)=>{
+    inner.innerHTML=`<p style="color:var(--dim);font-size:14px">Inspire par le ventre (~3 s), puis expire en tenant un « sss » (ou un « a ») le plus régulier et long possible. Appuie au début de l'expiration, relâche à la fin.</p>
+      <div class="exhead"><div class="target" id="tmr" style="font-variant-numeric:tabular-nums">0.0s</div>
+      <div class="sub" id="bsub">Inspire, puis démarre.</div></div>
+      <button class="btn" id="go">▶ Démarrer l'expiration</button>
+      ${S.voice.breathBest?`<p style="text-align:center;color:var(--dim);font-size:13px;margin-top:10px">Record : <b style="color:var(--acc)">${S.voice.breathBest}s</b></p>`:''}`;
+    const tmr=inner.querySelector('#tmr'), go=inner.querySelector('#go'), bsub=inner.querySelector('#bsub');
+    let t0=null, raf=null, running=false;
+    const tick=()=>{ if(!running) return; tmr.textContent=((performance.now()-t0)/1000).toFixed(1)+'s'; raf=requestAnimationFrame(tick); };
+    go.onclick=()=>{
+      if(!running){ running=true; t0=performance.now(); go.textContent='⏹ Fin de l\'expiration'; bsub.textContent='Tiens… régulier, sans forcer.'; tick(); }
+      else { running=false; if(raf) cancelAnimationFrame(raf);
+        const s=+((performance.now()-t0)/1000).toFixed(1); tmr.textContent=s+'s'; go.textContent='▶ Recommencer';
+        let msg='Expiration : '+s+' s.';
+        if(s>(S.voice.breathBest||0)){ S.voice.breathBest=s; save(); msg+=' · 🏆 Record !'; award(10); toast('+10 XP · record souffle'); }
+        bsub.textContent=msg;
+      }
+    };
+  });
+}
+
+/* ---------------- init ---------------- */
+updateHeader(); render();
+</script>
+</body>
+</html>
