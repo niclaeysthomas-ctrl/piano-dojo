@@ -259,6 +259,14 @@ const LEVELS = [
 
 /* ---------------- état / sauvegarde ---------------- */
 const DEFAULT_STATE = {xp:0, done:{}, streak:0, lastDay:null, earBest:0, daily:null, hist:{}, best:{}, labels:false, voice:{}};
+/* restauration de progression via ?restore=<base64> (transfert d'appareil / d'origine) */
+(function(){ try{
+  const p=new URLSearchParams(location.search).get('restore'); if(!p) return;
+  let s=p.replace(/-/g,'+').replace(/_/g,'/'); while(s.length%4) s+='=';
+  const obj=JSON.parse(decodeURIComponent(escape(atob(s))));
+  if(obj && typeof obj.xp==='number') localStorage.setItem('pianodojo',JSON.stringify(obj));
+  history.replaceState(null,'',location.pathname);
+}catch(e){} })();
 let S = load();
 function load(){
   try{ return Object.assign({},DEFAULT_STATE,JSON.parse(localStorage.getItem('pianodojo')||'{}')); }
