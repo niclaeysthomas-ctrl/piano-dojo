@@ -296,7 +296,7 @@ const LEVELS = [
 ];
 
 /* ---------------- état / sauvegarde ---------------- */
-const DEFAULT_STATE = {xp:0, done:{}, streak:0, lastDay:null, earBest:0, daily:null, hist:{}, best:{}, labels:false, voice:{}, songs:{}, songsHand:{}};
+const DEFAULT_STATE = {xp:0, done:{}, prog:{}, streak:0, lastDay:null, earBest:0, daily:null, hist:{}, best:{}, labels:false, voice:{}, songs:{}, songsHand:{}};
 /* restauration de progression via ?restore=<base64> (transfert d'appareil / d'origine) */
 (function(){ try{
   const p=new URLSearchParams(location.search).get('restore'); if(!p) return;
@@ -333,6 +333,25 @@ function award(xp){
 }
 function updateHeader(){ document.getElementById('streakBadge').textContent='🔥 '+S.streak; }
 const todayStr=()=>new Date().toISOString().slice(0,10);
+
+/* ---------------- Maîtrise : paliers étalés dans le temps ----------------
+   Une leçon ne se "valide" plus en une session. Il faut N paliers,
+   et on ne peut prendre QU'UN palier PAR JOUR : le temps fait partie du travail.
+   Les leçons dures (7e, voice leading, shell voicings) en demandent plus. */
+const REPS={
+  m0l1:2, m0l2:3, m0l3:3,
+  m1l1:3, m1l2:4,
+  m2l1:2, m2l2:3, m2l3:3,
+  m3l1:3, m3l2:4, m3l3:3, m3l4:3, m3l5:4,
+  m4l1:3, m4l2:3,
+  m5l1:5, m5l2:5, m5l3:5, m5l4:4,
+  m6l1:3, m6l2:4,
+  m7l1:3, m7l2:3
+};
+function lessonReps(l){ return REPS[l.id]||3; }
+function progOf(id){ if(!S.prog) S.prog={}; return S.prog[id]||{n:0,last:null}; }
+function palierTakenToday(id){ return progOf(id).last===todayStr(); }
+
 function ensureDaily(){
   const t=todayStr();
   if(!S.daily || S.daily.date!==t){ S.daily={date:t, done:[false,false,false], bonus:false}; save(); }
@@ -393,6 +412,16 @@ function playDemo(spec, bpm, rate){
     }
     if(spec.lh==='158'){ const p=[0,7,12,7]; for(let b=0;b<4;b++) playNote(bass+p[b], beat*.9, .46, t+b*beat); }
     else if(spec.lh==='octave'){ playNote(bass,beat*3.9,.42,t); playNote(bass+12,beat*3.9,.42,t); }
+    else if(spec.lh==='fifth'){ // basse qui marche : fondamentale ↔ quinte (1-5-1-5)
+      const p=[0,7,0,7]; for(let b=0;b<4;b++) playNote(bass+p[b], beat*.9, .46, t+b*beat);
+    }
+    else if(spec.lh==='shell'){ // shell voicing : fondamentale grave + 3e/7e au-dessus
+      const iv = (type==='m7'||type==='min')?3 : 4;              // tierce
+      const sv = (type==='maj7')?11 : (type==='dom7'||type==='m7')?10 : null; // septième
+      playNote(bass, beat*3.9, .46, t);
+      playNote(bass+12+iv, beat*3.8, .30, t+.012);
+      if(sv!=null) playNote(bass+12+sv, beat*3.8, .30, t+.024);
+    }
     else playNote(bass, beat*3.9, .46, t);
     t+=beat*4;
   });
@@ -664,6 +693,91 @@ Exemple <b>C mineur</b> : C, compte 3 → Eb, compte 4 → G. <b>C–Eb–G</b>.
       ['Le cycle complet','C → G → Am → F avec ce pattern, 4 temps par accord, 4 tours sans arrêt.'],
       ['Monte à 70-75 BPM','Seulement si les 4 tours à 60 sont vraiment propres.']
     ]}},
+  { id:'m3l3', icon:'🤝', title:'Qui joue quoi', sub:'Comprendre ce que tes deux mains font vraiment', xp:70,
+    theory:`
+<p>Si tu as l'impression de poser des formes sans savoir ce que tu joues, c'est normal : personne ne te l'a dit. Voilà la clé.</p>
+<h3>Un accord n'est pas une forme</h3>
+<p>Un accord, c'est un <b>ensemble de notes</b>. « C majeur = C, E, G ». Point. Ça ne dit <b>pas</b> où tu les mets, ni dans quelle main. La forme que tu poses s'appelle un <b>voicing</b> : c'est une <i>décision</i>, pas l'accord lui-même.</p>
+<h3>Le partage du travail</h3>
+<div class="formula">Main gauche = QUI (la fondamentale) · Main droite = QUOI (la couleur)</div>
+<p>La gauche annonce l'identité de l'accord. Du coup la droite <b>n'a pas besoin de rejouer la fondamentale</b> : elle est déjà dite. C'est LA raison pour laquelle tes formes main droite te paraissent bizarres — elles ne contiennent souvent pas la note qui donne son nom à l'accord.</p>
+<h3>La démonstration qui change tout</h3>
+<p>Garde la même main droite : <b>C–E</b>. Deux notes, rien d'autre. Maintenant change juste la main gauche :</p>
+<ul>
+<li>Un <b>C</b> grave à gauche → C–E–G ? Non : C–C–E → tu entends <b>C majeur</b> (la quinte n'est même pas nécessaire).</li>
+<li>Un <b>A</b> grave à gauche → A–C–E = <b>La mineur</b>.</li>
+<li>Un <b>F</b> grave à gauche → F–C–E ≈ <b>Fmaj7</b> (fondamentale, quinte, septième majeure).</li>
+</ul>
+<p><b>Même main droite. Trois accords différents.</b> C'est la basse qui décide. Ta main gauche n'est pas un accompagnement décoratif : c'est elle qui nomme l'harmonie.</p>
+<h3>La règle du grave (pourquoi ça sonne boueux)</h3>
+<p>En dessous de <b>Do2</b>, les notes serrées se brouillent — l'oreille ne sépare plus. Règle : <b>grave = espacé</b> (fondamentale seule, ou octave, ou quinte). <b>Serré = au milieu</b> du clavier. Si ton accord sonne « sale », il est presque toujours trop bas et trop serré.</p>
+<div class="tip">À partir de maintenant, quand tu joues, pose-toi la question : « ma gauche dit quoi ? ma droite dit quoi ? ». Si tu peux répondre, tu ne joues plus des formes : tu fais de la musique.</div>`,
+    ex:{type:'quiz', qs:[
+      {q:'Main gauche : un C grave. Main droite : E–G. Quel accord joues-tu ?', opts:['C majeur','Em','G majeur'], a:0,
+       why:'Additionne tout : C + E + G = C majeur. La main droite n\'a pas besoin du C — la gauche le dit déjà.'},
+      {q:'Main gauche : un A grave. Main droite : C–E. Quel accord joues-tu ?', opts:['C majeur','Am','F majeur'], a:1,
+       why:'A + C + E = La mineur. Note bien : ta main droite (C–E) est presque la même que dans l\'exemple précédent. C\'est la BASSE qui décide de l\'accord.'},
+      {q:'Main gauche : C. Main droite : E–G–B. Quel accord ?', opts:['C majeur','Cmaj7','C7'], a:1,
+       why:'C–E–G–B = fondamentale, tierce, quinte, septième MAJEURE = Cmaj7. Le B est la 7e majeure : le son doux, jazzy.'},
+      {q:'Pourquoi la main droite peut-elle omettre la fondamentale ?', opts:['Pour jouer moins de notes','Parce que la main gauche la joue déjà','C\'est une faute'], a:1,
+       why:'L\'accord existe dès que les notes sont là, peu importe la main. La gauche dit la fondamentale → la droite est libre pour la couleur.'},
+      {q:'Tu plaques C–E–G serré tout en bas du clavier. Ça sonne…', opts:['Riche et grave','Boueux','Trop aigu'], a:1,
+       why:'Sous Do2, les intervalles serrés se brouillent. Dans le grave : espace (fondamentale seule, octave, ou quinte). Le serré, c\'est pour le milieu du clavier.'},
+      {q:'« Voicing » veut dire…', opts:['Un accord','La façon dont tu répartis les notes de l\'accord','Le nom d\'une gamme'], a:1,
+       why:'L\'accord est la liste des notes. Le voicing est TA décision : lesquelles, où, dans quelle main. Un accord = une infinité de voicings.'}
+    ]}},
+  { id:'m3l4', icon:'🧩', title:'Le rôle de chaque note', sub:'Fondamentale, tierce, quinte, septième', xp:70,
+    theory:`
+<p>Quatre notes, quatre métiers. Une fois que tu sais qui fait quoi, tu peux <b>choisir</b> au lieu de subir.</p>
+<h3>Le casting</h3>
+<ul>
+<li><b>La fondamentale</b> — l'identité. Elle dit le NOM de l'accord. C'est le travail de ta main gauche.</li>
+<li><b>La tierce</b> — le genre. Majeur ou mineur, c'est <b>elle seule</b> qui décide. E dans C = majeur ; Eb = mineur. Indispensable.</li>
+<li><b>La quinte</b> — le remplissage. Elle ne porte ni l'identité ni le genre. Elle stabilise, c'est tout. <b>C'est la première qu'on jette.</b></li>
+<li><b>La septième</b> — la couleur. Elle transforme un accord scolaire en son adulte, et crée la tension qui donne envie d'aller ailleurs.</li>
+</ul>
+<h3>La conséquence pratique</h3>
+<div class="formula">Fondamentale + tierce + septième = l'essence de l'accord</div>
+<p>Ces trois notes suffisent à dire « Cmaj7 » sans ambiguïté. Les pianistes de jazz jouent ça toute la journée et laissent tomber la quinte. Si tu manques de doigts ou que ça sonne encombré : <b>enlève la quinte</b>, jamais la tierce.</p>
+<div class="tip">Test à faire au piano : joue C–E–G–B, puis C–E–B (sans quinte). Écoute. C'est le même accord — en plus clair. Voilà pourquoi certaines de tes formes n'ont « que » trois notes.</div>`,
+    ex:{type:'quiz', qs:[
+      {q:'Dans C–E–G, quelle note dit que l\'accord est MAJEUR ?', opts:['C','E','G'], a:1,
+       why:'La tierce (E). Baisse-la d\'un demi-ton (Eb) → Cm. La tierce décide du genre, à elle seule.'},
+      {q:'Quelle note peux-tu retirer sans changer la nature de l\'accord ?', opts:['La fondamentale','La tierce','La quinte'], a:2,
+       why:'La quinte. Elle ne porte ni l\'identité (fondamentale) ni le genre (tierce). C\'est la première qu\'on sacrifie.'},
+      {q:'Dans Cmaj7 (C–E–G–B), le B est…', opts:['La quinte','La septième','La neuvième'], a:1,
+       why:'C(1) D(2) E(3) F(4) G(5) A(6) B(7). Le B est la septième — ici majeure, d\'où « maj7 ».'},
+      {q:'Tu joues C–E–B, sans quinte. C\'est…', opts:['Une faute','Cmaj7, parfaitement valable','C7'], a:1,
+       why:'Fondamentale + tierce + septième = l\'essence de Cmaj7. C\'est même le voicing préféré des pianistes.'},
+      {q:'Qu\'est-ce qui différencie C7 de Cmaj7 ?', opts:['La tierce','La septième (Bb au lieu de B)','La quinte'], a:1,
+       why:'C7 a un Bb (7e mineure) → tendu, bluesy, ça « appelle » la suite. Cmaj7 a un B (7e majeure) → doux, posé.'},
+      {q:'Ton accord sonne encombré et tu manques de doigts. Tu enlèves…', opts:['La quinte','La tierce','La fondamentale de la main gauche'], a:0,
+       why:'Toujours la quinte en premier. Enlever la tierce rendrait l\'accord sans genre ; enlever la basse lui ferait perdre son nom.'}
+    ]}},
+  { id:'m3l5', icon:'🚶', title:'La main gauche qui bouge', sub:'De la basse plantée à la basse qui marche', xp:80,
+    theory:`
+<p>Jusqu'ici ta main gauche <b>plante</b> une note et attend. C'est bien pour commencer, et c'est vite ennuyeux. On va la faire marcher — sans changer l'harmonie.</p>
+<h3>Étape 1 — l'aller-retour 1–5</h3>
+<div class="formula">Fondamentale → Quinte → Fondamentale → Quinte</div>
+<p>Sur C : <b>C – G – C – G</b>, une note par temps, pendant que la droite tient l'accord. L'harmonie ne change pas (la quinte fait déjà partie de l'accord) mais ça respire. C'est la main gauche de la moitié de la variété et de la country.</p>
+<h3>Étape 2 — pourquoi ça marche</h3>
+<p>Souviens-toi de la leçon précédente : la quinte est la note la plus <b>neutre</b> de l'accord. Elle ne change ni l'identité ni le genre. Donc tu peux alterner fondamentale/quinte à volonté : l'oreille entend toujours le même accord, avec du mouvement en plus.</p>
+<h3>Étape 3 — relier les accords</h3>
+<p>Quand tu changes d'accord, ta basse peut <b>viser la note suivante</b> au lieu de sauter. De C vers F : joue <b>C – G – A – Bb</b> → tu arrives sur F par en dessous. Cette note qui n'appartient pas à l'accord s'appelle une <b>note de passage</b> : elle dure un instant et résout. C'est le début de la <i>walking bass</i>.</p>
+<div class="tip">Règle d'or : la main gauche bouge sur les temps, jamais au hasard. Si tu ne sais pas quoi jouer, rejoue la fondamentale. Une basse simple et juste vaut mille fois une basse bavarde et fausse.</div>`,
+    ex:{type:'practice', bpm:60, video:'piano main gauche basse alternée fondamentale quinte débutant',
+      demos:[
+        {label:'Étape 1 — l\'aller-retour 1–5 sur Do', rh:'none', lh:'fifth', prog:[{root:0}]},
+        {label:'Étape 1 — les deux mains', rh:'hold', lh:'fifth', prog:[{root:0},{root:7},{root:9,type:'min'},{root:5}]},
+        {label:'Comparaison — basse plantée', rh:'hold', lh:'root', prog:[{root:0},{root:7},{root:9,type:'min'},{root:5}]}
+      ],
+      steps:[
+      ['Main gauche seule, 1–5','C–G–C–G à 60 BPM, une note par clic. Puis Am (A–E), F (F–C), G (G–D). Une minute chacun.'],
+      ['Les deux mains','Droite : plaque l\'accord et tiens-le. Gauche : C–G–C–G. Sur C seulement, jusqu\'à ce que ta droite ne bronche plus quand ta gauche bouge.'],
+      ['Le cycle','C → G → Am → F, basse alternée 1–5 sur chaque accord, 4 temps par accord. 4 tours sans faute.'],
+      ['La note de passage','De C vers F : joue C–G–A–Bb, puis atterris sur F. Écoute comme l\'arrivée est inévitable. Refais-le de F vers C (F–C–D–E → C).'],
+      ['Vérifie que tu comprends','Dis à voix haute, en jouant : « je joue la fondamentale, puis la quinte ». Si tu ne peux pas nommer la note que tu joues, ralentis.']
+    ]}},
 ]},
 { id:'m4', title:'Module 4 · Le rythme', lessons:[
   { id:'m4l1', icon:'🥁', title:'La pulsation avant tout', sub:'Noires, blanches, la pompe', xp:50,
@@ -739,6 +853,41 @@ Exemple <b>C mineur</b> : C, compte 3 → Eb, compte 4 → G. <b>C–Eb–G</b>.
     ex:{type:'prog', rounds:2, free:true, chords:[
       {root:2,t:'m7'},{root:7,t:'dom7'},{root:0,t:'maj7'}
     ], sub:'Renversements libres. Écoute la tension se résoudre.'}},
+  { id:'m5l3', icon:'🐚', title:'Shell voicings : 1–3–7', sub:'LE son adulte — et enfin l\'explication', xp:90,
+    theory:`
+<p>Voici la leçon qui explique la <b>forme bizarre</b> que les pianistes posent à gauche pendant que la droite joue. Ça s'appelle un <b>shell voicing</b> — un « accord coquille ».</p>
+<h3>Le principe</h3>
+<div class="formula">Main gauche = fondamentale + la 3e (et/ou la 7e) &nbsp;·&nbsp; Main droite = le reste</div>
+<p>Rappelle-toi la leçon « le rôle de chaque note » : <b>fondamentale + tierce + septième = l'essence de l'accord</b>. La quinte ne sert à rien ici. Un shell voicing, c'est exactement ça : le squelette, rien de plus.</p>
+<h3>Sur Cmaj7</h3>
+<ul>
+<li>Main gauche : <b>C</b> (grave) + <b>E</b> et <b>B</b> au-dessus → fondamentale, tierce, septième</li>
+<li>Main droite : libre. La couleur, la mélodie, ou rien du tout.</li>
+</ul>
+<p>Écoute la démo : c'est un accord à trois notes et pourtant il sonne <b>plus riche</b> que ton C–E–G–B plaqué. Parce qu'il est <b>espacé</b> (souviens-toi de la règle du grave) et qu'il ne dit que l'essentiel.</p>
+<h3>Les deux formes à connaître</h3>
+<ul>
+<li><b>1–3–7</b> : fondamentale, tierce, septième (la plus courante)</li>
+<li><b>1–7–3</b> : fondamentale, septième, tierce (la tierce au-dessus — plus doux)</li>
+</ul>
+<h3>Pourquoi ça change tout sur un ii–V–I</h3>
+<p>Dm7 (D–F–C) → G7 (G–F–B) → Cmaj7 (C–E–B). Regarde : entre Dm7 et G7, le <b>F ne bouge pas</b> et le C descend d'un demi-ton vers le B. Tes doigts bougent à peine, et pourtant l'harmonie avance. <b>C'est ça, jouer intelligemment.</b></p>
+<div class="tip">Si tu ne retiens qu'une chose de toute l'app : la tierce et la septième sont les deux notes qui font l'harmonie. Fondamentale à gauche, tierce + septième au-dessus, et tu sonnes comme quelqu'un qui sait ce qu'il fait — parce que ce sera vrai.</div>`,
+    ex:{type:'practice', bpm:55, video:'piano shell voicings 1 3 7 main gauche jazz débutant',
+      demos:[
+        {label:'Cmaj7 en shell (1–3–7)', rh:'none', lh:'shell', prog:[{root:0,type:'maj7'}]},
+        {label:'Comparaison — Cmaj7 plaqué serré', rh:'hold', lh:'root', prog:[{root:0,type:'maj7'}]},
+        {label:'ii–V–I en shell voicings', rh:'none', lh:'shell', prog:[{root:2,type:'m7'},{root:7,type:'dom7'},{root:0,type:'maj7'}]},
+        {label:'ii–V–I en shell + main droite', rh:'hold', lh:'shell', prog:[{root:2,type:'m7'},{root:7,type:'dom7'},{root:0,type:'maj7'}]}
+      ],
+      steps:[
+      ['Construis Cmaj7 en shell','Main gauche : C grave (auriculaire), puis E et B au-dessus. Trois notes. Écoute : c\'est ample, pas boueux.'],
+      ['Nomme ce que tu joues','À voix haute : « fondamentale, tierce, septième ». Si tu ne peux pas nommer les trois, tu n\'as pas compris — recommence.'],
+      ['Les trois couleurs','Cmaj7 (C-E-B) · C7 (C-E-Bb) · Cm7 (C-Eb-Bb). Un seul demi-ton change à chaque fois. Écoute la couleur basculer.'],
+      ['Le ii–V–I en shell','Dm7 (D-F-C) → G7 (G-F-B) → Cmaj7 (C-E-B). Lentement. Repère le F qui ne bouge pas entre les deux premiers.'],
+      ['Deux mains','Shell à gauche, main droite qui plaque juste la quinte ou joue une note de mélodie. 4 tours à 55 BPM.'],
+      ['Le test','Refais le ii–V–I en Fa (Gm7 → C7 → Fmaj7) en construisant par la formule, pas de mémoire.']
+    ]}},
 ]},
 { id:'m6', title:'Module 6 · Gammes & improvisation', lessons:[
   { id:'m6l1', icon:'🪜', title:'La gamme majeure : 2-2-1-2-2-2-1', sub:'D\'où viennent les accords', xp:60,
@@ -865,11 +1014,19 @@ function renderParcours(){
     md.innerHTML=`<h2>${mod.title}</h2>`;
     mod.lessons.forEach(l=>{
       const done=!!S.done[l.id];
+      const reps=lessonReps(l), p=progOf(l.id), wip=!done && p.n>0;
+      const today=palierTakenToday(l.id);
       const el=document.createElement('div');
       el.className='lesson'+(done?' done':'')+(unlocked||done?'':' locked');
+      const sub = done ? l.sub
+        : wip ? `Palier ${p.n}/${reps}${today?' · repos jusqu\'à demain':' · un palier t\'attend'}`
+        : l.sub;
+      const right = done ? '✓ '+l.xp
+        : wip ? `<span style="color:${today?'var(--dim)':'var(--acc)'}">${p.n}/${reps}</span>`
+        : l.xp+' XP';
       el.innerHTML=`<div class="ico">${done?'✓':l.icon}</div>
-        <div class="t"><b>${l.title}</b><small>${l.sub}</small></div>
-        <div class="xp">${done?'✓ '+l.xp:l.xp+' XP'}</div>`;
+        <div class="t"><b>${l.title}</b><small>${sub}</small></div>
+        <div class="xp">${right}</div>`;
       el.onclick=()=>openLesson(l);
       md.appendChild(el);
       if(!done) unlocked=false;
@@ -1290,8 +1447,22 @@ function openLesson(l){
       const doneCb=(success)=>{
         if(!success){ closeOverlay(); return; }
         chime();
-        if(!S.done[l.id]){ S.done[l.id]=true; award(l.xp); toast(`✅ Leçon validée · +${l.xp} XP`); }
-        else { award(10); toast('↻ Révision · +10 XP'); }
+        const reps=lessonReps(l);
+        if(S.done[l.id]){ award(10); toast('↻ Révision · +10 XP'); }
+        else if(palierTakenToday(l.id)){
+          award(5);
+          toast('Palier déjà pris aujourd\'hui · +5 XP — le prochain demain');
+        } else {
+          const p=progOf(l.id);
+          p.n++; p.last=todayStr(); S.prog[l.id]=p; save();
+          if(p.n>=reps){
+            S.done[l.id]=true; save(); award(l.xp); tada();
+            toast(`🥋 Leçon MAÎTRISÉE · +${l.xp} XP`);
+          } else {
+            award(15);
+            toast(`Palier ${p.n}/${reps} · +15 XP — reviens demain pour le suivant`);
+          }
+        }
         dailyMark(1);
         if(l.ex.type==='ear') dailyMark(2);
         setTimeout(closeOverlay,600);
