@@ -330,7 +330,7 @@ const REPS={
   m3l1:3, m3l2:4, m3l3:3, m3l4:3, m3l5:4,
   m4l1:3, m4l2:3,
   m5l1:5, m5l2:5, m5l3:5, m5l4:4,
-  m6l1:3, m6l2:4,
+  m6l1:3, m6l2:4, m6l3:4,
   m7l1:3, m7l2:3
 };
 function lessonReps(l){ return REPS[l.id]||3; }
@@ -407,9 +407,17 @@ function playDemo(spec, bpm, rate){
       playNote(bass+12+iv, beat*3.8, .30, t+.012);
       if(sv!=null) playNote(bass+12+sv, beat*3.8, .30, t+.024);
     }
+    else if(spec.lh==='pulse'){ // pouls hypnotique : octaves de fondamentale en noires
+      for(let b=0;b<4;b++){ playNote(bass, beat*.85, .44, t+b*beat); playNote(bass+12, beat*.85, .3, t+b*beat+.012); }
+    }
     else playNote(bass, beat*3.9, .46, t);
     t+=beat*4;
   });
+  // mélodie écrite par-dessus toute la grille : [{n:midi, b:temps, d:durée en temps}]
+  if(spec.melody){
+    const t0=.1;
+    spec.melody.forEach(x=> playNote(x.n, beat*(x.d||0.5)*.95, .34, t0+x.b*beat));
+  }
 }
 function buzz(){ if(navigator.vibrate) navigator.vibrate(80); }
 function tada(){ if(navigator.vibrate) navigator.vibrate([30,40,30]); }
@@ -903,6 +911,34 @@ Exemple <b>C mineur</b> : C, compte 3 → Eb, compte 4 → G. <b>C–Eb–G</b>.
 </ul>
 <div class="tip">Au vrai piano : main gauche boucle Am–F–C–G (accords plaqués, 1 par mesure), main droite improvise sur les 5 notes. 10 minutes. C'est le moment le plus important de ta semaine de pratique.</div>`,
     ex:{type:'scale', root:9, pattern:[0,3,5,7,10,12], name:'Pentatonique mineure de La', sub:'Monte la gamme note par note. Commence sur un A.'}},
+  { id:'m6l3', icon:'🕶️', title:'Le son pro : le vamp + la blue note', sub:'Le truc de la vidéo, décodé', xp:100,
+    theory:`
+<p>Tu as entendu ce truc quelque part : main gauche qui martèle <b>La – Sol – Fa</b> en rythme régulier, main droite qui joue « n'importe quoi » avec La, Do, Ré, Ré#, Mi, Sol… et ça sonne comme un disque. Décodons — parce que ce n'est pas de la magie, c'est <b>deux ingrédients précis</b>.</p>
+<h3>Ingrédient 1 : le vamp</h3>
+<p>La main gauche ne fait pas « un rythme » : elle fait un <b>vamp</b> — une boucle courte, hypnotique, PRÉVISIBLE. <b>Am → G → F → G</b>, une mesure chacun, en octaves pulsées. Sa régularité est le socle : c'est parce qu'elle ne surprend jamais que la droite peut tout se permettre. Un vamp qui hésite = une impro qui s'écroule. La gauche est le métronome ET l'harmonie.</p>
+<h3>Ingrédient 2 : la blue note</h3>
+<p>Regarde les notes de la droite : La, Do, Ré, Mi, Sol… c'est ta <b>pentatonique mineure de La</b> (leçon précédente). Plus une intruse : <b>Ré#</b>. Cette note s'appelle la <b>blue note</b>, et la penta + elle = la <b>gamme blues</b> : <b>A – C – D – D# – E – G</b>.</p>
+<p>Le paradoxe : le Ré# est théoriquement la note la plus « fausse » possible ici. Mais <b>en passant</b> — glissée entre Ré et Mi, jamais tenue — elle frotte une fraction de seconde et se résout aussitôt. Cette micro-tension-résolution, c'est LE son du blues et du jazz. Tenue, elle est une erreur ; en passant, elle est un style.</p>
+<h3>Pourquoi « n'importe quoi » fonctionne</h3>
+<p>Sur Am, G et F, <b>aucune note de la penta de La ne peut sonner faux</b> — les trois accords habitent la même famille (La mineur / Do majeur, souviens-toi des relatives). La vidéo ne t'a pas menti : la droite peut vraiment vagabonder. Ce qui sépare « vagabonder » de « improviser », ce sont les règles de phrasé de la leçon précédente : <b>phrases courtes, silences, question/réponse, et atterrir sur La</b> quand tu veux sonner conclusif.</p>
+<div class="tip">Écoute les démos ci-dessous dans l'ordre : la gauche seule (remarque comme elle suffit déjà), puis les deux mains. Le Ré# de la démo passe vite — c'est exactement ça, « en passant ».</div>`,
+    ex:{type:'practice', bpm:72, video:'piano vamp Am G F blues scale improvisation facile',
+      demos:[
+        {label:'Le vamp seul — Am·G·F·G en octaves pulsées', rh:'none', lh:'pulse', prog:[{root:9,type:'min'},{root:7},{root:5},{root:7}]},
+        {label:'Les deux mains — gamme blues par-dessus', rh:'none', lh:'pulse', prog:[{root:9,type:'min'},{root:7},{root:5},{root:7}],
+         melody:[{n:69,b:0,d:1},{n:72,b:1,d:.5},{n:74,b:2,d:.5},{n:75,b:2.5,d:.4},{n:76,b:3,d:1},
+                 {n:76,b:4.5,d:.5},{n:74,b:5,d:.5},{n:72,b:5.5,d:.5},{n:69,b:6,d:1.5},
+                 {n:72,b:8,d:.5},{n:74,b:8.5,d:.5},{n:75,b:9,d:.4},{n:76,b:9.5,d:.5},{n:79,b:10,d:1},{n:76,b:11,d:1},
+                 {n:74,b:12,d:.5},{n:72,b:12.5,d:.5},{n:69,b:13,d:2.5}]}
+      ],
+      steps:[
+      ['Le vamp, gauche seule','Octaves de La (A2+A3) en noires, 4 temps. Puis Sol, puis Fa, puis Sol. Boucle 2 minutes SANS accélérer — mets le métronome à 72, c\'est lui le juge.'],
+      ['La gamme blues, droite seule','A–C–D–D#–E–G–A, montée-descente lente. Le Ré# : effleure-le, ne t\'y arrête jamais. Dix allers-retours.'],
+      ['Les deux mains, une seule note','Gauche en vamp, droite qui ne joue QUE La — où elle veut dans la mesure. C\'est un exercice de rythme déguisé : tiens 2 minutes.'],
+      ['Trois notes, des phrases','Droite limitée à La–Do–Mi : phrase courte (3-4 notes), silence d\'un temps minimum, réponse. Le silence est une note.'],
+      ['La gamme entière + le Ré# en passant','Toute la gamme blues, le Ré# uniquement glissé entre Ré et Mi. Termine chaque phrase sur La et écoute comme ça « ferme la porte ».'],
+      ['Le test du disque','Enregistre 60 secondes au téléphone. Écoute : si le vamp n\'a pas bougé et que tes phrases respirent, tu as le son de la vidéo. Sinon, tu sais lequel des deux ingrédients retravailler.']
+    ]}},
 ]},
 { id:'m7', title:'Module 7 · L\'oreille', lessons:[
   { id:'m7l1', icon:'👂', title:'Majeur ou mineur ?', sub:'Entendre avant de savoir', xp:80,
@@ -1912,6 +1948,9 @@ const SONGS=[
 
   {id:'twofive', ico:'🎷', title:'ii–V–I en Do', jam:true, sub:'La cadence jazz à connaître par cœur', key:'Do majeur', bpm:100, ts:4,
    mel:[], ch:[[2,'m7'],[7,'dom7'],[0,'maj7'],[0,'maj7']], hint:'Dm7 → G7 → Cmaj7 : résous toujours sur Do'},
+
+  {id:'vamppro', ico:'🕶️', title:'Vamp Am·G·F — le son pro', jam:true, sub:'La leçon 🕶️ en boucle : gamme blues de La par-dessus', key:'La mineur', bpm:76, ts:4,
+   mel:[], ch:[[9,'min'],[7,'maj'],[5,'maj'],[7,'maj']], hint:'Gamme blues de La : A C D D# E G. Le Ré# EN PASSANT seulement. Phrases courtes, silences, atterris sur La.'},
 ];
 const diffLabel = s => s.jam ? ['jam','Jam'] : [['','f1','f2','f3'][s.diff], ['','Très facile','Facile','Interm.'][s.diff]];
 
