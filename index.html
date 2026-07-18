@@ -330,7 +330,7 @@ const REPS={
   m3l1:3, m3l2:4, m3l3:3, m3l4:3, m3l5:4,
   m4l1:3, m4l2:3,
   m5l1:5, m5l2:5, m5l3:5, m5l4:4,
-  m6l1:3, m6l2:4, m6l3:4,
+  m6l1:3, m6l2:4, m6l3:4, m6l4:4,
   m7l1:3, m7l2:3
 };
 function lessonReps(l){ return REPS[l.id]||3; }
@@ -939,6 +939,17 @@ Exemple <b>C mineur</b> : C, compte 3 → Eb, compte 4 → G. <b>C–Eb–G</b>.
       ['La gamme entière + le Ré# en passant','Toute la gamme blues, le Ré# uniquement glissé entre Ré et Mi. Termine chaque phrase sur La et écoute comme ça « ferme la porte ».'],
       ['Le test du disque','Enregistre 60 secondes au téléphone. Écoute : si le vamp n\'a pas bougé et que tes phrases respirent, tu as le son de la vidéo. Sinon, tu sais lequel des deux ingrédients retravailler.']
     ]}},
+  { id:'m6l4', icon:'🖐️', title:'Les mains séparées : le mensonge de l\'indépendance', sub:'Le Découpleur — jugé par l\'app', xp:110,
+    theory:`
+<p>Tu bloques sur « séparer les mains » ? Première vérité libératrice : <b>l'indépendance des mains n'existe pas</b>. Aucun pianiste n'a deux cerveaux. Ce qu'ils ont, c'est autre chose : une main gauche <b>automatisée</b> (elle tourne toute seule, comme marcher) et une main droite qui joue <b>contre</b> cette pulsation — sur une seule et même grille rythmique.</p>
+<h3>Le test de la distraction</h3>
+<p>Comment savoir si ta gauche est automatisée ? Joue le vamp et <b>parle en même temps</b> — récite ta liste de courses, compte à rebours depuis 50. Si le vamp s'écroule dès que tu parles, il n'est pas automatique : c'est LÀ qu'est ton blocage, pas dans la droite. Reboucle la gauche seule jusqu'à réussir le test. C'est ennuyeux et c'est le vrai travail.</p>
+<h3>La superposition, pas la séparation</h3>
+<p>Ensuite, on ne « libère » pas la droite d'un coup : on la superpose <b>par étapes rythmiques</b>. D'abord elle frappe AVEC la gauche (facile : même geste). Puis sur 2 et 4. Puis moins souvent qu'elle (les blanches). Puis <b>entre</b> ses notes — les contretemps, le niveau qui fabrique tout. Puis une syncope. À chaque étape, ta droite s'éloigne un peu plus du pouls sans jamais le perdre.</p>
+<h3>L'arme secrète : la bouche</h3>
+<p>Compte <b>à voix haute</b> : « 1 et 2 et 3 et 4 et ». La voix est le chef d'orchestre qui synchronise les deux mains — tous les batteurs apprennent comme ça. Le jour où tu n'en as plus besoin, c'est gagné.</p>
+<div class="tip">L'exercice ci-dessous est <b>jugé par l'app</b> : elle joue ta main gauche (le vamp de la leçon 🕶️), toi tu tapes les rythmes de la main droite sur le pad, à ±0,2 s près. Cinq niveaux. Puis transfère au vrai piano : mêmes niveaux, ta gauche en vamp, ta droite sur UNE note (La), puis sur la gamme blues.</div>`,
+    ex:{type:'decouple', bpm:66}},
 ]},
 { id:'m7', title:'Module 7 · L\'oreille', lessons:[
   { id:'m7l1', icon:'👂', title:'Majeur ou mineur ?', sub:'Entendre avant de savoir', xp:80,
@@ -1087,6 +1098,9 @@ const DRILLS=[
   {id:'scale', icon:'🪜', title:'Gammes', req:'m6l1',
    desc:()=>'Gamme majeure (ou pentatonique) depuis une fondamentale tirée au sort.',
    run:()=>dojoScale()},
+  {id:'dec', icon:'🖐️', title:'Le Découpleur', req:'m6l4',
+   desc:()=>'Vamp main gauche par l\'app, rythmes main droite jugés à ±0,2 s. L\'indépendance ne se décrète pas, elle se fabrique — ici.',
+   run:()=>dojoDecouple()},
   {id:'ear', icon:'👂', title:'Salle d\'écoute', req:null,
    desc:()=>'Ear training en continu : majeur/mineur, ou les 7e si tu oses.'+(S.earBest?` Record : <b style="color:var(--acc)">${S.earBest}/10</b>.`:''),
    run:()=>dojoEar()},
@@ -1361,6 +1375,14 @@ function dojoSev(){
     });
   });
 }
+function dojoDecouple(){
+  openCustom('🖐️ Le Découpleur',(inner,close)=>{
+    runDecouple(inner,{bpm:66},(ok)=>{
+      if(ok){ award(12); dailyMark(1); toast('🖐️ Cinq niveaux tenus · +12 XP'); }
+      close();
+    });
+  });
+}
 function dojoScale(){
   const ex=genScaleEx();
   openCustom('🪜 '+ex.name,(inner,close)=>{
@@ -1524,6 +1546,7 @@ function openLesson(l){
       else if(ex.type==='scale') runScale(exDiv,ex,doneCb);
       else if(ex.type==='ear') runEar(exDiv,ex,doneCb);
       else if(ex.type==='practice') runPractice(exDiv,ex,doneCb);
+      else if(ex.type==='decouple') runDecouple(exDiv,ex,doneCb);
     };
   });
 }
@@ -1862,6 +1885,113 @@ function runNamer(el,ex,cb){
 }
 
 /* ---------- moteur : PRATIQUE (vrai piano) ---------- */
+/* ---------- moteur : LE DÉCOUPLEUR (indépendance des mains) ----------
+   L'app joue le vamp main gauche (le pouls) ; l'élève tape les rythmes main
+   droite sur un pad, jugés contre l'horloge AUDIO (±200 ms). Cinq niveaux de
+   superposition : avec le pouls → backbeat → blanches → contretemps → syncope. */
+const DC_LEVELS=[
+  {name:'Avec la gauche',   desc:'Tape sur CHAQUE temps, pile avec la basse. Les deux mains disent la même chose — c\'est le point de départ.', hits:[0,1,2,3]},
+  {name:'Le backbeat',      desc:'Temps 2 et 4 seulement. Ta droite claque là où la batterie mettrait la caisse claire.', hits:[1,3]},
+  {name:'Les blanches',     desc:'Temps 1 et 3 : moins de notes que la gauche. Résiste à l\'aspiration du pouls.', hits:[0,2]},
+  {name:'Les contretemps',  desc:'Uniquement ENTRE les basses — les « et ». Le niveau qui fabrique l\'indépendance. Dis « 1 ET 2 ET » à voix haute.', hits:[.5,1.5,2.5,3.5]},
+  {name:'La syncope',       desc:'1, « et » de 2, 4. Ta première vraie phrase rythmique par-dessus le vamp — le son des disques.', hits:[0,1.5,3]}
+];
+/* logique pure du jugement : chaque cible consomme la frappe la plus proche
+   dans la fenêtre ; le reste des frappes = « en trop ». Testable à sec. */
+function dcJudge(expected,taps,WIN){
+  taps=[...taps]; let good=0;
+  expected.forEach(t=>{
+    let bi=-1,bd=WIN;
+    taps.forEach((tt,i)=>{ const d=Math.abs(tt-t); if(d<=bd){ bd=d; bi=i; } });
+    if(bi>=0){ good++; taps.splice(bi,1); }
+  });
+  return {good, extras:taps.length, total:expected.length,
+          pass: good>=Math.ceil(expected.length*.8)&&taps.length<=2};
+}
+function runDecouple(el,ex,cb){
+  const bpm=ex.bpm||66, beat=60/bpm, BARS=4, WIN=.2;
+  const prog=[{root:9,type:'min'},{root:7},{root:5},{root:7}];
+  let lvl=0, D=null;
+  const html=()=>{
+    const L=DC_LEVELS[lvl];
+    el.innerHTML=`<div class="exhead"><div class="target">Niveau ${lvl+1}/${DC_LEVELS.length} — ${L.name}</div>
+      <div class="sub">${L.desc}</div></div>
+      <div id="dcGrid" style="display:grid;grid-template-columns:repeat(8,1fr);gap:4px;margin:14px 0">
+        ${[0,.5,1,1.5,2,2.5,3,3.5].map(p=>`<div data-p="${p}" style="text-align:center;padding:10px 2px;border-radius:9px;font-weight:800;font-size:13px;
+          background:${L.hits.includes(p)?'var(--accent2)':'var(--bg3)'};color:${L.hits.includes(p)?'#1a1200':'var(--dim)'};
+          border:1px solid ${L.hits.includes(p)?'var(--accent)':'var(--line)'}">${p%1===0?(p+1):'&'}</div>`).join('')}
+      </div>
+      <div class="fb" id="dcFb" style="min-height:22px"></div>
+      <button class="btn" id="dcGo">▶ C'est parti — 1 mesure de décompte, 4 mesures jugées</button>
+      <button id="dcPad" style="display:block;width:100%;margin-top:10px;padding:34px 0;border-radius:16px;border:2px solid var(--accent);
+        background:var(--bg2);color:var(--accent);font-size:19px;font-weight:900;cursor:pointer;-webkit-user-select:none;user-select:none">🖐️ TAPE ICI<br><span style="font-size:11px;font-weight:700;color:var(--dim)">ta main droite, sur les cases orange</span></button>`;
+    el.querySelector('#dcGo').onclick=start;
+    const pad=el.querySelector('#dcPad');
+    pad.addEventListener('pointerdown',e=>{ e.preventDefault(); tap(); });
+  };
+  const start=()=>{
+    const ctx=ac(), L=DC_LEVELS[lvl];
+    const t0=ctx.currentTime+.25+4*beat;                 // début du jugement (après 1 mesure de décompte)
+    // décompte : 4 clics
+    for(let b=0;b<4;b++) Metro.click(ctx.currentTime+.25+b*beat, b===0);
+    // vamp main gauche : 4 mesures d'octaves pulsées
+    prog.forEach((ch,bar)=>{ const bass=36+(ch.root%12);
+      for(let b=0;b<4;b++){ const tt=t0-ctx.currentTime+bar*4*beat+b*beat;
+        playNote(bass,beat*.85,.46,tt); playNote(bass+12,beat*.85,.3,tt+.012); } });
+    // cibles attendues sur l'horloge audio
+    const expected=[];
+    for(let bar=0;bar<BARS;bar++) L.hits.forEach(p=>expected.push(t0+(bar*4+p)*beat));
+    D={t0,expected,taps:[],raf:null,end:t0+BARS*4*beat+WIN+.05};
+    const fb=el.querySelector('#dcFb'); fb.textContent='Décompte…'; fb.className='fb';
+    const go=el.querySelector('#dcGo'); go.disabled=true;
+    // le verdict est planifié en temps, PAS dans la boucle d'affichage :
+    // un rAF suspendu (onglet en fond, écran verrouillé) ne doit pas avaler le jugement
+    setTimeout(()=>{ if(D&&el.isConnected) judge(); },(D.end-ctx.currentTime)*1000+120);
+    setTimeout(()=>{ if(D&&el.isConnected&&fb.isConnected) fb.textContent='Joue !'; },(t0-ctx.currentTime)*1000);
+    const loop=()=>{ if(!D||!el.isConnected) return;
+      const now=ctx.currentTime, pos=(now-D.t0)/beat;
+      el.querySelectorAll('#dcGrid div').forEach(c=>{
+        const p=+c.dataset.p, inBar=((pos%4)+4)%4;
+        c.style.outline=(pos>=0&&Math.abs(inBar-p)<.25)?'2px solid var(--txt)':'none';
+      });
+      D.raf=requestAnimationFrame(loop);
+    };
+    loop();
+  };
+  const tap=()=>{
+    playNote(69,.5,.45);
+    if(!D) return;
+    D.taps.push(ac().currentTime);
+    const pad=el.querySelector('#dcPad');
+    pad.style.background='var(--accent2)'; setTimeout(()=>{ if(pad.isConnected) pad.style.background='var(--bg2)'; },90);
+  };
+  const judge=()=>{
+    const v=dcJudge(D.expected,D.taps,WIN);
+    const good=v.good, extras=v.extras, total=v.total, pass=v.pass;
+    D=null;
+    const fb=el.querySelector('#dcFb');
+    if(pass){
+      tada();
+      if(lvl>=DC_LEVELS.length-1){
+        el.innerHTML=`<div class="exhead"><div class="target">🥋 ${good}/${total}</div>
+          <div class="sub">Cinq niveaux de superposition tenus. Ce que tu appelles « séparer les mains » vient de se produire : ta gauche est un pilote automatique, ta droite parle par-dessus. Transfère au vrai piano ce soir — mêmes niveaux, mêmes règles.</div></div>`;
+        setTimeout(()=>cb(true),1400);
+      } else {
+        lvl++;
+        fb.textContent='';
+        el.querySelector('#dcGo').disabled=false;
+        html();
+        el.querySelector('#dcFb').innerHTML=`<span style="color:var(--good)">✓ ${good}/${total}${extras?` (${extras} en trop)`:''} — niveau suivant.</span>`;
+      }
+    } else {
+      buzz();
+      html();
+      el.querySelector('#dcFb').innerHTML=`<span style="color:var(--bad)">✗ ${good}/${total} dans la fenêtre${extras?`, ${extras} tape${extras>1?'s':''} en trop`:''}.</span> ${good<total*.5?'Compte à VOIX HAUTE (« 1 et 2 et… ») — la bouche synchronise les mains.':'Presque. Écoute la basse, ne la regarde pas.'}`;
+    }
+  };
+  html();
+}
+
 function runPractice(el,ex,cb){
   el.innerHTML=`<div class="exhead"><div class="target">🎹</div>
     <div class="sub">Cet exercice se joue sur ton vrai piano. L'app te donne le cadre, tes doigts font le reste.</div></div>`;
