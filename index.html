@@ -221,6 +221,13 @@
   .modeseg{display:flex;gap:6px;background:var(--bg3);border:1px solid var(--line);border-radius:12px;padding:4px;margin:2px 0 10px}
   .modeseg button{flex:1;background:none;border:none;color:var(--dim);font-weight:700;font-size:13px;padding:9px 6px;border-radius:9px;cursor:pointer}
   .modeseg button.on{background:var(--acc);color:#1a1200}
+  .bilanbars{margin:16px 0 4px}
+  .brow{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+  .brow .bl{font-size:13px;font-weight:700;min-width:104px}
+  .brow .bt{flex:1;height:12px;background:#0009;border-radius:6px;overflow:hidden}
+  .brow .bt i{display:block;height:100%;border-radius:6px;transition:width .5s}
+  .brow .bv{font-size:13px;font-weight:800;min-width:44px;text-align:right;font-variant-numeric:tabular-nums}
+  .brow .bv small{color:var(--dim);font-weight:700}
 </style>
 </head>
 <body>
@@ -281,7 +288,8 @@ const LEVELS = [
 ];
 
 /* ---------------- état / sauvegarde ---------------- */
-const DEFAULT_STATE = {xp:0, done:{}, prog:{}, streak:0, lastDay:null, earBest:0, daily:null, hist:{}, best:{}, labels:false, songs:{}, songsHand:{}, songsLH:{}};
+const DEFAULT_STATE = {xp:0, done:{}, prog:{}, streak:0, lastDay:null, earBest:0, daily:null, hist:{}, best:{}, labels:false, songs:{}, songsHand:{}, songsLH:{}, bilan:null, bilanRewarded:false};
+const USER='Thomas';
 /* restauration de progression via ?restore=<base64> (transfert d'appareil / d'origine) */
 (function(){ try{
   const p=new URLSearchParams(location.search).get('restore'); if(!p) return;
@@ -1039,6 +1047,23 @@ function renderParcours(){
   daily.appendChild(bn);
   main.appendChild(daily);
 
+  if(S.bilan){
+    const bl=bilanLevel(S.bilan.global);
+    const bc=document.createElement('div'); bc.className='card';
+    bc.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center">
+      <b style="font-size:15px">🎓 Bilan · ${bl.tag} ${bl.name}</b>
+      <span style="color:var(--acc);font-weight:800">${S.bilan.global}/100</span></div>
+      <p style="color:var(--dim);font-size:12px;margin:4px 0 0">${bl.reco}</p>`;
+    const rb=document.createElement('button'); rb.className='btn ghost'; rb.textContent='↻ Refaire le bilan';
+    rb.onclick=()=>runBilan(); bc.appendChild(rb); main.appendChild(bc);
+  } else {
+    const bc=document.createElement('div'); bc.className='card hero';
+    bc.innerHTML=`<b style="font-size:15px">🎓 Fais ton bilan, ${USER}</b>
+      <p style="color:var(--dim);font-size:13px;margin:4px 0 0">Cinq épreuves, ~5 min : où tu en es VRAIMENT, chiffré axe par axe. On mesurera tes progrès à chaque nouveau bilan.</p>`;
+    const rb=document.createElement('button'); rb.className='btn'; rb.textContent='🎯 Lancer le bilan';
+    rb.onclick=()=>runBilan(); bc.appendChild(rb); main.appendChild(bc);
+  }
+
   let unlocked=true;
   CURRICULUM.forEach(mod=>{
     const md=document.createElement('div'); md.className='mod';
@@ -1485,6 +1510,12 @@ function renderOutils(){
   <div class="week">${days.map(d=>`<div class="col${d.xp?'':' z'}"><div class="bar" style="height:${Math.max(3,Math.round(d.xp/mx*100))}%"></div><small>${d.lbl}</small></div>`).join('')}</div>
   <div style="text-align:center;font-size:11px;color:var(--dim);margin-top:6px">XP des 7 derniers jours — la régularité se voit ici.</div>`;
   main.appendChild(c4);
+
+  const cB=document.createElement('div'); cB.className='card';
+  cB.innerHTML=`<b style="font-size:16px">🎓 Le bilan</b>
+  <p style="color:var(--dim);font-size:13px;margin:4px 0 0">${S.bilan?`Dernier bilan : <b style="color:var(--acc)">${S.bilan.global}/100</b> (${S.bilan.date}). Refais-le pour voir tes progrès chiffrés.`:'Cinq épreuves, ~5 min : une photo objective de ton niveau, axe par axe.'}</p>`;
+  const bb=document.createElement('button'); bb.className='btn ghost'; bb.textContent=S.bilan?'↻ Refaire le bilan':'🎯 Faire le bilan';
+  bb.onclick=()=>runBilan(); cB.appendChild(bb); main.appendChild(cB);
 }
 
 /* ================================================================
@@ -1591,6 +1622,10 @@ function runQuiz(el,ex,cb){
   };
   const finish=()=>{
     const score=ex.qs.length-wrong;
+    if(ex.scored){
+      el.innerHTML=`<div class="exhead"><div class="target">${score}/${ex.qs.length}</div><div class="sub">Section notée.</div></div>`;
+      setTimeout(()=>cb(true,score),900); return;
+    }
     if(wrong===0) el.innerHTML=`<div class="exhead"><div class="target">🎯 ${score}/${ex.qs.length}</div><div class="sub">Sans faute. C'est comme ça qu'on travaille.</div></div>`;
     else if(score>=Math.ceil(ex.qs.length*0.6)) el.innerHTML=`<div class="exhead"><div class="target">${score}/${ex.qs.length}</div><div class="sub">Validé — mais relis les explications des erreurs avant de partir.</div></div>`;
     else { el.innerHTML=`<div class="exhead"><div class="target">${score}/${ex.qs.length}</div><div class="sub">Insuffisant. Relis la théorie et reviens : la base doit être solide.</div></div>`;
@@ -2485,6 +2520,111 @@ function openSong(song){
     Player.kb=kb;
     Player.els={ cn, nn, strip, bar:pb.querySelector('i'), play };
     Player.onEnd=()=>{};
+  });
+}
+
+/* ================================================================
+   LE BILAN — une photo objective du niveau (re-testable, avec suivi)
+   inspiré de l'app jazz : ici calibré sur le parcours Piano Dojo.
+   ================================================================ */
+const BILAN_AXES=[
+  {key:'accords', label:'Accords',      ico:'🧱', total:6},
+  {key:'renv',    label:'Renversements',ico:'🔄', total:5},
+  {key:'degres',  label:'Degrés',       ico:'🏛', total:6},
+  {key:'oreille', label:'Oreille',      ico:'👂', total:6},
+  {key:'sevens',  label:'Accords de 7e',ico:'🎨', total:5},
+];
+function bilanLevel(g){
+  if(g<30) return {tag:'🎹', name:'Premiers pas',   reco:'Pose les fondations : Module 0. Chaque accord se construit, ne se devine pas.'};
+  if(g<50) return {tag:'⚪', name:'Ceinture blanche',reco:'Les accords sont là — attaque les renversements (Module 1), c\'est LE module qui change tout.'};
+  if(g<68) return {tag:'🟡', name:'Ceinture jaune',  reco:'Bonne base. Les degrés (Module 2) et la main gauche (Module 3) t\'attendent.'};
+  if(g<85) return {tag:'🟠', name:'Ceinture orange', reco:'Tu avances vraiment. Vise les accords de 7e, l\'impro et l\'ear training.'};
+  return {tag:'🥋', name:'Ceinture solide', reco:'Redoutable pour ton parcours. Pousse le Dojo au sans-faute et les Morceaux à la main.'};
+}
+function runBilan(){
+  openCustom('🎓 Le bilan de '+USER,(inner,close)=>{
+    const intro=document.createElement('div'); intro.className='theory';
+    intro.innerHTML=`<p>Cinq épreuves, ~5 minutes. On note ta <b>réussite au premier essai</b> — donc pas d'aide, pas de clavier des Outils à côté. À la fin : ton profil complet et par où continuer.</p>
+      ${S.bilan?`<div class="tip">Dernier bilan : <b>${S.bilan.global}/100</b> le ${S.bilan.date}. On va voir ce que tu as gagné depuis.</div>`
+        :`<div class="warn">Sois honnête avec toi-même : un bilan gonflé ne trompe que le prochain toi qui se plantera. Le but n'est pas d'être bon aujourd'hui, c'est de voir la vérité pour progresser.</div>`}`;
+    inner.appendChild(intro);
+    const start=document.createElement('button'); start.className='btn'; start.textContent='🎯 Lancer le bilan';
+    inner.appendChild(start);
+    const skip=document.createElement('button'); skip.className='btn ghost'; skip.textContent='Plus tard';
+    skip.onclick=close; inner.appendChild(skip);
+    start.onclick=()=>{
+      intro.remove(); start.remove(); skip.remove();
+      const axes={}, wrap=document.createElement('div'); inner.appendChild(wrap);
+      const R12=[0,1,2,3,4,5,6,7,8,9,10,11];
+      const seq=[
+        ['1/5 · Construis les accords','accords','chord',
+          {gen:{types:['maj','min'],roots:R12,count:6},sub:'Majeur ou mineur, toutes tonalités. Aucune aide.'}],
+        ['2/5 · Les renversements','renv','chord',
+          {items:genInvItems(5,['maj','min']),sub:'La note après le / doit être la plus grave.'}],
+        ['3/5 · Le langage des degrés','degres','quiz',
+          {qs:genDegQs(6),scored:true}],
+        ['4/5 · L\'oreille','oreille','ear',
+          {kinds:['maj','min'],count:6,pass:0,sub:'À l\'aveugle : brillant (majeur) ou sombre (mineur) ?'}],
+        ['5/5 · Les accords de 7e','sevens','chord',
+          {gen:{types:['maj7','m7','dom7'],roots:R12,count:5},sub:'maj7, m7, 7 — le son adulte. Pas grave si tu ne les as pas encore vus.'}],
+      ];
+      let k=0;
+      const next=()=>{
+        wrap.innerHTML='';
+        if(k>=seq.length) return finishBilan();
+        const [title,axis,type,ex]=seq[k];
+        const lab=document.createElement('p');
+        lab.style.cssText='text-align:center;color:var(--acc);font-size:13px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px';
+        lab.textContent=title; wrap.appendChild(lab);
+        const box=document.createElement('div'); wrap.appendChild(box);
+        const total=BILAN_AXES.find(a=>a.key===axis).total;
+        const eng={chord:runChord,quiz:runQuiz,ear:runEar}[type];
+        eng(box,ex,(ok,a,b)=>{
+          /* chord: a=score, b=nb d'items ratés → réussite 1er essai = total-b
+             quiz/ear: a=score */
+          const sc = type==='chord' ? total-(b||0) : (a||0);
+          axes[axis]=Math.max(0,Math.round(sc/total*100));
+          k++; next();
+        });
+      };
+      const finishBilan=()=>{
+        const prev=S.bilan;
+        const vals=BILAN_AXES.map(a=>axes[a.key]||0);
+        const global=Math.round(vals.reduce((s,x)=>s+x,0)/vals.length);
+        const bl=bilanLevel(global);
+        S.bilan={date:todayStr(), axes, global};
+        if(!S.bilanRewarded){ S.bilanRewarded=true; save(); award(40); } else save();
+        wrap.innerHTML='';
+        const head=document.createElement('div'); head.className='exhead';
+        head.innerHTML=`<div class="target">${bl.tag} ${global}/100</div>
+          <div class="sub">Profil de ${USER} · niveau estimé : <b style="color:var(--acc)">${bl.name}</b></div>`;
+        wrap.appendChild(head);
+        const bars=document.createElement('div'); bars.className='bilanbars';
+        BILAN_AXES.forEach(a=>{
+          const v=axes[a.key]||0, pv=prev&&prev.axes?prev.axes[a.key]:null;
+          const dv=(pv!=null)?v-pv:null;
+          const delta=dv==null?'':` <small>${dv>0?'▲+'+dv:dv<0?'▼'+dv:'='}</small>`;
+          const row=document.createElement('div'); row.className='brow';
+          row.innerHTML=`<span class="bl">${a.ico} ${a.label}</span>
+            <span class="bt"><i style="width:${v}%;background:${v>=70?'var(--ok)':v>=45?'var(--acc)':'var(--bad)'}"></i></span>
+            <span class="bv">${v}${delta}</span>`;
+          bars.appendChild(row);
+        });
+        wrap.appendChild(bars);
+        const reco=document.createElement('div'); reco.className='theory';
+        const gd=prev?global-prev.global:null;
+        const prog = gd==null?'' : gd>0?`<div class="tip" style="margin:10px 0">📈 <b>+${gd} points</b> depuis le ${prev.date}. Ça, c'est la preuve chiffrée que tu progresses — garde-la sous les yeux les jours de doute.</div>`
+          : gd<0?`<div class="warn" style="margin:10px 0">Score en baisse de ${-gd} depuis le ${prev.date}. Pas de drame : une mauvaise journée, ou des sections plus dures. Refais-en un demain à froid.</div>`
+          : `<div class="tip" style="margin:10px 0">Stable depuis le ${prev.date}. Le prochain palier se gagne dans les modules, pas dans le bilan.</div>`;
+        reco.innerHTML=`${prog}<div class="tip" style="margin:10px 0">🧭 ${bl.reco}</div>
+          <p style="color:var(--dim);font-size:13px">Refais ce bilan dans une ou deux semaines (onglet Outils) pour mesurer le chemin. C'est ton anti-flou : les chiffres ne mentent pas.</p>`;
+        wrap.appendChild(reco);
+        const done=document.createElement('button'); done.className='btn'; done.textContent='Retour au parcours';
+        done.onclick=()=>{ close(); render(); };
+        wrap.appendChild(done);
+      };
+      next();
+    };
   });
 }
 
