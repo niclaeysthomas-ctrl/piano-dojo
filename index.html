@@ -1036,6 +1036,51 @@ function render(){
 function nextLesson(){
   return ALL_LESSONS.find(l=>!S.done[l.id]) || null;
 }
+
+/* ---------------- LE COACH ----------------
+   Croise le bilan (où tu es faible), les erreurs en attente et ton palier
+   du jour pour ne donner qu'UNE consigne : celle qui rapporte le plus. */
+const WEAK_MAP=[
+  {key:'accords', label:'les accords',        req:'m0l2', run:()=>dojoChords()},
+  {key:'renv',    label:'les renversements',  req:'m1l1', run:()=>dojoInv()},
+  {key:'degres',  label:'les degrés',         req:'m2l1', run:()=>dojoDeg()},
+  {key:'oreille', label:'l\'oreille',         req:null,   run:()=>dojoEar()},
+  {key:'sevens',  label:'les accords de 7e',  req:'m5l1', run:()=>dojoSev()},
+];
+function weakSpot(){
+  if(!S.bilan||!S.bilan.axes) return null;
+  let best=null;
+  WEAK_MAP.forEach(m=>{
+    if(m.req && !S.done[m.req]) return;              // pas encore débloqué : on n'envoie pas dans le mur
+    const sc=S.bilan.axes[m.key];
+    if(sc==null) return;
+    if(!best || sc<best.score) best={...m, score:sc};
+  });
+  return best;
+}
+function coachAdvice(){
+  const n=errCount();
+  if(n>=3) return {ic:'🩹', title:'Rattrape tes erreurs', tone:'var(--bad)',
+    msg:`<b>${n}</b> points que tu as ratés attendent. Retravailler ce que tu as manqué vaut dix fois refaire ce que tu réussis déjà.`,
+    btn:'Rattraper maintenant', run:()=>dojoErrs()};
+  if(!S.bilan) return {ic:'🎓', title:'Commence par le bilan', tone:'var(--acc)',
+    msg:'Cinq épreuves, ~5 min. Sans mesure, tu travailles à l\'aveugle — et tu retiens surtout ce que tu rates.',
+    btn:'Lancer le bilan', run:()=>runBilan()};
+  const w=weakSpot();
+  if(w && w.score<70) return {ic:'🎯', title:'Ton point faible : '+w.label, tone:'var(--bad)',
+    msg:`Ton bilan te met à <b>${w.score}/100</b> sur ${w.label}. C'est là que tu gagnes le plus de terrain aujourd'hui — pas ailleurs.`,
+    btn:'Travailler '+w.label, run:w.run};
+  const nl=nextLesson();
+  if(nl && !palierTakenToday(nl.id)) return {ic:'📖', title:'Ton palier du jour', tone:'var(--acc)',
+    msg:`« ${nl.title} » t'attend. Un palier par jour, pas plus : c'est le temps qui ancre, pas le bachotage.`,
+    btn:'Ouvrir la leçon', run:()=>openLesson(nl)};
+  if(n>0) return {ic:'🩹', title:'Il reste des erreurs', tone:'var(--bad)',
+    msg:`<b>${n}</b> en attente. Finis le travail avant d'ajouter du neuf.`,
+    btn:'Rattraper', run:()=>dojoErrs()};
+  return {ic:'🥋', title:'Entretiens ton niveau', tone:'var(--ok)',
+    msg:'Palier pris, erreurs rattrapées. La session mixte rebrasse tout ce que tu sais déjà — c\'est ce qui empêche de perdre.',
+    btn:'Session mixte', run:()=>dojoMix()};
+}
 function renderParcours(){
   const lv=levelOf(S.xp);
   const pct = lv.next ? Math.round((S.xp-lv.base)/(lv.next[0]-lv.base)*100) : 100;
@@ -1053,14 +1098,32 @@ function renderParcours(){
   main.appendChild(hero);
   if(nl) hero.querySelector('#resume').onclick=()=>openLesson(nl);
 
+  /* le coach : UNE consigne, la plus rentable du moment */
+  const ad=coachAdvice();
+  const cc=document.createElement('div'); cc.className='card';
+  cc.style.borderColor=ad.tone;
+  cc.innerHTML=`<b style="font-size:15px">${ad.ic} ${ad.title}</b>
+    <p style="color:var(--dim);font-size:13px;margin:4px 0 0;line-height:1.5">${ad.msg}</p>`;
+  const cb=document.createElement('button'); cb.className='btn ghost'; cb.textContent=ad.btn;
+  cb.onclick=ad.run; cc.appendChild(cb); main.appendChild(cc);
+
   const d=ensureDaily();
   const daily=document.createElement('div'); daily.className='card daily';
   daily.innerHTML=`<b style="font-size:15px">📅 Séance du jour · ~15 min</b>`;
+  /* séance adaptative : l'échauffement devient du rattrapage si tu as des erreurs
+     en attente, et la 3e tâche vise ton point faible entre oreille et degrés
+     (les deux cochent la même case). */
+  const nErr=errCount();
+  const wk=weakSpot();
+  const slot2 = (wk && wk.key==='degres' && S.done['m2l1'])
+    ? ['🏛','Point faible : quiz des degrés', ()=>dojoDeg()]
+    : ['👂','Oreille : une série d\'écoute', ()=>dojoEar()];
   const tasks=[
-    ['⚡','Échauffement : sprint de 10 accords', ()=>dojoChords()],
+    nErr>=3 ? ['🩹','Rattrapage : '+nErr+' erreur'+(nErr>1?'s':'')+' en attente', ()=>dojoErrs()]
+            : ['⚡','Échauffement : sprint de 10 accords', ()=>dojoChords()],
     ['📖', nl ? 'Leçon : '+nl.title : 'Révision : une leçon au hasard',
       ()=>openLesson(nl || ALL_LESSONS[Math.floor(Math.random()*ALL_LESSONS.length)])],
-    ['👂','Oreille : une série d\'écoute', ()=>dojoEar()],
+    slot2,
   ];
   tasks.forEach(([ic,txt,fn],i)=>{
     const r=document.createElement('div'); r.className='row'+(d.done[i]?' ok':'');
@@ -1072,17 +1135,6 @@ function renderParcours(){
   bn.textContent = d.bonus ? '🔥 Séance complète — bonus encaissé.' : 'Les 3 dans la journée = +30 XP bonus.';
   daily.appendChild(bn);
   main.appendChild(daily);
-
-  if(errCount()){
-    const ec=document.createElement('div'); ec.className='card';
-    ec.style.borderColor='var(--bad)';
-    ec.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center">
-      <b style="font-size:15px">🩹 Mes erreurs</b>
-      <span style="color:var(--bad);font-weight:800">${errCount()}</span></div>
-      <p style="color:var(--dim);font-size:12px;margin:4px 0 0">Ce que tu as raté est retenu ici. C'est le chemin le plus court vers le niveau suivant — bien plus que refaire ce que tu réussis déjà.</p>`;
-    const eb=document.createElement('button'); eb.className='btn ghost'; eb.textContent='Rattraper maintenant';
-    eb.onclick=()=>dojoErrs(); ec.appendChild(eb); main.appendChild(ec);
-  }
 
   if(S.bilan){
     const bl=bilanLevel(S.bilan.global);
@@ -1397,7 +1449,7 @@ function dojoVL(){
 }
 function dojoDeg(){
   openCustom('🏛 Quiz des degrés',(inner,close)=>{
-    runQuiz(inner,{qs:genDegQs(6)},ok=>{ if(ok){award(10); toast('+10 XP');} close(); });
+    runQuiz(inner,{qs:genDegQs(6)},ok=>{ if(ok){dailyMark(2); award(10); toast('+10 XP');} close(); });
   });
 }
 function dojoShell(){
