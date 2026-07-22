@@ -288,7 +288,7 @@ const LEVELS = [
 ];
 
 /* ---------------- état / sauvegarde ---------------- */
-const DEFAULT_STATE = {xp:0, done:{}, prog:{}, streak:0, lastDay:null, earBest:0, daily:null, hist:{}, best:{}, labels:false, songs:{}, songsHand:{}, songsLH:{}, bilan:null, bilanRewarded:false, errs:{}};
+const DEFAULT_STATE = {xp:0, done:{}, prog:{}, streak:0, lastDay:null, earBest:0, daily:null, hist:{}, best:{}, labels:false, songs:{}, songsHand:{}, songsLH:{}, bilan:null, bilanRewarded:false, errs:{}, earStats:{}};
 const USER='Thomas';
 /* restauration de progression via ?restore=<base64> (transfert d'appareil / d'origine) */
 (function(){ try{
@@ -1462,26 +1462,107 @@ function dojoNamer(){
     inner.appendChild(b1); inner.appendChild(b2);
   });
 }
+/* échelle d'écoute : du plus facile (comparer) au plus dur (identifier seul) */
+const EAR_LEVELS=[
+  {id:'duel', t:'🅰️🅱️ Le duel', ab:true,
+   d:'Deux accords sur la MÊME note : lequel est majeur ? Comparer ne demande aucune référence en tête — c\'est comme ça qu\'on la fabrique. <b>Si tu bloques, c\'est ICI que tu commences.</b>',
+   cfg:{mode:'duel',count:10,fixedRoot:60,dyad:true,arp:true,sub:'Deux tierces sur Do. Laquelle sonne brillante ?'}},
+  {id:'samediff', t:'↔️ Pareils ou différents ?', ab:true,
+   d:'Deux accords : même couleur, ou pas ? Encore plus simple — tu n\'as même pas à les nommer.',
+   cfg:{mode:'samediff',count:10,arp:true,sub:'Ne nomme rien. Dis juste : pareils, ou différents ?'}},
+  {id:'l1', t:'① La tierce seule',
+   d:'Deux notes : fondamentale + tierce, toujours sur Do. La 2ᵉ est-elle brillante ou sombre ?',
+   cfg:{kinds:['maj','min'],count:10,fixedRoot:60,dyad:true,arp:true,sub:'2 notes, toujours sur Do. Brillante = majeur, sombre = mineur.'}},
+  {id:'l2', t:'② Couleur sur Do',
+   d:'Accord complet, toujours sur Do : seule la tierce bouge d\'une fois à l\'autre.',
+   cfg:{kinds:['maj','min'],count:10,fixedRoot:60,arp:true,sub:'Toujours Do — vise la note du milieu.'}},
+  {id:'l3', t:'③ Note par note',
+   d:'Accords égrenés, fondamentales variées. Repère la tierce au vol.',
+   cfg:{kinds:['maj','min'],count:10,arp:true,sub:'Écouté note par note.'}},
+  {id:'l4', t:'④ Accord plaqué',
+   d:'Le vrai test : accords plaqués, fondamentales au hasard.',
+   cfg:{kinds:['maj','min'],count:10,sub:'Majeur ou mineur, plaqué.'}},
+  {id:'l5', t:'⑤ Les couleurs de 7e',
+   d:'maj7 / m7 / 7 — le niveau musicien.',
+   cfg:{kinds:['maj7','m7','dom7'],count:10,sub:'Trois couleurs de 7e.'}},
+];
+function earStat(id){ if(!S.earStats) S.earStats={}; return S.earStats[id]||{n:0,best:0}; }
+/* le niveau à travailler = le premier pas encore tenu à 80 % */
+function earNextLevel(){
+  for(const L of EAR_LEVELS){ const st=earStat(L.id); if(st.best<80) return L.id; }
+  return EAR_LEVELS[EAR_LEVELS.length-1].id;
+}
+function earMethod(inner,menu){
+  if(menu) menu.remove();
+  const w=document.createElement('div'); w.className='theory'; inner.appendChild(w);
+  w.innerHTML=`
+<p>Si tu t'entraînes tous les jours et que tu stagnes, <b>ce n'est pas ton oreille</b> : c'est la tâche qui est mal choisie. Dire « cet accord est majeur » tout seul demande une <b>référence en mémoire</b>. Tant que tu ne l'as pas, tu devines — et deviner 200 fois n'apprend rien.</p>
+<div class="warn">D'où la règle : tant que le <b>duel</b> (comparer deux accords) n'est pas à 80 %, ne fais aucun autre niveau. Ça paraît trop facile ? C'est exactement pour ça que ça marche.</div>
+<h3>La procédure, à appliquer à chaque écoute</h3>
+<ul>
+<li><b>1. N'écoute pas l'accord.</b> Écoute <b>la note du milieu</b>, uniquement. C'est la seule qui change.</li>
+<li><b>2. Chante-la</b> — même tout bas, même mal. Produire un son l'ancre bien plus vite que l'écouter passivement. C'est le point que 90 % des gens sautent.</li>
+<li><b>3. Compare-la à la note du bas.</b> Écartée et ouverte → <b>majeur</b>. Resserrée, tassée → <b>mineur</b>. Le mineur, c'est littéralement la même note <b>descendue d'un demi-ton</b>.</li>
+</ul>
+<h3>Tes deux ancres</h3>
+<ul>
+<li><b>Majeur</b> = l'accord de fin de « Joyeux anniversaire ». Ça se pose, c'est résolu, ça sourit.</li>
+<li><b>Mineur</b> = la couleur de « Greensleeves », des musiques de suspense. Ça se referme.</li>
+</ul>
+<div class="tip">Le geste qui change tout, au vrai piano : joue Do–Mi–Sol, puis <b>descends juste le Mi d'un demi-ton</b> (Mi♭) et rejoue. Fais-le dix fois de suite en fermant les yeux. Tu n'apprends pas deux accords : tu apprends <b>une note qui bouge</b>.</div>
+<div class="warn">Enfin : la fatigue tue l'oreille. <b>5 minutes concentrées</b> valent mieux que 20 minutes distraites. Arrête-toi dès que tu réponds au hasard.</div>`;
+  const b=document.createElement('button'); b.className='btn'; b.textContent='🅰️🅱️ Commencer par le duel';
+  b.onclick=()=>{ w.remove(); b.remove(); back.remove(); earRun(inner,EAR_LEVELS[0]); };
+  inner.appendChild(b);
+  const back=document.createElement('button'); back.className='btn ghost'; back.textContent='← Retour aux niveaux';
+  back.onclick=()=>dojoEar(); inner.appendChild(back);
+}
+function earRun(inner,L){
+  const done=(ok,sc)=>{
+    const pct=Math.round(sc/L.cfg.count*100);
+    if(!S.earStats) S.earStats={};
+    const st=earStat(L.id);
+    S.earStats[L.id]={n:st.n+1, best:Math.max(st.best,pct), last:pct};
+    if(sc>S.earBest){ S.earBest=sc; }
+    save();
+    dailyMark(2); award(10);
+    toast(`+10 XP · ${sc}/${L.cfg.count}`);
+    closeOverlay();
+  };
+  if(L.ab) runEarAB(inner,L.cfg,done);
+  else runEar(inner,{...L.cfg,pass:0},done);
+}
 function dojoEar(){
   openCustom('👂 Salle d\'écoute',(inner,close)=>{
     const menu=document.createElement('div');
-    menu.innerHTML=`<p style="color:var(--dim);font-size:14px;margin-bottom:12px">Le secret du majeur/mineur, c'est <b style="color:var(--txt)">la 3ᵉ note</b> de l'accord. <b style="color:var(--acc)">Majeur</b> = tierce brillante (4 demi-tons au-dessus de la fondamentale). <b style="color:var(--acc)">Mineur</b> = tierce sombre (3 demi-tons). On l'isole, puis on complique palier par palier.</p>`;
+    const reco=earNextLevel();
+    menu.innerHTML=`<p style="color:var(--dim);font-size:14px;margin-bottom:10px">
+      Le majeur et le mineur ne diffèrent que par <b style="color:var(--txt)">une seule note</b> : celle du milieu, descendue d'un demi-ton en mineur. Tout est là.</p>`;
     inner.appendChild(menu);
-    const lvl=(title,desc,fn)=>{
+    const mc=document.createElement('div'); mc.className='card'; mc.style.borderColor='var(--blue)';
+    mc.innerHTML=`<b style="font-size:15px">🧭 La méthode (lis ça d'abord)</b>
+      <p style="color:var(--dim);font-size:13px;margin:4px 0 0">Pourquoi tu stagnes, et la procédure en 3 étapes à appliquer à chaque écoute. 2 minutes de lecture qui valent des semaines de clics au hasard.</p>`;
+    const mb=document.createElement('button'); mb.className='btn ghost'; mb.textContent='Ouvrir la méthode';
+    mb.onclick=()=>earMethod(inner,menu); mc.appendChild(mb); menu.appendChild(mc);
+    EAR_LEVELS.forEach(L=>{
+      const st=earStat(L.id), isReco=(L.id===reco);
       const c=document.createElement('div'); c.className='card';
-      c.innerHTML=`<b style="font-size:15px">${title}</b><p style="color:var(--dim);font-size:13px;margin:4px 0 0">${desc}</p>`;
-      const b=document.createElement('button'); b.className='btn ghost'; b.textContent='Lancer'; b.onclick=fn; c.appendChild(b);
-      menu.appendChild(c);
-    };
-    const start=cfg=>{ menu.remove();
-      runEar(inner,{...cfg,pass:0},(ok,sc)=>{ if(sc>S.earBest){S.earBest=sc;save();} dailyMark(2); award(10); toast(`+10 XP · ${sc}/${cfg.count}`); close(); });
-    };
-    lvl('🔍 Le comparateur','Écoute majeur PUIS mineur sur la même note, autant que tu veux. Pas de score — juste pour te caler une référence dans l\'oreille.', ()=>earCompare(inner,menu));
-    lvl('① La tierce seule','Deux notes : fondamentale + tierce. La 2ᵉ est-elle brillante ou sombre ? Le point de départ le plus simple.', ()=>start({kinds:['maj','min'],count:10,fixedRoot:60,dyad:true,arp:true,sub:'2 notes, toujours sur Do. Brillante = majeur, sombre = mineur.'}));
-    lvl('② Couleur sur Do','Accord complet, toujours sur Do : seule la tierce bouge d\'une fois à l\'autre.', ()=>start({kinds:['maj','min'],count:10,fixedRoot:60,arp:true,sub:'Toujours Do — concentre-toi sur la tierce.'}));
-    lvl('③ Note par note','Accords égrenés, fondamentales variées. Repère la tierce au vol.', ()=>start({kinds:['maj','min'],count:10,arp:true,sub:'Écouté note par note.'}));
-    lvl('④ Accord plaqué','Le vrai test : accords plaqués, fondamentales au hasard. Fie-toi à la couleur d\'ensemble.', ()=>start({kinds:['maj','min'],count:10,sub:'Majeur ou mineur, plaqué.'}));
-    lvl('⑤ Les couleurs de 7e','maj7 / m7 / 7 — le niveau musicien.', ()=>start({kinds:['maj7','m7','dom7'],count:10,sub:'Trois couleurs de 7e.'}));
+      if(isReco) c.style.borderColor='var(--acc)';
+      c.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+          <b style="font-size:15px">${L.t}</b>
+          ${st.n?`<span style="font-size:12px;font-weight:800;color:${st.best>=80?'var(--ok)':'var(--dim)'}">${st.best}%</span>`:''}
+        </div>
+        ${isReco?'<div style="font-size:11px;font-weight:800;color:var(--acc);letter-spacing:1px;margin-top:2px">▶ COMMENCE ICI</div>':''}
+        <p style="color:var(--dim);font-size:13px;margin:4px 0 0;line-height:1.5">${L.d}</p>`;
+      const b=document.createElement('button'); b.className=isReco?'btn':'btn ghost'; b.textContent='Lancer';
+      b.onclick=()=>{ menu.remove(); earRun(inner,L); };
+      c.appendChild(b); menu.appendChild(c);
+    });
+    const cc=document.createElement('div'); cc.className='card';
+    cc.innerHTML=`<b style="font-size:15px">🔍 Le comparateur libre</b>
+      <p style="color:var(--dim);font-size:13px;margin:4px 0 0">Majeur puis mineur sur la même note, autant que tu veux, sans score. À utiliser sans modération avant chaque série.</p>`;
+    const cb2=document.createElement('button'); cb2.className='btn ghost'; cb2.textContent='Ouvrir';
+    cb2.onclick=()=>earCompare(inner,menu); cc.appendChild(cb2); menu.appendChild(cc);
   });
 }
 function earCompare(inner,menu){
@@ -2230,10 +2311,16 @@ function runEar(el,ex,cb){
       fb.textContent='✓ '+label[cur.t]+(isTri?' · '+third[cur.t]:''); fb.className='fb ok'; }
     else { buzz(); badIdx.add(i);
       if(!ex.noLog) errAdd('ear',{t:cur.t});
-      fb.textContent='✗ C\'était '+label[cur.t]+(isTri?' — '+third[cur.t]:'')+'. Réécoute :'; fb.className='fb bad';
+      /* LE moment où on apprend : on rejoue CE QUE TU AS CRU, puis CE QUE C'ÉTAIT,
+         sur la même fondamentale. Entendre le contraste vaut dix bonnes réponses. */
+      fb.innerHTML=`✗ Tu as dit <b>${label[k]}</b>, c'était <b>${label[cur.t]}</b>. Écoute les deux à la suite :`;
+      fb.className='fb bad';
       btns.querySelector(`[data-k="${cur.t}"]`).classList.add('ok');
-      setTimeout(playArp,350); }
-    setTimeout(()=>{ i++; if(i<ex.count) next(); else finish(); }, k===cur.t?1200:2200);
+      const notesFor=t=>{ const iv=CHORD_TYPES[t].iv; const use=ex.dyad?[iv[0],iv[1]]:iv; return use.map(x=>cur.rootMidi+x); };
+      notesFor(k).forEach((m,ix)=>playNote(m,1.2,.34,.35+ix*.03));
+      notesFor(cur.t).forEach((m,ix)=>playNote(m,1.6,.42,2.05+ix*.03));
+    }
+    setTimeout(()=>{ i++; if(i<ex.count) next(); else finish(); }, k===cur.t?1200:4200);
   };
   const finish=()=>{
     const okPass=score>=(ex.pass||0);
@@ -2244,6 +2331,77 @@ function runEar(el,ex,cb){
     if(!okPass){ const rb=document.createElement('button'); rb.className='btn'; rb.textContent='↻ Recommencer';
       rb.onclick=()=>{ el.innerHTML=''; runEar(el,ex,cb); }; el.appendChild(rb); return; }
     setTimeout(()=>cb(true,score),1300);
+  };
+  next();
+}
+
+/* ---------- moteur : OREILLE A/B (comparaison) ----------
+   Le barreau qui manquait. Identifier un accord seul (« c'est majeur ? »)
+   exige un modèle interne. COMPARER deux accords n'en exige aucun : c'est
+   ainsi qu'on FABRIQUE le modèle. On ne passe à l'absolu qu'après. */
+function runEarAB(el,ex,cb){
+  let i=0, score=0, answered=false, cur=null; const badIdx=new Set();
+  const label={maj:'Majeur',min:'Mineur'};
+  el.innerHTML=`<div class="exhead"><div class="target">${ex.mode==='duel'?'🅰️🅱️':'↔️'}</div>
+    <div class="sub">${ex.sub||''}</div></div>
+    <div class="exprog" id="dots"></div>
+    <div class="exrow"><button class="btn ghost" id="rep">🔊 Les deux</button>
+      <button class="btn ghost" id="r1">① seul</button><button class="btn ghost" id="r2">② seul</button></div>
+    <div class="earbtns" id="btns"></div><div class="fb" id="fb"></div>`;
+  const dots=el.querySelector('#dots'), fb=el.querySelector('#fb'), btns=el.querySelector('#btns');
+  const notesOf=t=>{ const iv=CHORD_TYPES[t].iv; const use=ex.dyad?[iv[0],iv[1]]:iv; return use.map(x=>cur.root+x); };
+  const playOne=(t,when)=>{ const n=notesOf(t);
+    if(ex.arp) n.forEach((m,ix)=>playNote(m,.8,.4,when+ix*.4));
+    else n.forEach((m,ix)=>playNote(m,1.5,.36,when+ix*.03)); };
+  const gap=ex.arp?1.9:1.7;
+  const playPair=()=>{ playOne(cur.a,.05); playOne(cur.b,gap); };
+  el.querySelector('#rep').onclick=()=>cur&&playPair();
+  el.querySelector('#r1').onclick=()=>cur&&playOne(cur.a,.05);
+  el.querySelector('#r2').onclick=()=>cur&&playOne(cur.b,.05);
+  const opts = ex.mode==='duel' ? [['1','① Le premier'],['2','② Le deuxième']]
+                                : [['same','Pareils'],['diff','Différents']];
+  opts.forEach(([k,txt])=>{ const b=document.createElement('button');
+    b.className='btn ghost'; b.textContent=txt; b.dataset.k=k; b.onclick=()=>answer(k,b); btns.appendChild(b); });
+  const next=()=>{
+    answered=false;
+    const root=ex.fixedRoot!=null?ex.fixedRoot:52+Math.floor(Math.random()*13);
+    if(ex.mode==='duel'){
+      const majFirst=Math.random()<.5;
+      cur={root, a:majFirst?'maj':'min', b:majFirst?'min':'maj', sol:majFirst?'1':'2'};
+    } else {
+      const same=Math.random()<.5, first=Math.random()<.5?'maj':'min';
+      cur={root, a:first, b:same?first:(first==='maj'?'min':'maj'), sol:same?'same':'diff'};
+    }
+    fb.textContent=''; fb.className='fb';
+    btns.querySelectorAll('.btn').forEach(b=>{ b.classList.remove('ok'); b.style.pointerEvents='auto'; });
+    progDots(dots,ex.count,i,badIdx);
+    setTimeout(playPair,350);
+  };
+  const answer=(k,b)=>{
+    if(answered) return; answered=true;
+    btns.querySelectorAll('.btn').forEach(x=>x.style.pointerEvents='none');
+    const ok=(k===cur.sol);
+    if(ok){ score++; b.classList.add('ok'); tada();
+      fb.innerHTML=ex.mode==='duel'
+        ? `✓ Oui : ① ${label[cur.a]} · ② ${label[cur.b]}`
+        : `✓ Oui — ① ${label[cur.a]} · ② ${label[cur.b]}`;
+      fb.className='fb ok';
+    } else {
+      buzz(); badIdx.add(i); errAdd('ear',{t:cur.a==='maj'?'min':'maj'});
+      fb.innerHTML=`✗ ① était <b>${label[cur.a]}</b>, ② <b>${label[cur.b]}</b>. Réécoute en visant la <b>note du milieu</b> :`;
+      fb.className='fb bad';
+      btns.querySelector(`[data-k="${cur.sol}"]`).classList.add('ok');
+      setTimeout(playPair,300);
+    }
+    setTimeout(()=>{ i++; if(i<ex.count) next(); else finish(); }, ok?1400:4000);
+  };
+  const finish=()=>{
+    const pct=Math.round(score/ex.count*100);
+    el.innerHTML=`<div class="exhead"><div class="target">${pct>=80?'👂':'🎧'} ${score}/${ex.count}</div>
+      <div class="sub">${pct>=80?'Tu entends la différence. Monte d\'un cran.'
+        :pct>=60?'Ça vient. Refais ce niveau : c\'est la répétition du CONTRASTE qui installe le repère.'
+        :'Reste ici, ne monte pas. Utilise « ① seul » / « ② seul » et chante la note du milieu avant de répondre.'}</div></div>`;
+    setTimeout(()=>cb(true,score),1500);
   };
   next();
 }
