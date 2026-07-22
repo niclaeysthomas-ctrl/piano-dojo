@@ -288,7 +288,7 @@ const LEVELS = [
 ];
 
 /* ---------------- état / sauvegarde ---------------- */
-const DEFAULT_STATE = {xp:0, done:{}, prog:{}, streak:0, lastDay:null, earBest:0, daily:null, hist:{}, best:{}, labels:false, songs:{}, songsHand:{}, songsLH:{}, bilan:null, bilanRewarded:false};
+const DEFAULT_STATE = {xp:0, done:{}, prog:{}, streak:0, lastDay:null, earBest:0, daily:null, hist:{}, best:{}, labels:false, songs:{}, songsHand:{}, songsLH:{}, bilan:null, bilanRewarded:false, errs:{}};
 const USER='Thomas';
 /* restauration de progression via ?restore=<base64> (transfert d'appareil / d'origine) */
 (function(){ try{
@@ -359,6 +359,32 @@ function dailyMark(i){
     setTimeout(()=>toast('📅 Séance du jour complète · +30 XP'),900);
   }
 }
+
+/* ---------------- MES ERREURS ----------------
+   Tout ce que tu rates est retenu et te sera re-servi. Boîtes façon Leitner :
+   une erreur sort de la liste après 2 réussites en révision — pas avant.
+   C'est l'anti-flou : ce que tu évites, l'app te le remet sous le nez. */
+function errsObj(){ if(!S.errs) S.errs={}; return S.errs; }
+function errKey(kind,d){
+  if(kind==='chord') return 'c:'+d.root+':'+d.t+':'+(d.bass!=null?d.bass:'-')+':'+(d.iv?d.iv.join('.'):'-');
+  if(kind==='ear')   return 'e:'+d.t;
+  if(kind==='quiz')  return 'q:'+String(d.q||'').slice(0,70);
+  return 'x:'+JSON.stringify(d).slice(0,70);
+}
+function errAdd(kind,d){
+  const E=errsObj(), k=errKey(kind,d), cur=E[k];
+  E[k]={kind, d, n:(cur?cur.n:0)+1, box:0, last:todayStr()};
+  save();
+}
+function errPass(k){
+  const E=errsObj(), e=E[k]; if(!e) return;
+  e.box=(e.box||0)+1; e.last=todayStr();
+  if(e.box>=2){ delete E[k]; save(); return true; }
+  save(); return false;
+}
+function errFail(k){ const e=errsObj()[k]; if(e){ e.box=0; e.n++; e.last=todayStr(); save(); } }
+function errCount(){ return Object.keys(errsObj()).length; }
+function errsOf(kind){ return Object.entries(errsObj()).filter(([,e])=>e.kind===kind); }
 
 /* ---------------- audio ---------------- */
 let AC=null;
@@ -1047,6 +1073,17 @@ function renderParcours(){
   daily.appendChild(bn);
   main.appendChild(daily);
 
+  if(errCount()){
+    const ec=document.createElement('div'); ec.className='card';
+    ec.style.borderColor='var(--bad)';
+    ec.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center">
+      <b style="font-size:15px">🩹 Mes erreurs</b>
+      <span style="color:var(--bad);font-weight:800">${errCount()}</span></div>
+      <p style="color:var(--dim);font-size:12px;margin:4px 0 0">Ce que tu as raté est retenu ici. C'est le chemin le plus court vers le niveau suivant — bien plus que refaire ce que tu réussis déjà.</p>`;
+    const eb=document.createElement('button'); eb.className='btn ghost'; eb.textContent='Rattraper maintenant';
+    eb.onclick=()=>dojoErrs(); ec.appendChild(eb); main.appendChild(ec);
+  }
+
   if(S.bilan){
     const bl=bilanLevel(S.bilan.global);
     const bc=document.createElement('div'); bc.className='card';
@@ -1093,6 +1130,11 @@ function renderParcours(){
 
 /* ---------------- Dojo (entraînement libre, salles à débloquer) ---------------- */
 const DRILLS=[
+  {id:'errs', icon:'🩹', title:'MES ERREURS', req:null,
+   desc:()=>errCount()
+     ? `<b style="color:var(--bad)">${errCount()}</b> point(s) que tu as raté(s) t'attendent. Une erreur ne sort de la liste qu'après <b>2 réussites</b> — c'est là que le progrès se fait, pas dans ce que tu sais déjà.`
+     : 'Rien en attente : tout ce que tu as raté a été rattrapé. Les prochaines erreurs atterriront ici automatiquement.',
+   run:()=>dojoErrs()},
   {id:'mix', icon:'🎯', title:'SESSION MIXTE', req:'m0l2',
    desc:()=>'Un peu de tout ce que tu as déjà vu, mélangé au hasard. S\'enrichit automatiquement à chaque leçon validée. +25 XP.',
    run:()=>dojoMix()},
@@ -1416,6 +1458,66 @@ function dojoScale(){
 }
 
 /* ---------- session mixte : pioche dans tout ce qui est débloqué ---------- */
+/* ---------- salle : MES ERREURS ----------
+   Rejoue exactement ce qui a été raté. Les accords sont notés un par un
+   (réussi du premier coup = une boîte de gagnée) ; l'oreille et les degrés
+   sont notés par lot (sans faute = maîtrisé). */
+function dojoErrs(){
+  const chordErrs=errsOf('chord').slice(0,8);
+  const earErrs=errsOf('ear').slice(0,4);
+  const quizErrs=errsOf('quiz').slice(0,4);
+  if(!chordErrs.length && !earErrs.length && !quizErrs.length){
+    return openCustom('🩹 Mes erreurs',(inner,close)=>{
+      inner.insertAdjacentHTML('beforeend',`<div class="exhead"><div class="target">✨</div>
+        <div class="sub">Rien en attente. Tout ce que tu as raté a été rattrapé — continue le parcours, l'app remplira cette salle toute seule.</div></div>`);
+      const b=document.createElement('button'); b.className='btn'; b.textContent='Retour'; b.onclick=close; inner.appendChild(b);
+    });
+  }
+  const segs=[];
+  if(chordErrs.length) segs.push(['Accords ratés','chord',
+    {items:chordErrs.map(([,e])=>e.d), noLog:true, sub:'Ceux que tu as manqués. Prends ton temps.'},
+    (keys=>(ok,score,nFailed,failedSet)=>{
+      keys.forEach((k,idx)=>{ if(failedSet && failedSet.has(idx)) errFail(k); else errPass(k); });
+    })(chordErrs.map(([k])=>k))]);
+  if(earErrs.length) segs.push(['Oreille','ear',
+    {kinds:[...new Set(earErrs.map(([,e])=>e.d.t))], count:Math.max(3,earErrs.length), pass:0, noLog:true,
+     sub:'Les couleurs que tu confonds. Sans faute = maîtrisées.'},
+    (keys=>(ok,score,_n,_f,total)=>{
+      const perfect=score>=Math.max(3,keys.length);
+      keys.forEach(k=>perfect?errPass(k):errFail(k));
+    })(earErrs.map(([k])=>k))]);
+  if(quizErrs.length) segs.push(['Degrés','quiz',
+    {qs:quizErrs.map(([,e])=>e.d), scored:true, noLog:true},
+    (keys=>(ok,score)=>{ const perfect=score>=keys.length;
+      keys.forEach(k=>perfect?errPass(k):errFail(k)); })(quizErrs.map(([k])=>k))]);
+
+  const before=errCount();
+  openCustom('🩹 Mes erreurs',(inner,close)=>{
+    const runners={chord:runChord,ear:runEar,quiz:runQuiz};
+    let k=0;
+    const step=()=>{
+      inner.querySelectorAll('.errseg').forEach(x=>x.remove());
+      if(k>=segs.length){
+        const fixed=Math.max(0,before-errCount());
+        const d=document.createElement('div'); d.className='errseg';
+        d.innerHTML=`<div class="exhead"><div class="target">🩹</div>
+          <div class="sub">${fixed?`<b style="color:var(--ok)">${fixed}</b> erreur(s) définitivement rayée(s) de la liste.`:'Rien de rayé cette fois — il reste du travail, et c\'est exactement pour ça que la salle existe.'}
+          ${errCount()?`<br>Encore <b>${errCount()}</b> en attente.`:'<br>Liste vide. Propre.'}</div></div>`;
+        inner.appendChild(d);
+        dailyMark(0); award(15); toast('🩹 Révision des erreurs · +15 XP');
+        setTimeout(close,1900); return;
+      }
+      const [name,type,ex,onDone]=segs[k];
+      const d=document.createElement('div'); d.className='errseg';
+      d.innerHTML=`<p style="text-align:center;color:var(--acc);font-size:13px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:2px">${k+1}/${segs.length} — ${name}</p>`;
+      const exDiv=document.createElement('div'); d.appendChild(exDiv);
+      inner.appendChild(d);
+      runners[type](exDiv,ex,(...args)=>{ try{ onDone(...args); }catch(e){} k++; step(); });
+    };
+    step();
+  });
+}
+
 function mixSegments(){
   const segs=[], R12=[0,1,2,3,4,5,6,7,8,9,10,11];
   if(S.done['m0l2']) segs.push(['Accords','chord',{gen:{types:['maj','min'],roots:R12,count:3},sub:'Formule, pas mémoire.'}]);
@@ -1503,6 +1605,7 @@ function renderOutils(){
     <div class="stat"><b>${S.hist[todayStr()]||0}</b><small>XP aujourd'hui</small></div>
     <div class="stat"><b>${Object.keys(S.songs||{}).length}</b><small>morceaux joués</small></div>
     <div class="stat"><b>${S.earBest||'–'}</b><small>record oreille /10</small></div>
+    <div class="stat"><b style="color:${errCount()?'var(--bad)':'var(--ok)'}">${errCount()}</b><small>erreurs à rattraper</small></div>
     <div class="stat"><b>${S.best.sprint?S.best.sprint+'s':'–'}</b><small>record sprint sans faute</small></div>
     ${S.best.inv?`<div class="stat"><b>${S.best.inv}s</b><small>record renversements</small></div>`:''}
     ${S.best.sev?`<div class="stat"><b>${S.best.sev}s</b><small>record sprint des 7e</small></div>`:''}
@@ -1609,6 +1712,7 @@ function runQuiz(el,ex,cb){
         el.querySelectorAll('.quizopt').forEach(x=>x.style.pointerEvents='none');
         if(oi===q.a){ b.classList.add('right'); tada(); }
         else { b.classList.add('wrong'); wrong++; buzz();
+          if(!ex.noLog) errAdd('quiz',q);
           el.querySelectorAll('.quizopt')[q.a].classList.add('right'); }
         const why=document.createElement('div'); why.className='quizwhy'; why.textContent=q.why;
         el.appendChild(why);
@@ -1686,6 +1790,7 @@ function runChord(el,ex,cb){
       setTimeout(()=>{ i++; if(i<items.length) show(); else finish(); },900);
     } else {
       fails++; failedItems.add(i);
+      if(fails===1 && !ex.noLog) errAdd('chord', it);
       buzz(); kb.kbd.classList.add('shake'); setTimeout(()=>kb.kbd.classList.remove('shake'),400);
       if(fails===1) fb.textContent= it.msg1 || (it.bass!=null
         ? '✗ Vérifie les notes ET la basse (note la plus grave = '+NOTE[it.bass]+').'
@@ -1708,7 +1813,7 @@ function runChord(el,ex,cb){
       : 'En dessous de '+pass+'/'+items.length+'. On ne négocie pas avec les fondations : recommence.'}</div></div>`;
     if(!okPass){ const rb=document.createElement('button'); rb.className='btn'; rb.textContent='↻ Recommencer';
       rb.onclick=()=>{ el.innerHTML=''; runChord(el,ex,cb); }; el.appendChild(rb); return; }
-    setTimeout(()=>cb(true,score,failedItems.size),1300);
+    setTimeout(()=>cb(true,score,failedItems.size,failedItems,items),1300);
   };
   show();
 }
@@ -1852,6 +1957,7 @@ function runEar(el,ex,cb){
     if(k===cur.t){ score++; b.classList.add('ok'); tada();
       fb.textContent='✓ '+label[cur.t]+(isTri?' · '+third[cur.t]:''); fb.className='fb ok'; }
     else { buzz(); badIdx.add(i);
+      if(!ex.noLog) errAdd('ear',{t:cur.t});
       fb.textContent='✗ C\'était '+label[cur.t]+(isTri?' — '+third[cur.t]:'')+'. Réécoute :'; fb.className='fb bad';
       btns.querySelector(`[data-k="${cur.t}"]`).classList.add('ok');
       setTimeout(playArp,350); }
