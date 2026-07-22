@@ -339,7 +339,8 @@ const REPS={
   m4l1:3, m4l2:3,
   m5l1:5, m5l2:5, m5l3:5, m5l4:4,
   m6l1:3, m6l2:4, m6l3:4, m6l4:4,
-  m7l1:3, m7l2:3
+  m7l1:3, m7l2:3,
+  m8l1:6, m8l2:4, m8l3:3, m8l4:5
 };
 function lessonReps(l){ return REPS[l.id]||3; }
 function progOf(id){ if(!S.prog) S.prog={}; return S.prog[id]||{n:0,last:null}; }
@@ -1012,8 +1013,172 @@ Exemple <b>C mineur</b> : C, compte 3 → Eb, compte 4 → G. <b>C–Eb–G</b>.
 <p>Après ce boss : le parcours est fini, pas ton apprentissage. Le Dojo reste ouvert pour t'entraîner en illimité, et chaque module se rejoue. Un grade, ça s'entretient.</p>`,
     ex:{type:'ear', kinds:['maj7','m7','dom7'], count:10, pass:7, sub:'Boss final : 7/10 minimum.'}},
 ]},
+{ id:'m8', title:'Module 8 · Gammes & modes', lessons:[
+  { id:'m8l1', icon:'🗝', title:'Les 12 gammes, sans exception', sub:'Celles que tu évites sont celles qui te manquent', xp:90,
+    theory:`
+<p>Tu connais la formule depuis le module 6 : <b>2-2-1-2-2-2-1</b>. Le problème n'est pas là. Le problème, c'est que tu joues toujours en Do, Sol, Fa — et que tu contournes Si, Fa#, Ré♭ depuis le début.</p>
+<div class="formula">TON · TON · ½ · TON · TON · TON · ½</div>
+<h3>Ce qui change quand tu les as toutes</h3>
+<ul>
+<li>Tu peux <b>transposer un morceau</b> pour l'adapter à une voix, sans transpirer.</li>
+<li>Tu arrêtes de « chercher » : ta main sait où sont les noires avant d'y arriver.</li>
+<li>Les accords deviennent gratuits : une gamme sue, ce sont ses 7 accords offerts.</li>
+</ul>
+<h3>La méthode qui marche vraiment</h3>
+<p>Pas les 12 d'un coup. <b>Une gamme par jour</b>, dans l'ordre des dièses puis des bémols (Do → Sol → Ré → La → Mi → Si, puis Fa → Si♭ → Mi♭ → La♭ → Ré♭). Chaque jour : la nouvelle + toutes les précédentes. Le 12<sup>e</sup> jour tu les as.</p>
+<div class="warn">Cet exercice te sert exprès les tonalités que tu fuis. Si tu trouves ça pénible, c'est le signe que tu en avais besoin — pas que l'exercice est mal fait.</div>
+<div class="tip">Au vrai piano, ajoute le doigté : la plupart des gammes majeures se doigtent 1-2-3 · 1-2-3-4-5 à la main droite. Les tonalités à noires ont des doigtés propres — ne les invente pas, cherche-les une fois, garde-les à vie.</div>`,
+    ex:{type:'scale', exGen:()=>genMajScaleHard()}},
+  { id:'m8l2', icon:'🔑', title:'Les armures', sub:'Combien de dièses, combien de bémols — et pourquoi', xp:70,
+    theory:`
+<p>Une <b>armure</b>, c'est le raccourci qui dit « dans ce morceau, ces notes-là sont altérées, tout le temps ». La connaître, c'est savoir dans quelle tonalité on est en un coup d'œil.</p>
+<h3>L'ordre, toujours le même</h3>
+<div class="formula">Dièses : <b>Fa Do Sol Ré La Mi Si</b><br>Bémols : <b>Si Mi La Ré Sol Do Fa</b></div>
+<p>Regarde bien : <b>l'un est l'autre à l'envers</b>. Tu n'as donc qu'une seule liste à retenir.</p>
+<h3>Le compte, tonalité par tonalité</h3>
+<ul>
+<li><b>Dièses</b> : Sol 1 · Ré 2 · La 3 · Mi 4 · Si 5 · Fa# 6</li>
+<li><b>Bémols</b> : Fa 1 · Si♭ 2 · Mi♭ 3 · La♭ 4 · Ré♭ 5</li>
+<li><b>Do</b> : rien du tout — c'est pour ça que tout le monde y reste.</li>
+</ul>
+<div class="tip">Deux astuces de lecture : le <b>dernier dièse</b> est la sensible → la tonique est un demi-ton au-dessus (dernier dièse = Do# → tonalité de Ré). Le <b>avant-dernier bémol</b> donne directement le nom de la tonalité (bémols Si Mi La → tonalité de Mi♭).</div>`,
+    ex:{type:'quiz', qsGen:()=>genKeyQs(6)}},
+  { id:'m8l3', icon:'🎨', title:'Une gamme, sept modes', sub:'Mêmes notes, autre point de départ', xp:90,
+    theory:`
+<p>Voilà ce que ton ami t'a expliqué, mis au propre. Prends la gamme de Do — <b>que des touches blanches</b>. Maintenant, au lieu de partir de Do, pars d'une autre note et monte jusqu'à son octave, toujours en touches blanches.</p>
+<div class="formula">Do→Do = <b>ionien</b> (majeur) · Ré→Ré = <b>dorien</b> · Mi→Mi = <b>phrygien</b><br>Fa→Fa = <b>lydien</b> · Sol→Sol = <b>mixolydien</b> · La→La = <b>éolien</b> (mineur) · Si→Si = <b>locrien</b></div>
+<h3>Le point qui bloque tout le monde</h3>
+<p>Les notes sont <b>rigoureusement identiques</b>. Ce qui change, c'est la note qui sert de <b>maison</b> — donc la place des demi-tons par rapport à elle, donc la couleur. Ré dorien ne « contient » rien de plus que Do majeur : il l'entend depuis Ré.</p>
+<div class="warn">Piège classique : croire qu'un mode est une nouvelle gamme à mémoriser. Non — c'est un <b>point de vue</b> sur une gamme que tu connais déjà. Tu en sais donc déjà 7 pour le prix d'une.</div>
+<h3>À quoi ça sert concrètement</h3>
+<p>Quand un morceau tourne sur un accord de <b>Dm</b> pendant 8 mesures, tu ne joues pas « Do majeur » : tu joues <b>Ré dorien</b> — mêmes notes, mais tu vises Ré, et ça sonne juste au lieu de sonner vague.</p>
+<div class="tip">Au vrai piano : joue les touches blanches de Ré à Ré, puis de Mi à Mi, puis de Fa à Fa, en tenant un Ré / Mi / Fa grave à la main gauche. La bascule de couleur s'entend immédiatement — c'est ça, un mode.</div>`,
+    ex:{type:'quiz', qsGen:()=>genModeQs(6)}},
+  { id:'m8l4', icon:'🌈', title:'La couleur de chaque mode', sub:'La note qui fait la différence', xp:100,
+    theory:`
+<p>Chaque mode se reconnaît à <b>une seule note</b> : celle qui le distingue du majeur ou du mineur ordinaire. Retiens celle-là, tu tiens le mode.</p>
+<h3>Les quatre qui servent vraiment</h3>
+<ul>
+<li><b>Dorien</b> (mineur) — sa <b>6<sup>e</sup> majeure</b>. Un mineur qui ne se plaint pas. Le mode du jazz modal.</li>
+<li><b>Phrygien</b> (mineur) — sa <b>2<sup>de</sup> mineure</b>, un demi-ton dès la 2<sup>e</sup> note. Couleur espagnole, flamenco.</li>
+<li><b>Lydien</b> (majeur) — sa <b>4<sup>te</sup> augmentée</b>. Rêveur, suspendu : le son « musique de film ».</li>
+<li><b>Mixolydien</b> (majeur) — sa <b>7<sup>e</sup> mineure</b>. Blues, rock, tout ce qui sonne dominante.</li>
+</ul>
+<div class="formula">Majeurs : ionien · <b>lydien</b> (#4) · <b>mixolydien</b> (♭7)<br>Mineurs : éolien · <b>dorien</b> (6M) · <b>phrygien</b> (♭2)</div>
+<p>Le septième, <b>locrien</b>, a une quinte fausse : personne n'écrit de morceau dedans. Sache qu'il existe, passe ton chemin.</p>
+<div class="tip">Le test qui ancre : joue un mode, puis la même gamme majeure « normale » depuis la même fondamentale, et repère LA note qui a bougé. C'est elle, la couleur — tout le reste est commun.</div>`,
+    ex:{type:'scale', exGen:()=>genModeScale()}},
+]},
 ];
 const ALL_LESSONS = CURRICULUM.flatMap(m=>m.lessons);
+
+/* ================================================================
+   GAMMES & MODES — données
+   ================================================================ */
+/* armure de chaque tonalité majeure : [nb d'altérations, '#' ou 'b'] */
+const KEYSIG={0:[0,''],7:[1,'#'],2:[2,'#'],9:[3,'#'],4:[4,'#'],11:[5,'#'],6:[6,'#'],
+              5:[1,'b'],10:[2,'b'],3:[3,'b'],8:[4,'b'],1:[5,'b']};
+const ORDRE_DIESES=['Fa','Do','Sol','Ré','La','Mi','Si'];
+const ORDRE_BEMOLS=['Si','Mi','La','Ré','Sol','Do','Fa'];
+function sigTxt(pc){
+  const [n,s]=KEYSIG[pc];
+  if(!n) return 'aucune altération';
+  const noms=(s==='#'?ORDRE_DIESES:ORDRE_BEMOLS).slice(0,n).join(' ');
+  return n+' '+(s==='#'?'dièse':'bémol')+(n>1?'s':'')+' ('+noms+')';
+}
+/* les 7 modes = la gamme majeure démarrée sur chacun de ses degrés */
+const MODES=[
+  {id:'ion', deg:1, nom:'ionien',     alias:'le majeur',        p:[0,2,4,5,7,9,11], carac:'—', desc:'La gamme majeure elle-même : lumineuse, stable.'},
+  {id:'dor', deg:2, nom:'dorien',     alias:'',                 p:[0,2,3,5,7,9,10], carac:'la 6<sup>e</sup> MAJEURE', desc:'Mineur, mais avec une 6e majeure : un mineur qui sourit. Le son du jazz modal et de la pop anglaise.'},
+  {id:'phr', deg:3, nom:'phrygien',   alias:'',                 p:[0,1,3,5,7,8,10], carac:'la 2<sup>de</sup> MINEURE', desc:'Mineur avec un demi-ton dès la 2e note : couleur espagnole, flamenco, metal.'},
+  {id:'lyd', deg:4, nom:'lydien',     alias:'',                 p:[0,2,4,6,7,9,11], carac:'la 4<sup>te</sup> AUGMENTÉE', desc:'Majeur avec un #4 : rêveur, suspendu. Le son des musiques de film.'},
+  {id:'mix', deg:5, nom:'mixolydien', alias:'',                 p:[0,2,4,5,7,9,10], carac:'la 7<sup>e</sup> MINEURE', desc:'Majeur avec une 7e mineure : blues, rock, tout ce qui sonne « dominante ».'},
+  {id:'eol', deg:6, nom:'éolien',     alias:'le mineur naturel', p:[0,2,3,5,7,8,10], carac:'—', desc:'LE mineur naturel. Le relatif mineur de la gamme majeure.'},
+  {id:'loc', deg:7, nom:'locrien',    alias:'',                 p:[0,1,3,5,6,8,10], carac:'la 5<sup>te</sup> DIMINUÉE', desc:'Sa quinte est fausse : instable, quasi injouable en tant que tonalité. Le mode que personne n\'habite.'},
+];
+const MAJ_DEG_PC=[0,2,4,5,7,9,11]; /* degrés de la gamme majeure, en demi-tons */
+const modeOfDeg=d=>MODES[d-1];
+function genKeyQs(n){
+  const qs=[], pcs=Object.keys(KEYSIG).map(Number);
+  const mk=(q,good,others,why)=>{ const o=[good,...others].sort(()=>Math.random()-.5);
+    return {q,opts:o,a:o.indexOf(good),why}; };
+  while(qs.length<n){
+    const pc=pcs[Math.floor(Math.random()*pcs.length)], [nb,s]=KEYSIG[pc];
+    const t=Math.floor(Math.random()*3);
+    if(t===0){
+      const good=nb?(nb+' '+(s==='#'?'dièse':'bémol')+(nb>1?'s':'')):'aucune altération';
+      const others=new Set();
+      while(others.size<2){ const k=pcs[Math.floor(Math.random()*pcs.length)], [n2,s2]=KEYSIG[k];
+        const txt=n2?(n2+' '+(s2==='#'?'dièse':'bémol')+(n2>1?'s':'')):'aucune altération';
+        if(txt!==good) others.add(txt); }
+      qs.push(mk(`Combien d'altérations à l'armure de <b>${NOTE_FR[pc]} majeur</b> ?`, good, [...others],
+        `${NOTE_FR[pc]} majeur : ${sigTxt(pc)}.`));
+    } else if(t===1){
+      const good=NOTE_FR[pc];
+      const others=new Set();
+      while(others.size<2){ const k=pcs[Math.floor(Math.random()*pcs.length)]; if(k!==pc) others.add(NOTE_FR[k]); }
+      qs.push(mk(`Quelle tonalité majeure a <b>${nb?sigTxt(pc).split(' (')[0]:'aucune altération'}</b> ?`, good, [...others],
+        `${NOTE_FR[pc]} majeur → ${sigTxt(pc)}.`));
+    } else {
+      const which=Math.random()<.5;
+      const arr=which?ORDRE_DIESES:ORDRE_BEMOLS;
+      const good=arr.slice(0,3).join(' ');
+      const other=(which?ORDRE_BEMOLS:ORDRE_DIESES).slice(0,3).join(' ');
+      const other2=arr.slice(0,3).reverse().join(' ');
+      qs.push(mk(`L'ordre des <b>${which?'dièses':'bémols'}</b> commence par…`, good, [other,other2],
+        `Dièses : ${ORDRE_DIESES.join(' ')} · Bémols : ${ORDRE_BEMOLS.join(' ')} (l'un est l'autre à l'envers).`));
+    }
+  }
+  return qs;
+}
+/* gammes majeures dans les tonalités qu'on a tendance à éviter */
+function genMajScaleHard(){
+  const r=[1,3,6,8,11,4,10][Math.floor(Math.random()*7)];
+  return {root:r, pattern:[0,2,4,5,7,9,11,12], name:NOTE_FR[r]+' majeur',
+    sub:'2-2-1-2-2-2-1 · '+sigTxt(r)+'. Commence dans le grave.'};
+}
+/* un mode tiré au sort, à jouer depuis une fondamentale au sort */
+function genModeScale(){
+  const m=MODES[1+Math.floor(Math.random()*5)];   /* dorien → éolien : les modes utiles */
+  const r=[0,2,4,5,7,9,10][Math.floor(Math.random()*7)];
+  const c=m.carac.replace(/<[^>]+>/g,'');
+  return {root:r, pattern:[...m.p,12], name:NOTE_FR[r]+' '+m.nom,
+    sub:(c!=='—'?'Signature : '+c+'. ':'')+'Commence dans le grave.'};
+}
+function genModeQs(n){
+  const qs=[], keys=[0,7,5,2,10];
+  const mk=(q,good,others,why)=>{ const o=[good,...others].sort(()=>Math.random()-.5);
+    return {q,opts:o,a:o.indexOf(good),why}; };
+  while(qs.length<n){
+    const key=keys[Math.floor(Math.random()*keys.length)];
+    const d=1+Math.floor(Math.random()*7), m=modeOfDeg(d);
+    const rootPc=(key+MAJ_DEG_PC[d-1])%12;
+    const t=Math.floor(Math.random()*4);
+    if(t===0){
+      const others=MODES.filter(x=>x.id!==m.id).sort(()=>Math.random()-.5).slice(0,2).map(x=>NOTE_FR[rootPc]+' '+x.nom);
+      qs.push(mk(`Dans <b>${NOTE_FR[key]} majeur</b>, on part du <b>degré ${d}</b> et on monte jusqu'à l'octave. Quel mode obtient-on ?`,
+        NOTE_FR[rootPc]+' '+m.nom, others,
+        `Degré ${d} de ${NOTE_FR[key]} majeur = ${NOTE_FR[rootPc]}. Partir du degré ${d} donne le mode ${m.nom} → ${NOTE_FR[rootPc]} ${m.nom}.`));
+    } else if(t===1){
+      const others=MODES.filter(x=>x.id!==m.id).sort(()=>Math.random()-.5).slice(0,2).map(x=>x.nom);
+      qs.push(mk(`Quel mode correspond au <b>degré ${d}</b> de la gamme majeure ?`, m.nom, others,
+        `1 ionien · 2 dorien · 3 phrygien · 4 lydien · 5 mixolydien · 6 éolien · 7 locrien.`));
+    } else if(t===2){
+      const withCarac=MODES.filter(x=>x.carac!=='—');
+      const mm=withCarac[Math.floor(Math.random()*withCarac.length)];
+      const others=withCarac.filter(x=>x.id!==mm.id).sort(()=>Math.random()-.5).slice(0,2).map(x=>x.nom);
+      qs.push(mk(`Quel mode se reconnaît à <b>${mm.carac.replace(/<[^>]+>/g,'')}</b> ?`, mm.nom, others,
+        `${mm.nom.charAt(0).toUpperCase()+mm.nom.slice(1)} : ${mm.desc}`));
+    } else {
+      const others=new Set();
+      while(others.size<2){ const k=keys[Math.floor(Math.random()*keys.length)]; if(k!==key) others.add(NOTE_FR[k]+' majeur'); }
+      qs.push(mk(`<b>${NOTE_FR[rootPc]} ${m.nom}</b> utilise exactement les mêmes notes que…`,
+        NOTE_FR[key]+' majeur', [...others],
+        `Un mode ne change pas les notes, seulement la note de départ : ${NOTE_FR[rootPc]} ${m.nom} = les notes de ${NOTE_FR[key]} majeur.`));
+    }
+  }
+  return qs;
+}
 
 /* ================================================================
    RENDU DES ONGLETS
@@ -1214,6 +1379,12 @@ const DRILLS=[
   {id:'shell', icon:'🐚', title:'Shell voicings', req:'m5l3',
    desc:()=>'Fondamentale–tierce–septième, rien d\'autre : le geste pro de la main gauche.'+(S.best.shell?` Record sans faute : <b style="color:var(--acc)">${S.best.shell}s</b>.`:''),
    run:()=>dojoShell()},
+  {id:'keys', icon:'🗝', title:'Sprint des gammes', req:'m8l1',
+   desc:()=>'4 gammes majeures d\'affilée, tonalités tirées au sort — noires comprises.'+(S.best.scales?` Record sans reprise : <b style="color:var(--acc)">${S.best.scales}s</b>.`:' Enchaîne-les sans reprise pour poser un record.'),
+   run:()=>dojoKeys()},
+  {id:'modes', icon:'🎨', title:'Les modes', req:'m8l3',
+   desc:()=>'Dorien, phrygien, lydien, mixolydien… à jouer depuis n\'importe quelle note, ou à reconnaître. Mêmes touches, autre maison.',
+   run:()=>dojoModes()},
   {id:'scale', icon:'🪜', title:'Gammes', req:'m6l1',
    desc:()=>'Gamme majeure (ou pentatonique) depuis une fondamentale tirée au sort.',
    run:()=>dojoScale()},
@@ -1402,6 +1573,8 @@ function vlCycle(key){
     : [{root:key,t:'maj'},{root:(key+9)%12,t:'min',bass:key},{root:(key+5)%12,t:'maj',bass:key},{root:(key+7)%12,t:'maj',bass:(key+11)%12},{root:key,t:'maj'}];
 }
 function genScaleEx(){
+  if(S.done['m8l4'] && Math.random()<.35) return genModeScale();
+  if(S.done['m8l1'] && Math.random()<.35) return genMajScaleHard();
   if(S.done['m6l2'] && Math.random()<.4){
     const r=[9,4,2][Math.floor(Math.random()*3)];
     return {root:r,pattern:[0,3,5,7,10,12],name:'Penta mineure de '+NOTE[r],sub:'Formule 3-2-2-3-2. Commence dans le grave.'};
@@ -1500,6 +1673,45 @@ function dojoDecouple(){
       if(ok){ award(12); dailyMark(1); toast('🖐️ Cinq niveaux tenus · +12 XP'); }
       close();
     });
+  });
+}
+/* enchaîne 4 gammes majeures d'affilée, chrono + record : c'est comme ça
+   qu'on passe de « je sais la construire » à « je la connais par cœur ». */
+function dojoKeys(){
+  const roots=[0,1,2,3,4,5,6,7,8,9,10,11].sort(()=>Math.random()-.5).slice(0,4);
+  openCustom('🗝 Sprint des gammes',(inner,close)=>{
+    const t0=Date.now(); let k=0, clean=true;
+    const step=()=>{
+      inner.querySelectorAll('.kseg').forEach(x=>x.remove());
+      if(k>=roots.length){
+        const secs=Math.round((Date.now()-t0)/1000);
+        let msg=`+10 XP · ${secs}s`;
+        if(clean && (!S.best.scales || secs<S.best.scales)){ S.best.scales=secs; save(); msg+=' · 🏆 RECORD'; }
+        award(10); toast(msg);
+        const d=document.createElement('div'); d.className='kseg';
+        d.innerHTML=`<div class="exhead"><div class="target">🗝 ${roots.length}/${roots.length}</div>
+          <div class="sub">${clean?'Sans aucune reprise. C\'est ça, les connaître.':'Bouclé — mais avec des reprises. Refais celles qui ont coincé, seules, demain.'}</div></div>`;
+        inner.appendChild(d);
+        setTimeout(close,1600); return;
+      }
+      const r=roots[k];
+      const d=document.createElement('div'); d.className='kseg';
+      d.innerHTML=`<p style="text-align:center;color:var(--acc);font-size:13px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:2px">Gamme ${k+1}/${roots.length}</p>`;
+      const box=document.createElement('div'); d.appendChild(box); inner.appendChild(d);
+      runScale(box,{root:r,pattern:[0,2,4,5,7,9,11,12],name:NOTE_FR[r]+' majeur',
+        sub:sigTxt(r)+'. Commence dans le grave.'},()=>{ k++; step(); });
+    };
+    step();
+  });
+}
+function dojoModes(){
+  const quiz=Math.random()<.4;
+  if(quiz) return openCustom('🎨 Les modes',(inner,close)=>{
+    runQuiz(inner,{qs:genModeQs(6)},ok=>{ if(ok){award(10); toast('+10 XP');} close(); });
+  });
+  const ex=genModeScale();
+  openCustom('🎨 '+ex.name,(inner,close)=>{
+    runScale(inner,ex,ok=>{ if(ok){award(10); toast('+10 XP');} close(); });
   });
 }
 function dojoScale(){
@@ -1636,6 +1848,11 @@ function renderOutils(){
     <div class="row"><b>7</b> : majeur + 7e à 2 demi-tons sous l'octave (C–E–G–Bb)</div>
     <div class="row"><b>m7</b> : mineur + 7e à 2 demi-tons sous l'octave (C–Eb–G–Bb)</div>
     <div class="row"><b>Gamme majeure</b> : 2-2-1-2-2-2-1</div>
+    <div class="row"><b>Ordre des dièses</b> : Fa Do Sol Ré La Mi Si — <b>bémols</b> : l'inverse</div>
+    <div class="row"><b>Armures #</b> : Sol 1 · Ré 2 · La 3 · Mi 4 · Si 5 · Fa# 6</div>
+    <div class="row"><b>Armures ♭</b> : Fa 1 · Si♭ 2 · Mi♭ 3 · La♭ 4 · Ré♭ 5</div>
+    <div class="row"><b>Modes</b> (degrés de la majeure) : 1 ionien · 2 dorien · 3 phrygien · 4 lydien · 5 mixolydien · 6 éolien · 7 locrien</div>
+    <div class="row"><b>Signatures</b> : dorien = 6<sup>e</sup> majeure · phrygien = ♭2 · lydien = #4 · mixolydien = ♭7</div>
     <div class="row"><b>Penta mineure</b> : 3-2-2-3-2 (Am : A-C-D-E-G)</div>
     <div class="row"><b>Degrés majeurs</b> : I ii iii IV V vi vii°</div>
     <div class="row"><b>En Do</b> : C Dm Em F G Am B°</div>
@@ -1725,7 +1942,10 @@ function openLesson(l){
         if(l.ex.type==='ear') dailyMark(2);
         setTimeout(closeOverlay,600);
       };
-      const ex=l.ex;
+      /* exercices générés à la volée (questions/gammes tirées à chaque passage) */
+      const ex = l.ex.qsGen ? {...l.ex, qs:l.ex.qsGen()}
+               : l.ex.exGen ? {...l.ex, ...l.ex.exGen()}
+               : l.ex;
       if(ex.type==='quiz') runQuiz(exDiv,ex,doneCb);
       else if(ex.type==='chord') runChord(exDiv,ex,doneCb);
       else if(ex.type==='prog') runProg(exDiv,ex,doneCb);
