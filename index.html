@@ -178,6 +178,12 @@
   .daily .row.ok .st{background:#153524;color:var(--ok)}
   .daily .row span{flex:1;font-size:14px;font-weight:600}
   .daily .row.ok span{color:var(--dim);text-decoration:line-through}
+  .daily .tcol{flex:1;min-width:0}
+  .daily .tcol span{display:block}
+  .daily .psub{font-size:11.5px;font-weight:700;color:var(--acc);margin-top:3px}
+  .daily .psub.last{color:var(--ok)}
+  .daily .palbar{height:5px;background:#0009;border-radius:3px;overflow:hidden;margin-top:5px;max-width:190px}
+  .daily .palbar i{display:block;height:100%;background:linear-gradient(90deg,var(--acc2),var(--acc));border-radius:3px;transition:width .4s}
   .daily .bonus{font-size:12px;color:var(--dim);text-align:center;margin-top:8px}
   .week{display:flex;gap:6px;align-items:flex-end;height:78px;margin-top:14px}
   .week .col{flex:1;display:flex;flex-direction:column;justify-content:flex-end;height:100%;gap:4px;text-align:center}
@@ -1236,9 +1242,13 @@ function coachAdvice(){
     msg:`Ton bilan te met à <b>${w.score}/100</b> sur ${w.label}. C'est là que tu gagnes le plus de terrain aujourd'hui — pas ailleurs.`,
     btn:'Travailler '+w.label, run:w.run};
   const nl=nextLesson();
-  if(nl && !palierTakenToday(nl.id)) return {ic:'📖', title:'Ton palier du jour', tone:'var(--acc)',
-    msg:`« ${nl.title} » t'attend. Un palier par jour, pas plus : c'est le temps qui ancre, pas le bachotage.`,
-    btn:'Ouvrir la leçon', run:()=>openLesson(nl)};
+  if(nl && !palierTakenToday(nl.id)){
+    const reps=lessonReps(nl), p=progOf(nl.id), remain=Math.max(1,reps-p.n);
+    const msg = remain===1
+      ? `« ${nl.title} » — <b>dernier palier ${p.n+1}/${reps}</b>. Aujourd'hui elle passe MAÎTRISÉE. Termine le travail.`
+      : `« ${nl.title} » — palier <b>${p.n+1}/${reps}</b>. Encore ${remain} jours pour la MAÎTRISER : un palier par jour, c'est le temps qui ancre, pas le bachotage.`;
+    return {ic:'📖', title:'Ton palier du jour', tone:'var(--acc)', msg, btn:'Ouvrir la leçon', run:()=>openLesson(nl)};
+  }
   if(n>0) return {ic:'🩹', title:'Il reste des erreurs', tone:'var(--bad)',
     msg:`<b>${n}</b> en attente. Finis le travail avant d'ajouter du neuf.`,
     btn:'Rattraper', run:()=>dojoErrs()};
@@ -1283,16 +1293,30 @@ function renderParcours(){
   const slot2 = (wk && wk.key==='degres' && S.done['m2l1'])
     ? ['🏛','Point faible : quiz des degrés', ()=>dojoDeg()]
     : ['👂','Oreille : une série d\'écoute', ()=>dojoEar()];
+  /* palier du jour : progression visible pour ne plus avoir l'impression que « ça revient » */
+  let lessonExtra='';
+  if(nl){
+    const reps=lessonReps(nl), p=progOf(nl.id), taken=palierTakenToday(nl.id);
+    const remain=Math.max(1, reps-p.n), last=remain===1;
+    const sub = taken
+      ? (last ? `Palier ${p.n}/${reps} · MAÎTRISÉE aujourd'hui 🥋`
+              : `Palier ${p.n}/${reps} pris ✓ · reviens demain — plus que ${remain} jour${remain>1?'s':''}`)
+      : (last ? `Dernier palier ${p.n}/${reps} — aujourd'hui elle passe MAÎTRISÉE !`
+              : `Palier ${p.n}/${reps} · plus que ${remain} jour${remain>1?'s':''} pour MAÎTRISER`);
+    lessonExtra=`<div class="psub${last?' last':''}">${sub}</div><div class="palbar"><i style="width:${Math.round(p.n/reps*100)}%"></i></div>`;
+  }
   const tasks=[
     nErr>=3 ? ['🩹','Rattrapage : '+nErr+' erreur'+(nErr>1?'s':'')+' en attente', ()=>dojoErrs()]
             : ['⚡','Échauffement : sprint de 10 accords', ()=>dojoChords()],
     ['📖', nl ? 'Leçon : '+nl.title : 'Révision : une leçon au hasard',
-      ()=>openLesson(nl || ALL_LESSONS[Math.floor(Math.random()*ALL_LESSONS.length)])],
+      ()=>openLesson(nl || ALL_LESSONS[Math.floor(Math.random()*ALL_LESSONS.length)]), lessonExtra],
     slot2,
   ];
-  tasks.forEach(([ic,txt,fn],i)=>{
+  tasks.forEach(([ic,txt,fn,extra],i)=>{
     const r=document.createElement('div'); r.className='row'+(d.done[i]?' ok':'');
-    r.innerHTML=`<div class="st">${d.done[i]?'✓':ic}</div><span>${txt}</span><small style="color:var(--dim)">›</small>`;
+    r.innerHTML = extra
+      ? `<div class="st">${d.done[i]?'✓':ic}</div><div class="tcol"><span>${txt}</span>${extra}</div><small style="color:var(--dim)">›</small>`
+      : `<div class="st">${d.done[i]?'✓':ic}</div><span>${txt}</span><small style="color:var(--dim)">›</small>`;
     if(!d.done[i]) r.onclick=fn;
     daily.appendChild(r);
   });
