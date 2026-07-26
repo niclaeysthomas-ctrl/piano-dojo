@@ -1263,6 +1263,13 @@ function coachAdvice(){
     btn:'Session mixte', run:()=>dojoMix()};
 }
 function goTab(t){ const b=document.querySelector('nav button[data-tab="'+t+'"]'); if(b) b.click(); }
+/* pool d'exercices variés pour la séance : un différent chaque jour (rotation) */
+const DAILY_DRILLS=[
+  {req:'m0l2', ic:'🕵️', txt:'Reconnaissance : qui est cet accord ?', fn:()=>dojoNamer()},
+  {req:'m1l2', ic:'🌊', txt:'Enchaînements fluides (voice leading)', fn:()=>dojoVL()},
+  {req:'m2l2', ic:'🎲', txt:'Joue une progression tirée au sort', fn:()=>dojoProg()},
+  {req:'m6l1', ic:'🪜', txt:'Gammes depuis une fondamentale au hasard', fn:()=>dojoScale()},
+];
 const INTENSITIES=[['normal','Normal'],['intense','Intense'],['forge','Forge']];
 function curIntensity(){ return S.intensity||'intense'; }
 /* Le programme du jour : plus l'intensité monte, plus il y a de travail (mais toujours
@@ -1283,7 +1290,11 @@ function dailyProgram(){
   /* intense : + technique (renversements/7e) + un morceau joué en entier */
   if(S.done['m5l1']) P.push({key:'tech', ic:'🎨', txt:'Technique : sprint des 7e', fn:()=>dojoSev()});
   else if(S.done['m1l1']) P.push({key:'tech', ic:'🔄', txt:'Technique : les renversements', fn:()=>dojoInv()});
-  P.push({key:'song', ic:'🎶', txt:'Joue un morceau en entier', fn:()=>goTab('morceaux')});
+  const pool=DAILY_DRILLS.filter(x=>!x.req||S.done[x.req]);
+  if(pool.length){
+    const pick=pool[Math.floor(Date.now()/864e5)%pool.length];
+    P.push({key:'drill', ic:pick.ic, txt:pick.txt, fn:pick.fn});
+  }
   if(lvl==='intense') return P;
   /* forge : + session mixte (révision de tout l\'acquis) */
   if(S.done['m0l2']) P.push({key:'mix', ic:'🎯', txt:'Session mixte : révise tout', fn:()=>dojoMix()});
@@ -1509,7 +1520,7 @@ function dojoNamer(){
     const b2=document.createElement('button'); b2.className='btn ghost'; b2.textContent='Avec les 7e';
     const go=types=>{ inner.innerHTML='';
       runNamer(inner,{types,count:10,sub:'Regarde, écoute, nomme.'},(ok,score)=>{
-        award(10); toast(`+10 XP · ${score}/10`); close();
+        award(10); dailyMark('drill'); toast(`+10 XP · ${score}/10`); close();
       });
     };
     b1.onclick=()=>go(['maj','min']); b2.onclick=()=>go(['maj','min','maj7','m7','dom7']);
@@ -1651,7 +1662,7 @@ function dojoProg(){
   const chords=p.deg.map(([d,t])=>({root:(key+d)%12,t}));
   openCustom(`🎲 ${p.name} en ${NOTE[key]}`,(inner,close)=>{
     runProg(inner,{rounds:1,free:true,chords,sub:`${p.name} — tonalité de ${NOTE[key]} (${NOTE_FR[key]})`},
-      ok=>{ if(ok){award(10); toast('+10 XP');} close(); });
+      ok=>{ if(ok){award(10); dailyMark('drill'); toast('+10 XP');} close(); });
   });
 }
 
@@ -1752,7 +1763,7 @@ function dojoVL(){
   const chords=vlCycle(key);
   openCustom(`🌊 Enchaînement en ${NOTE[key]}`,(inner,close)=>{
     runProg(inner,{rounds:2,chords,sub:'Basses imposées (slash) : c\'est le chemin sans saut. 2 tours.'},
-      ok=>{ if(ok){award(10); toast('+10 XP');} close(); });
+      ok=>{ if(ok){award(10); dailyMark('drill'); toast('+10 XP');} close(); });
   });
 }
 function dojoDeg(){
@@ -1852,7 +1863,7 @@ function dojoModes(){
 function dojoScale(){
   const ex=genScaleEx();
   openCustom('🪜 '+ex.name,(inner,close)=>{
-    runScale(inner,ex,ok=>{ if(ok){award(10); toast('+10 XP');} close(); });
+    runScale(inner,ex,ok=>{ if(ok){award(10); dailyMark('drill'); toast('+10 XP');} close(); });
   });
 }
 
