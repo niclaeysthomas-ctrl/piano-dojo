@@ -294,7 +294,7 @@ const LEVELS = [
 ];
 
 /* ---------------- état / sauvegarde ---------------- */
-const DEFAULT_STATE = {xp:0, done:{}, prog:{}, streak:0, lastDay:null, earBest:0, daily:null, hist:{}, best:{}, labels:false, songs:{}, songsHand:{}, songsLH:{}, bilan:null, bilanRewarded:false, errs:{}, earStats:{}};
+const DEFAULT_STATE = {xp:0, done:{}, prog:{}, streak:0, lastDay:null, earBest:0, daily:null, hist:{}, best:{}, labels:false, songs:{}, songsHand:{}, songsLH:{}, bilan:null, bilanRewarded:false, errs:{}, earStats:{}, intensity:'intense'};
 const USER='Thomas';
 /* restauration de progression via ?restore=<base64> (transfert d'appareil / d'origine) */
 (function(){ try{
@@ -354,16 +354,22 @@ function palierTakenToday(id){ return progOf(id).last===todayStr(); }
 
 function ensureDaily(){
   const t=todayStr();
-  if(!S.daily || S.daily.date!==t){ S.daily={date:t, done:[false,false,false], bonus:false}; save(); }
+  /* done est désormais un objet clé→bool (Array = ancien format à migrer) */
+  if(!S.daily || S.daily.date!==t || Array.isArray(S.daily.done)){ S.daily={date:t, done:{}, bonus:false}; save(); }
   return S.daily;
 }
-function dailyMark(i){
+/* marque une tâche de la séance par sa CLÉ ('warm','lesson','ear','tech','song','mix').
+   Bonus quand toutes les tâches du programme du jour (selon l'intensité) sont faites. */
+function dailyMark(key){
   const d=ensureDaily();
-  if(d.done[i]) return;
-  d.done[i]=true; save();
-  if(d.done.every(Boolean) && !d.bonus){
-    d.bonus=true; save(); award(30);
-    setTimeout(()=>toast('📅 Séance du jour complète · +30 XP'),900);
+  if(d.done[key]) return;
+  d.done[key]=true; save();
+  const prog=dailyProgram();
+  if(!d.bonus && prog.every(t=>d.done[t.key])){
+    d.bonus=true; save();
+    const xp=10*prog.length;
+    award(xp);
+    setTimeout(()=>toast('📅 Séance complète · +'+xp+' XP'),900);
   }
 }
 
@@ -1256,6 +1262,33 @@ function coachAdvice(){
     msg:'Palier pris, erreurs rattrapées. La session mixte rebrasse tout ce que tu sais déjà — c\'est ce qui empêche de perdre.',
     btn:'Session mixte', run:()=>dojoMix()};
 }
+function goTab(t){ const b=document.querySelector('nav button[data-tab="'+t+'"]'); if(b) b.click(); }
+const INTENSITIES=[['normal','Normal'],['intense','Intense'],['forge','Forge']];
+function curIntensity(){ return S.intensity||'intense'; }
+/* Le programme du jour : plus l'intensité monte, plus il y a de travail (mais toujours
+   UN palier de leçon/jour). warm/lesson/ear = socle ; tech/song/mix = surcharge. */
+function dailyProgram(){
+  const nl=nextLesson(), nErr=errCount(), wk=weakSpot(), lvl=curIntensity();
+  const P=[];
+  P.push(nErr>=3
+    ? {key:'warm', ic:'🩹', txt:'Rattrapage : '+nErr+' erreur'+(nErr>1?'s':'')+' en attente', fn:()=>dojoErrs()}
+    : {key:'warm', ic:'⚡', txt:'Échauffement : sprint de 10 accords', fn:()=>dojoChords()});
+  P.push({key:'lesson', ic:'📖', lesson:true,
+    txt: nl?('Leçon : '+nl.title):'Révision : une leçon au hasard',
+    fn:()=>openLesson(nl||ALL_LESSONS[Math.floor(Math.random()*ALL_LESSONS.length)])});
+  P.push((wk && wk.key==='degres' && S.done['m2l1'])
+    ? {key:'ear', ic:'🏛', txt:'Point faible : quiz des degrés', fn:()=>dojoDeg()}
+    : {key:'ear', ic:'👂', txt:'Oreille : une série d\'écoute', fn:()=>dojoEar()});
+  if(lvl==='normal') return P;
+  /* intense : + technique (renversements/7e) + un morceau joué en entier */
+  if(S.done['m5l1']) P.push({key:'tech', ic:'🎨', txt:'Technique : sprint des 7e', fn:()=>dojoSev()});
+  else if(S.done['m1l1']) P.push({key:'tech', ic:'🔄', txt:'Technique : les renversements', fn:()=>dojoInv()});
+  P.push({key:'song', ic:'🎶', txt:'Joue un morceau en entier', fn:()=>goTab('morceaux')});
+  if(lvl==='intense') return P;
+  /* forge : + session mixte (révision de tout l\'acquis) */
+  if(S.done['m0l2']) P.push({key:'mix', ic:'🎯', txt:'Session mixte : révise tout', fn:()=>dojoMix()});
+  return P;
+}
 function renderParcours(){
   const lv=levelOf(S.xp);
   const pct = lv.next ? Math.round((S.xp-lv.base)/(lv.next[0]-lv.base)*100) : 100;
@@ -1283,45 +1316,42 @@ function renderParcours(){
   cb.onclick=ad.run; cc.appendChild(cb); main.appendChild(cc);
 
   const d=ensureDaily();
+  const prog=dailyProgram();
+  const nDone=prog.filter(t=>d.done[t.key]).length;
   const daily=document.createElement('div'); daily.className='card daily';
-  daily.innerHTML=`<b style="font-size:15px">📅 Séance du jour · ~15 min</b>`;
-  /* séance adaptative : l'échauffement devient du rattrapage si tu as des erreurs
-     en attente, et la 3e tâche vise ton point faible entre oreille et degrés
-     (les deux cochent la même case). */
-  const nErr=errCount();
-  const wk=weakSpot();
-  const slot2 = (wk && wk.key==='degres' && S.done['m2l1'])
-    ? ['🏛','Point faible : quiz des degrés', ()=>dojoDeg()]
-    : ['👂','Oreille : une série d\'écoute', ()=>dojoEar()];
-  /* palier du jour : progression visible pour ne plus avoir l'impression que « ça revient » */
-  let lessonExtra='';
-  if(nl){
-    const reps=lessonReps(nl), p=progOf(nl.id), taken=palierTakenToday(nl.id);
-    const remain=Math.max(1, reps-p.n), last=remain===1;
-    const sub = taken
-      ? (last ? `Palier ${p.n}/${reps} · MAÎTRISÉE aujourd'hui 🥋`
-              : `Palier ${p.n}/${reps} pris ✓ · reviens demain — plus que ${remain} jour${remain>1?'s':''}`)
-      : (last ? `Dernier palier ${p.n}/${reps} — aujourd'hui elle passe MAÎTRISÉE !`
-              : `Palier ${p.n}/${reps} · plus que ${remain} jour${remain>1?'s':''} pour MAÎTRISER`);
-    lessonExtra=`<div class="psub${last?' last':''}">${sub}</div><div class="palbar"><i style="width:${Math.round(p.n/reps*100)}%"></i></div>`;
-  }
-  const tasks=[
-    nErr>=3 ? ['🩹','Rattrapage : '+nErr+' erreur'+(nErr>1?'s':'')+' en attente', ()=>dojoErrs()]
-            : ['⚡','Échauffement : sprint de 10 accords', ()=>dojoChords()],
-    ['📖', nl ? 'Leçon : '+nl.title : 'Révision : une leçon au hasard',
-      ()=>openLesson(nl || ALL_LESSONS[Math.floor(Math.random()*ALL_LESSONS.length)]), lessonExtra],
-    slot2,
-  ];
-  tasks.forEach(([ic,txt,fn,extra],i)=>{
-    const r=document.createElement('div'); r.className='row'+(d.done[i]?' ok':'');
+  daily.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center">
+    <b style="font-size:15px">📅 Séance du jour · ~${prog.length*6} min</b>
+    <small style="color:var(--dim);font-weight:700">${nDone}/${prog.length}</small></div>`;
+  /* sélecteur d'intensité : c'est toi qui règles la charge */
+  const isel=document.createElement('div'); isel.className='selrow'; isel.style.margin='8px 0 4px';
+  INTENSITIES.forEach(([v,l])=>{
+    const t=document.createElement('div'); t.className='tag'+(curIntensity()===v?' on':''); t.textContent=l;
+    t.onclick=()=>{ S.intensity=v; save(); renderParcours(); };
+    isel.appendChild(t);
+  });
+  daily.appendChild(isel);
+  prog.forEach(t=>{
+    const doneT=!!d.done[t.key];
+    let extra='';
+    if(t.lesson && nl){
+      const reps=lessonReps(nl), p=progOf(nl.id), taken=palierTakenToday(nl.id);
+      const remain=Math.max(1, reps-p.n), last=remain===1;
+      const sub = taken
+        ? (last ? `Palier ${p.n}/${reps} · MAÎTRISÉE aujourd'hui 🥋`
+                : `Palier ${p.n}/${reps} pris ✓ · reviens demain — plus que ${remain} jour${remain>1?'s':''}`)
+        : (last ? `Dernier palier ${p.n}/${reps} — aujourd'hui elle passe MAÎTRISÉE !`
+                : `Palier ${p.n}/${reps} · plus que ${remain} jour${remain>1?'s':''} pour MAÎTRISER`);
+      extra=`<div class="psub${last?' last':''}">${sub}</div><div class="palbar"><i style="width:${Math.round(p.n/reps*100)}%"></i></div>`;
+    }
+    const r=document.createElement('div'); r.className='row'+(doneT?' ok':'');
     r.innerHTML = extra
-      ? `<div class="st">${d.done[i]?'✓':ic}</div><div class="tcol"><span>${txt}</span>${extra}</div><small style="color:var(--dim)">›</small>`
-      : `<div class="st">${d.done[i]?'✓':ic}</div><span>${txt}</span><small style="color:var(--dim)">›</small>`;
-    if(!d.done[i]) r.onclick=fn;
+      ? `<div class="st">${doneT?'✓':t.ic}</div><div class="tcol"><span>${t.txt}</span>${extra}</div><small style="color:var(--dim)">›</small>`
+      : `<div class="st">${doneT?'✓':t.ic}</div><span>${t.txt}</span><small style="color:var(--dim)">›</small>`;
+    if(!doneT) r.onclick=t.fn;
     daily.appendChild(r);
   });
   const bn=document.createElement('div'); bn.className='bonus';
-  bn.textContent = d.bonus ? '🔥 Séance complète — bonus encaissé.' : 'Les 3 dans la journée = +30 XP bonus.';
+  bn.textContent = d.bonus ? '🔥 Séance complète — bonus encaissé.' : `Les ${prog.length} dans la journée = +${10*prog.length} XP bonus.`;
   daily.appendChild(bn);
   main.appendChild(daily);
 
@@ -1461,7 +1491,7 @@ function dojoChords(){
         (ok,score,failed)=>{
           if(ok){
             const secs=Math.round((Date.now()-t0)/1000);
-            dailyMark(0); award(10);
+            dailyMark('warm'); award(10);
             let msg=`+10 XP · ${secs}s`;
             if(!failed && (!S.best.sprint || secs<S.best.sprint)){ S.best.sprint=secs; save(); msg+=' · 🏆 RECORD'; }
             toast(msg);
@@ -1549,7 +1579,7 @@ function earRun(inner,L){
     S.earStats[L.id]={n:st.n+1, best:Math.max(st.best,pct), last:pct};
     if(sc>S.earBest){ S.earBest=sc; }
     save();
-    dailyMark(2); award(10);
+    dailyMark('ear'); award(10);
     toast(`+10 XP · ${sc}/${L.cfg.count}`);
     closeOverlay();
   };
@@ -1698,7 +1728,7 @@ function dojoInv(){
       runChord(inner,{items:genInvItems(10,types),sub:'10 renversements — notes ET basse.'},(ok,score,failed)=>{
         if(ok){
           const secs=Math.round((Date.now()-t0)/1000);
-          dailyMark(0); award(10);
+          dailyMark('tech'); award(10);
           let msg=`+10 XP · ${secs}s`;
           if(!failed && (!S.best.inv||secs<S.best.inv)){ S.best.inv=secs; save(); msg+=' · 🏆 RECORD'; }
           toast(msg);
@@ -1727,7 +1757,7 @@ function dojoVL(){
 }
 function dojoDeg(){
   openCustom('🏛 Quiz des degrés',(inner,close)=>{
-    runQuiz(inner,{qs:genDegQs(6)},ok=>{ if(ok){dailyMark(2); award(10); toast('+10 XP');} close(); });
+    runQuiz(inner,{qs:genDegQs(6)},ok=>{ if(ok){dailyMark('ear'); award(10); toast('+10 XP');} close(); });
   });
 }
 function dojoShell(){
@@ -1763,7 +1793,7 @@ function dojoSev(){
     runChord(inner,{gen:{types:['maj7','m7','dom7'],roots:[0,1,2,3,4,5,6,7,8,9,10,11],count:8},sub:'8 accords de 7e — 4 notes chacun.'},(ok,score,failed)=>{
       if(ok){
         const secs=Math.round((Date.now()-t0)/1000);
-        dailyMark(0); award(10);
+        dailyMark('tech'); award(10);
         let msg=`+10 XP · ${secs}s`;
         if(!failed && (!S.best.sev||secs<S.best.sev)){ S.best.sev=secs; save(); msg+=' · 🏆 RECORD'; }
         toast(msg);
@@ -1775,7 +1805,7 @@ function dojoSev(){
 function dojoDecouple(){
   openCustom('🖐️ Le Découpleur',(inner,close)=>{
     runDecouple(inner,{bpm:66},(ok)=>{
-      if(ok){ award(12); dailyMark(1); toast('🖐️ Cinq niveaux tenus · +12 XP'); }
+      if(ok){ award(12); dailyMark('tech'); toast('🖐️ Cinq niveaux tenus · +12 XP'); }
       close();
     });
   });
@@ -1873,7 +1903,7 @@ function dojoErrs(){
           <div class="sub">${fixed?`<b style="color:var(--ok)">${fixed}</b> erreur(s) définitivement rayée(s) de la liste.`:'Rien de rayé cette fois — il reste du travail, et c\'est exactement pour ça que la salle existe.'}
           ${errCount()?`<br>Encore <b>${errCount()}</b> en attente.`:'<br>Liste vide. Propre.'}</div></div>`;
         inner.appendChild(d);
-        dailyMark(0); award(15); toast('🩹 Révision des erreurs · +15 XP');
+        dailyMark('warm'); award(15); toast('🩹 Révision des erreurs · +15 XP');
         setTimeout(close,1900); return;
       }
       const [name,type,ex,onDone]=segs[k];
@@ -1913,7 +1943,7 @@ function dojoMix(){
         d.innerHTML=`<div class="exhead"><div class="target">🎯</div>
           <div class="sub">Session mixte bouclée — ${segs.length} discipline${segs.length>1?'s':''}. Elle grossira à chaque leçon validée. C'est ça, l'entretien du grade.</div></div>`;
         inner.appendChild(d);
-        dailyMark(0); dailyMark(2); award(25); toast('+25 XP · session mixte');
+        dailyMark('warm'); dailyMark('ear'); dailyMark('mix'); award(25); toast('+25 XP · session mixte');
         setTimeout(close,1600); return;
       }
       const [name,type,ex]=segs[k];
@@ -2043,8 +2073,8 @@ function openLesson(l){
             toast(`Palier ${p.n}/${reps} · +15 XP — reviens demain pour le suivant`);
           }
         }
-        dailyMark(1);
-        if(l.ex.type==='ear') dailyMark(2);
+        dailyMark('lesson');
+        if(l.ex.type==='ear') dailyMark('ear');
         setTimeout(closeOverlay,600);
       };
       /* exercices générés à la volée (questions/gammes tirées à chaque passage) */
@@ -2799,11 +2829,11 @@ const Player = {
     if(!wasPlaying || !this.song) return;
     const played=(this.ctx.currentTime-this.anchorTime)/this.spb+this.anchorBeat;
     if(this.song.jam){
-      if(played>=8 && !this.awarded){ this.awarded=true; award(8); toast('🎶 Jam validé · +8 XP'); }
+      if(played>=8 && !this.awarded){ this.awarded=true; award(8); dailyMark('song'); toast('🎶 Jam validé · +8 XP'); }
     } else if(natural){
       const id=this.song.id, first=!S.songs[id];
       S.songs[id]=(S.songs[id]||0)+1; save();
-      award(first?15:5); chime();
+      award(first?15:5); chime(); dailyMark('song');
       toast(first?'🎉 Morceau joué en entier · +15 XP':'↻ Rejoué · +5 XP');
       if(this.els.bar) this.els.bar.style.width='100%';
     }
@@ -3006,7 +3036,7 @@ function openSong(song){
       L.done=true; kb.clearSel();
       const id=song.id, first=!(S.songsLH=S.songsLH||{})[id];
       S.songsLH[id]=(S.songsLH[id]||0)+1; save();
-      const xp=first?25:10; award(xp); chime(); tada();
+      const xp=first?25:10; award(xp); dailyMark('song'); chime(); tada();
       cn.textContent='✓';
       nn.textContent=L.wrong?`Grille bouclée · ${L.wrong} erreur${L.wrong>1?'s':''}`:'Grille bouclée sans faute. Ta main gauche sait où elle va.';
       lfb.className='fb ok'; lfb.textContent=(first?'🫲 Première grille à la main gauche · +':'↺ Rejouée · +')+xp+' XP';
@@ -3041,7 +3071,7 @@ function openSong(song){
       P.done=true; kb.clearSel();
       const id=song.id, firstHand=!S.songsHand[id];
       S.songs[id]=(S.songs[id]||0)+1; S.songsHand[id]=true; save();
-      const xp=firstHand?20:10; award(xp);
+      const xp=firstHand?20:10; award(xp); dailyMark('song');
       chime(); tada();
       cn.textContent='✓'; nn.textContent = P.wrong ? `Fini · ${P.wrong} erreur${P.wrong>1?'s':''}` : 'Sans faute. Chapeau.';
       fb.className='fb ok'; fb.textContent = firstHand ? '🎉 Joué de tes mains · +'+xp+' XP' : '↺ Rejoué à la main · +'+xp+' XP';
