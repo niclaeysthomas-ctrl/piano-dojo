@@ -1753,8 +1753,8 @@ function noteEarRoom(){
         ${isReco?'<div style="font-size:11px;font-weight:800;color:var(--acc);letter-spacing:1px;margin-top:2px">▶ COMMENCE ICI</div>':''}
         <p style="color:var(--dim);font-size:13px;margin:4px 0 0;line-height:1.5">${L.d}</p>`;
       const b=document.createElement('button'); b.className=isReco?'btn':'btn ghost'; b.textContent='Lancer';
-      b.onclick=()=>{ menu.remove(); const box=document.createElement('div'); inner.appendChild(box); runNoteEar(box,L.cfg,(cor,pct)=>noteEarDone(L,cor,pct)); };
-      c.appendChild(b); inner.appendChild(c);
+      b.onclick=()=>{ menu.remove(); const box=document.createElement('div'); inner.appendChild(box); runNoteEar(box,L.cfg,(cor,pct)=>noteEarDone(L,cor,pct)); overlay.scrollTop=0; };
+      c.appendChild(b); menu.appendChild(c);
     });
   });
 }
