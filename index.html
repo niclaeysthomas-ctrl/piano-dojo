@@ -294,7 +294,7 @@ const LEVELS = [
 ];
 
 /* ---------------- état / sauvegarde ---------------- */
-const DEFAULT_STATE = {xp:0, done:{}, prog:{}, streak:0, lastDay:null, earBest:0, daily:null, hist:{}, best:{}, labels:false, songs:{}, songsHand:{}, songsLH:{}, bilan:null, bilanRewarded:false, errs:{}, earStats:{}, intensity:'intense'};
+const DEFAULT_STATE = {xp:0, done:{}, prog:{}, streak:0, lastDay:null, earBest:0, daily:null, hist:{}, best:{}, labels:false, songs:{}, songsHand:{}, songsLH:{}, bilan:null, bilanRewarded:false, errs:{}, earStats:{}, noteStats:{}, intensity:'intense'};
 const USER='Thomas';
 /* restauration de progression via ?restore=<base64> (transfert d'appareil / d'origine) */
 (function(){ try{
@@ -1285,7 +1285,9 @@ function dailyProgram(){
     fn:()=>openLesson(nl||ALL_LESSONS[Math.floor(Math.random()*ALL_LESSONS.length)])});
   P.push((wk && wk.key==='degres' && S.done['m2l1'])
     ? {key:'ear', ic:'🏛', txt:'Point faible : quiz des degrés', fn:()=>dojoDeg()}
-    : {key:'ear', ic:'👂', txt:'Oreille : une série d\'écoute', fn:()=>dojoEar()});
+    : {key:'ear', ic:'👂', txt:'Oreille des couleurs : majeur/mineur', fn:()=>dojoEar()});
+  /* module OBLIGATOIRE tous les jours : l'oreille des notes (point faible de Thomas) */
+  P.push({key:'notes', ic:'🎧', txt:'Oreille des notes : retrouve la note', fn:()=>noteEarRoom()});
   if(lvl==='normal') return P;
   /* intense : + technique (renversements/7e) + un morceau joué en entier */
   if(S.done['m5l1']) P.push({key:'tech', ic:'🎨', txt:'Technique : sprint des 7e', fn:()=>dojoSev()});
@@ -1420,6 +1422,9 @@ const DRILLS=[
   {id:'mix', icon:'🎯', title:'SESSION MIXTE', req:'m0l2',
    desc:()=>'Un peu de tout ce que tu as déjà vu, mélangé au hasard. S\'enrichit automatiquement à chaque leçon validée. +25 XP.',
    run:()=>dojoMix()},
+  {id:'notes', icon:'🎧', title:'L\'oreille des notes', req:null,
+   desc:()=>{ const s=noteStat(noteNextLevel()); return 'Entends une note, retrouve-la sur le clavier. 4 niveaux, de « explore librement » à « à l\'aveugle ».'+(s.best?` Meilleur : <b style="color:var(--acc)">${s.best}%</b>.`:''); },
+   run:()=>noteEarRoom()},
   {id:'sprint', icon:'⚡', title:'Sprint d\'accords', req:'m0l2',
    desc:()=>'10 accords aléatoires, chronométrés.'+(S.best.sprint?` Record sans faute : <b style="color:var(--acc)">${S.best.sprint}s</b>.`:' Fais un sans-faute pour poser un record.'),
    run:()=>dojoChords()},
@@ -1648,6 +1653,110 @@ function earCompare(inner,menu){
   render();
   const back=document.createElement('button'); back.className='btn ghost'; back.style.marginTop='16px';
   back.textContent='← Retour aux niveaux'; back.onclick=()=>dojoEar(); inner.appendChild(back);
+}
+
+/* ================================================================
+   L'OREILLE DES NOTES — entendre un son et retrouver la note
+   (skill différent de l'oreille des couleurs d'accord : ici on identifie
+   une hauteur. Niveau 1 = tu explores le clavier pour trouver la bonne.)
+   ================================================================ */
+const NOTE_EAR_LEVELS=[
+  {id:'n1', t:'① Trouve la note (explorer)',
+   d:'Une note blanche entre Do et Si. Appuie sur les touches pour les entendre et retrouve celle que je te joue. Aucun piège, prends ton temps — c\'est comme ça qu\'on se fabrique l\'oreille.',
+   cfg:{lo:60,hi:71,whitesOnly:true,explore:true,ref:60,count:8,name:'Blanches · Do→Si · explore librement'}},
+  {id:'n2', t:'② L\'octave complète',
+   d:'Toujours les blanches, mais sur une octave entière (Do→Do). Le repère Do reste là pour t\'ancrer.',
+   cfg:{lo:60,hi:72,whitesOnly:true,explore:true,ref:60,count:8,name:'Blanches · Do→Do'}},
+  {id:'n3', t:'③ Avec les touches noires',
+   d:'Les 12 notes sur une octave. Les dièses et bémols entrent dans la danse — l\'oreille se précise au demi-ton.',
+   cfg:{lo:60,hi:71,whitesOnly:false,explore:true,ref:60,count:8,name:'12 notes · Do→Si'}},
+  {id:'n4', t:'④ À l\'aveugle',
+   d:'On enlève les roulettes : tu écoutes, et tu appuies UNE fois sur la note que tu crois. Pas d\'exploration. C\'est là qu\'on voit ce que l\'oreille a vraiment retenu.',
+   cfg:{lo:60,hi:71,whitesOnly:false,explore:false,ref:60,count:8,name:'12 notes · sans filet'}},
+];
+function noteStat(id){ return (S.noteStats&&S.noteStats[id])||{n:0,best:0,last:0}; }
+function noteNextLevel(){ for(const L of NOTE_EAR_LEVELS){ const s=noteStat(L.id); if(s.n===0||s.best<80) return L.id; } return NOTE_EAR_LEVELS[NOTE_EAR_LEVELS.length-1].id; }
+
+/* moteur : joue une note cible, l'utilisateur la retrouve sur le clavier */
+function runNoteEar(el, cfg, cb){
+  const pool=[]; for(let m=cfg.lo;m<=cfg.hi;m++){ if(cfg.whitesOnly&&isBlack(m)) continue; pool.push(m); }
+  let i=0, correct=0, target=null, candidate=null, answered=false; const bad=new Set();
+  el.innerHTML=`<div class="exhead"><div class="target">🎧</div><div class="sub" id="nesub">${cfg.name}</div></div>
+    <div class="exprog" id="ndots"></div>`;
+  const dots=el.querySelector('#ndots'), sub=el.querySelector('#nesub');
+  const row=document.createElement('div'); row.className='exrow';
+  row.innerHTML=`<button class="btn ghost" id="hear">🔊 Réécouter</button>${cfg.ref!=null?`<button class="btn ghost" id="ref">🎹 Repère : ${NOTE_FR[cfg.ref%12]}</button>`:''}`;
+  el.appendChild(row);
+  const kb=buildKeyboard(cfg.lo,cfg.hi,onTap); el.appendChild(kb);
+  const fb=document.createElement('div'); fb.className='fb'; el.appendChild(fb);
+  const valRow=document.createElement('div'); valRow.className='exrow';
+  const val=document.createElement('button'); val.className='btn'; val.textContent='✓ Valider'; val.disabled=true;
+  valRow.appendChild(val); el.appendChild(valRow);
+  if(!cfg.explore){ val.style.display='none'; }
+  row.querySelector('#hear').onclick=()=>{ if(target!=null) playNote(target,1.5,.42); };
+  if(cfg.ref!=null) row.querySelector('#ref').onclick=()=>playNote(cfg.ref,1.4,.32);
+  val.onclick=()=>{ if(candidate!=null) commit(); };
+
+  function onTap(m,k){
+    if(answered){ if(cfg.explore) playNote(m); return; }
+    if(cfg.explore){
+      playNote(m); candidate=m; kb.clearSel(); k.classList.add('sel'); val.disabled=false;
+      fb.className='fb'; fb.textContent='Ta réponse : '+NOTE_FR[m%12];
+    } else { candidate=m; commit(); }
+  }
+  function commit(){
+    if(answered||candidate==null) return;
+    answered=true; val.disabled=true;
+    const ok=candidate===target;
+    playNote(target,1.4,.42);
+    if(ok){
+      correct++; const ke=kb.keyEl(target); if(ke) ke.classList.add('flash');
+      fb.className='fb ok'; fb.textContent='✓ Oui — '+NOTE_FR[target%12]; chime();
+    } else {
+      bad.add(i); buzz();
+      const ck=kb.keyEl(candidate); if(ck) ck.classList.add('wrong');
+      const tk=kb.keyEl(target); if(tk) tk.classList.add('hint');
+      fb.className='fb bad'; fb.textContent='C\'était '+NOTE_FR[target%12]+(cfg.explore?' (toi : '+NOTE_FR[candidate%12]+')':'');
+    }
+    progDots(dots,cfg.count,i+1,bad); i++;
+    setTimeout(()=>{ if(i>=cfg.count) cb(correct,Math.round(correct/cfg.count*100)); else next(); }, ok?800:1700);
+  }
+  function next(){
+    candidate=null; answered=false; val.disabled=true; fb.textContent=''; fb.className='fb'; kb.clearSel();
+    progDots(dots,cfg.count,i,bad);
+    target=pool[Math.floor(Math.random()*pool.length)];
+    sub.textContent=`Note ${i+1}/${cfg.count} — ${cfg.explore?'explore et valide':'appuie sur la note, du premier coup'}`;
+    setTimeout(()=>playNote(target,1.5,.42),400);
+  }
+  next();
+}
+function noteEarDone(L,correct,pct){
+  if(!S.noteStats) S.noteStats={};
+  const s=noteStat(L.id);
+  S.noteStats[L.id]={n:s.n+1, best:Math.max(s.best,pct), last:pct}; save();
+  dailyMark('notes'); award(12); chime();
+  toast(`🎧 +12 XP · ${correct}/${L.cfg.count} · oreille des notes`);
+  closeOverlay();
+}
+function noteEarRoom(){
+  openCustom('🎧 L\'oreille des notes',(inner)=>{
+    const menu=document.createElement('div');
+    menu.innerHTML=`<p style="color:var(--dim);font-size:14px;margin-bottom:10px">Tu entends une note, tu la retrouves. C'est <b style="color:var(--txt)">le</b> muscle de l'oreille. Commence en explorant le clavier ; monte les niveaux quand tu passes 80%.</p>`;
+    inner.appendChild(menu);
+    const reco=noteNextLevel();
+    NOTE_EAR_LEVELS.forEach(L=>{
+      const s=noteStat(L.id), isReco=L.id===reco;
+      const c=document.createElement('div'); c.className='card'; if(isReco) c.style.borderColor='var(--acc)';
+      c.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+          <b style="font-size:15px">${L.t}</b>
+          ${s.n?`<span style="font-size:12px;font-weight:800;color:${s.best>=80?'var(--ok)':'var(--dim)'}">${s.best}%</span>`:''}</div>
+        ${isReco?'<div style="font-size:11px;font-weight:800;color:var(--acc);letter-spacing:1px;margin-top:2px">▶ COMMENCE ICI</div>':''}
+        <p style="color:var(--dim);font-size:13px;margin:4px 0 0;line-height:1.5">${L.d}</p>`;
+      const b=document.createElement('button'); b.className=isReco?'btn':'btn ghost'; b.textContent='Lancer';
+      b.onclick=()=>{ menu.remove(); const box=document.createElement('div'); inner.appendChild(box); runNoteEar(box,L.cfg,(cor,pct)=>noteEarDone(L,cor,pct)); };
+      c.appendChild(b); inner.appendChild(c);
+    });
+  });
 }
 const DOJO_PROGS=[
   {name:'I–V–vi–IV', deg:[[0,'maj'],[7,'maj'],[9,'min'],[5,'maj']]},
