@@ -2078,6 +2078,134 @@ function dojoMix(){
 }
 
 /* ---------------- Outils ---------------- */
+/* ================================================================
+   PIANO CONNECTÉ (MIDI) — l'app entend directement ce que tu joues
+   Avec un piano numérique branché en USB, la détection est EXACTE :
+   ce ne sont pas des sons analysés, ce sont les notes elles-mêmes.
+   ================================================================ */
+/* modèles d'accords : ensemble d'intervalles (depuis la fondamentale) → nom.
+   pri = priorité quand plusieurs lectures sont possibles (ambiguïté musicale). */
+const MIDI_TPL = {
+  '0,7':      {suf:'5',      fr:'quinte (power chord)', pri:5},
+  '0,4,7':    {suf:'',       fr:'majeur',               pri:1},
+  '0,3,7':    {suf:'m',      fr:'mineur',               pri:1},
+  '0,3,6':    {suf:'dim',    fr:'diminué',              pri:3},
+  '0,4,8':    {suf:'aug',    fr:'augmenté',             pri:3},
+  '0,2,7':    {suf:'sus2',   fr:'sus2',                 pri:4},
+  '0,5,7':    {suf:'sus4',   fr:'sus4',                 pri:4},
+  '0,4,7,11': {suf:'maj7',   fr:'majeur 7',             pri:2},
+  '0,4,7,10': {suf:'7',      fr:'7 (dominante)',        pri:2},
+  '0,3,7,10': {suf:'m7',     fr:'mineur 7',             pri:2},
+  '0,3,7,11': {suf:'m(maj7)',fr:'mineur majeur 7',      pri:4},
+  '0,3,6,10': {suf:'m7♭5',   fr:'demi-diminué',         pri:3},
+  '0,3,6,9':  {suf:'°7',     fr:'diminué 7',            pri:3},
+  '0,4,7,9':  {suf:'6',      fr:'sixte',                pri:3},
+  '0,3,7,9':  {suf:'m6',     fr:'mineur 6',             pri:3},
+  '0,2,4,7':  {suf:'add9',   fr:'add9',                 pri:4},
+  '0,5,7,10': {suf:'7sus4',  fr:'7sus4',                pri:4},
+  '0,2,4,7,10':{suf:'9',     fr:'neuvième',             pri:4},
+  '0,2,4,7,11':{suf:'maj9',  fr:'majeur 9',             pri:4},
+  '0,2,3,7,10':{suf:'m9',    fr:'mineur 9',             pri:4},
+};
+const IV_NAME = {1:'seconde mineure',2:'seconde majeure',3:'tierce mineure',4:'tierce majeure',
+  5:'quarte',6:'triton',7:'quinte',8:'sixte mineure',9:'sixte majeure',10:'septième mineure',11:'septième majeure'};
+
+/* identifie un accord depuis des notes MIDI absolues. Détection exacte :
+   les seules ambiguïtés sont musicales (Do6 vs Lam7), pas techniques. */
+function identifyChord(midiNotes){
+  const notes=[...new Set(midiNotes)].sort((a,b)=>a-b);
+  if(!notes.length) return null;
+  const bass=notes[0]%12;
+  const pcs=[...new Set(notes.map(n=>n%12))].sort((a,b)=>a-b);
+  if(pcs.length===1) return {sym:NOTE[pcs[0]], fr:NOTE_FR[pcs[0]]+' (note seule)', pcs, bass, kind:'note'};
+  if(pcs.length===2){
+    const iv=(pcs[1]-pcs[0]+12)%12;
+    if(iv===7||iv===5){ const root=iv===7?pcs[0]:pcs[1];
+      return {sym:NOTE[root]+'5', fr:NOTE_FR[root]+' quinte (power chord)', pcs, bass, kind:'dyad'}; }
+    return {sym:NOTE[bass]+' + '+IV_NAME[iv], fr:'intervalle : '+IV_NAME[iv], pcs, bass, kind:'dyad'};
+  }
+  const cands=[];
+  for(const root of pcs){
+    const key=pcs.map(p=>(p-root+12)%12).sort((a,b)=>a-b).join(',');
+    const tpl=MIDI_TPL[key];
+    if(tpl) cands.push({root,tpl,bassIsRoot:root===bass});
+  }
+  if(!cands.length) return {sym:'—', fr:'accord non standard ('+pcs.map(p=>NOTE[p]).join(' ')+')', pcs, bass, kind:'unknown'};
+  cands.sort((a,b)=> (b.bassIsRoot-a.bassIsRoot) || (a.tpl.pri-b.tpl.pri) || (a.root-b.root));
+  const c=cands[0], slash=(c.root!==bass);
+  return {
+    sym:NOTE[c.root]+c.tpl.suf+(slash?'/'+NOTE[bass]:''),
+    fr:NOTE_FR[c.root]+' '+c.tpl.fr+(slash?' (renversement, basse '+NOTE_FR[bass]+')':''),
+    root:c.root, bass, pcs, kind:'chord',
+    alt: cands.length>1 ? NOTE[cands[1].root]+cands[1].tpl.suf : null
+  };
+}
+
+/* ---- plomberie Web MIDI ---- */
+const MIDIN={access:null, held:new Set(), inputs:[], onUpdate:null, onDevices:null};
+async function midiConnect(){
+  if(!navigator.requestMIDIAccess) return {ok:false, reason:'no-api'};
+  try{
+    const access=await navigator.requestMIDIAccess({sysex:false});
+    MIDIN.access=access;
+    const bind=()=>{ MIDIN.inputs=[...access.inputs.values()];
+      MIDIN.inputs.forEach(inp=>inp.onmidimessage=onMidiMsg);
+      if(MIDIN.onDevices) MIDIN.onDevices(MIDIN.inputs); };
+    access.onstatechange=bind; bind();
+    return {ok:true};
+  }catch(e){ return {ok:false, reason:'denied'}; }
+}
+function onMidiMsg(e){
+  const [st,note,vel]=e.data, cmd=st&0xf0;
+  if(cmd===0x90 && vel>0) MIDIN.held.add(note);
+  else if(cmd===0x80 || (cmd===0x90 && vel===0)) MIDIN.held.delete(note);
+  else return;
+  if(MIDIN.onUpdate) MIDIN.onUpdate([...MIDIN.held].sort((a,b)=>a-b));
+}
+/* hook de test : simule un message MIDI sans matériel */
+function midiSimulate(bytes){ onMidiMsg({data:bytes}); }
+
+function openMidi(){
+  openCustom('🎹 Piano connecté',(inner)=>{
+    inner.innerHTML=`
+      <div class="card" id="midiStatus"><b style="font-size:15px">🔌 Connexion…</b>
+        <p style="color:var(--dim);font-size:13px;margin:4px 0 0">Recherche d'un piano MIDI.</p></div>
+      <div class="exhead"><div class="target" id="midiChord" style="font-size:40px">—</div>
+        <div class="sub" id="midiFr">Joue un accord sur ton piano.</div>
+        <div class="sub" id="midiAlt" style="color:var(--blue);margin-top:4px"></div></div>
+      <div id="midiKb"></div>
+      <div class="theory"><div class="tip" style="margin-top:12px">💡 La détection est <b>exacte</b> : ce sont les vraies notes envoyées par ton piano, pas du son analysé. Les seules « hésitations » possibles sont des ambiguïtés de théorie (un Do6 et un Lam7 ont les mêmes notes) — l'app choisit selon la basse.</div></div>`;
+    const kb=buildKeyboard(36,84,()=>{}); inner.querySelector('#midiKb').appendChild(kb);
+    const statusEl=inner.querySelector('#midiStatus'), chordEl=inner.querySelector('#midiChord'),
+          frEl=inner.querySelector('#midiFr'), altEl=inner.querySelector('#midiAlt');
+    const setStatus=(html)=>statusEl.innerHTML=html;
+
+    MIDIN.onDevices=(inputs)=>{
+      if(inputs.length) setStatus(`<b style="font-size:15px;color:var(--ok)">🎹 Connecté : ${inputs.map(i=>i.name).join(', ')}</b>
+        <p style="color:var(--dim);font-size:13px;margin:4px 0 0">Joue — l'app identifie en direct.</p>`);
+      else setStatus(`<b style="font-size:15px;color:var(--acc)">Aucun piano MIDI détecté</b>
+        <p style="color:var(--dim);font-size:13px;margin:4px 0 0">Branche ton piano à l'ordinateur avec un câble <b>USB</b> (prise « USB TO HOST » à l'arrière du piano), puis rejoue. Si ton piano n'a qu'une vieille prise MIDI ronde à 5 broches, il faut un petit adaptateur MIDI→USB.</p>`);
+    };
+    MIDIN.onUpdate=(held)=>{
+      kb.clearSel();
+      held.forEach(m=>{ const k=kb.keyEl(m); if(k) k.classList.add('sel'); });
+      const r=identifyChord(held);
+      if(!r){ chordEl.textContent='—'; frEl.textContent='Joue un accord sur ton piano.'; altEl.textContent=''; return; }
+      chordEl.textContent=r.sym; frEl.textContent=r.fr;
+      altEl.textContent = r.alt ? 'aussi lisible : '+r.alt : '';
+    };
+    midiConnect().then(res=>{
+      if(!res.ok && res.reason==='no-api')
+        setStatus(`<b style="font-size:15px;color:var(--bad)">Web MIDI indisponible</b>
+          <p style="color:var(--dim);font-size:13px;margin:4px 0 0">Ton navigateur ne gère pas le MIDI (c'est le cas de Safari et de tout iPhone). Ouvre Piano Dojo dans <b>Chrome ou Edge sur ordinateur</b> pour cette fonction.</p>`);
+      else if(!res.ok)
+        setStatus(`<b style="font-size:15px;color:var(--bad)">Accès MIDI refusé</b>
+          <p style="color:var(--dim);font-size:13px;margin:4px 0 0">Autorise l'accès MIDI puis recharge la page.</p>`);
+      else if(!MIDIN.inputs.length) MIDIN.onDevices([]);
+    });
+  });
+}
+
 function renderOutils(){
   main.innerHTML=`<h1 class="page">Outils</h1>`;
   const c1=document.createElement('div'); c1.className='card';
@@ -2089,6 +2217,12 @@ function renderOutils(){
   const kb=buildKeyboard(48,76,(m,k)=>{ playNote(m); k.classList.add('flash'); setTimeout(()=>k.classList.remove('flash'),200); });
   c1.appendChild(kb); main.appendChild(c1);
   c1.querySelector('#lbltog').onclick=()=>{ S.labels=!S.labels; save(); renderOutils(); };
+
+  const cM=document.createElement('div'); cM.className='card'; cM.style.borderColor='var(--blue)';
+  cM.innerHTML=`<b style="font-size:16px">🎹 Piano connecté (MIDI)</b>
+    <p style="color:var(--dim);font-size:13px;margin:4px 0 0">Branche ton piano numérique en USB : l'app <b>entend directement</b> ce que tu joues et identifie l'accord, sans micro et sans erreur. Chrome/Edge sur ordinateur uniquement.</p>`;
+  const bM=document.createElement('button'); bM.className='btn ghost'; bM.textContent='Ouvrir';
+  bM.onclick=()=>openMidi(); cM.appendChild(bM); main.appendChild(cM);
 
   const c2=document.createElement('div'); c2.className='card';
   c2.innerHTML=`<b style="font-size:16px">🕰 Métronome</b>`;
