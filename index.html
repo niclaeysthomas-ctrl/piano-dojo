@@ -1368,6 +1368,13 @@ function renderParcours(){
   daily.appendChild(bn);
   main.appendChild(daily);
 
+  /* accès libre à toute la théorie, sans attendre le palier du jour */
+  const thc=document.createElement('div'); thc.className='card'; thc.style.borderColor='var(--blue)';
+  thc.innerHTML=`<b style="font-size:15px">📚 Bibliothèque théorique</b>
+    <p style="color:var(--dim);font-size:13px;margin:4px 0 0;line-height:1.5">Toute la théorie en accès libre et approfondie — lis ce que tu veux, quand tu veux, sans attendre le palier du jour.</p>`;
+  const thb=document.createElement('button'); thb.className='btn ghost'; thb.textContent='Ouvrir la théorie';
+  thb.onclick=()=>theoryLibrary(); thc.appendChild(thb); main.appendChild(thc);
+
   if(S.bilan){
     const bl=bilanLevel(S.bilan.global);
     const bc=document.createElement('div'); bc.className='card';
@@ -3469,6 +3476,287 @@ function runBilan(){
       };
       next();
     };
+  });
+}
+
+/* ================================================================
+   BIBLIOTHÈQUE THÉORIQUE — toute la théorie, en accès libre, approfondie
+   ================================================================ */
+const THEORY=[
+/* ---------- FONDAMENTAUX ---------- */
+{id:'clavier', ic:'🗺', cat:'Fondamentaux', title:'Le clavier et les 12 notes', sub:'Le terrain de jeu, une bonne fois pour toutes',
+ body:`
+<p>La musique occidentale tient dans <b>12 notes</b>. Douze. Après, ça recommence, une octave plus haut, à l'identique. Tout le reste — accords, gammes, harmonie — n'est que de la combinatoire sur ces 12 sons.</p>
+<h3>Les 12 notes</h3>
+<p>Dans l'ordre, en montant d'un demi-ton à chaque fois : <b>C&nbsp;· C#&nbsp;· D&nbsp;· Eb&nbsp;· E&nbsp;· F&nbsp;· F#&nbsp;· G&nbsp;· Ab&nbsp;· A&nbsp;· Bb&nbsp;· B</b>, puis on reboucle sur C. En français : Do, Do#, Ré, Mib, Mi, Fa, Fa#, Sol, Lab, La, Sib, Si.</p>
+<div class="formula">demi-ton = la touche juste à côté · ton = deux demi-tons</div>
+<h3>Se repérer à l'œil</h3>
+<p>Les touches noires sont groupées par <b>2</b> et par <b>3</b>. C'est ta boussole :</p>
+<ul>
+<li><b>Do (C)</b> est la blanche <b>juste à gauche du groupe de 2 noires</b>.</li>
+<li><b>Fa (F)</b> est la blanche <b>juste à gauche du groupe de 3 noires</b>.</li>
+</ul>
+<p>Repère ces deux-là et tu ne cherches plus jamais : tout le reste se déduit en montant l'alphabet A→G.</p>
+<h3>Dièses, bémols, enharmonie</h3>
+<p>Une touche noire porte <b>deux noms</b> selon d'où on vient : montée d'un demi-ton depuis Do = Do<b>#</b> (dièse) ; descente d'un demi-ton depuis Ré = Ré<b>b</b> (bémol). C#&nbsp;et&nbsp;Db, c'est <b>la même touche</b> : on appelle ça l'<b>enharmonie</b>. Le nom choisi dépend du contexte (la tonalité), mais le son est identique.</p>
+<div class="tip">Pourquoi 12 ? Parce qu'on a décidé de découper l'octave en 12 demi-tons <b>égaux</b> (le « tempérament égal »). C'est un compromis génial : il permet de jouer dans les 12 tonalités sur le même instrument sans réaccorder.</div>
+<div class="warn">Piège classique : entre <b>E–F</b> et entre <b>B–C</b>, il n'y a <b>pas</b> de touche noire. Ces deux paires de blanches sont séparées d'un simple demi-ton. C'est la seule irrégularité à mémoriser.</div>`},
+
+{id:'intervalles', ic:'📏', cat:'Fondamentaux', title:'Les intervalles : la vraie fondation', sub:'La distance entre deux notes — d\'où TOUT vient',
+ body:`
+<p>Un <b>intervalle</b>, c'est la distance entre deux notes, mesurée en demi-tons. C'est <b>la</b> brique de base : un accord est un empilement d'intervalles, une gamme est une suite d'intervalles, une mélodie est un chemin d'intervalles. Maîtrise ça et tout le reste devient de la lecture.</p>
+<h3>La table complète</h3>
+<ul>
+<li><b>0</b> — unisson (même note)</li>
+<li><b>1</b> — seconde mineure (m2)</li>
+<li><b>2</b> — seconde majeure (M2) = un ton</li>
+<li><b>3</b> — tierce mineure (m3) — <i>le son « sombre »</i></li>
+<li><b>4</b> — tierce majeure (M3) — <i>le son « brillant »</i></li>
+<li><b>5</b> — quarte juste (P4)</li>
+<li><b>6</b> — triton (TT) — <i>le diable en musique, instable</i></li>
+<li><b>7</b> — quinte juste (P5) — <i>le pilier, ultra stable</i></li>
+<li><b>8</b> — sixte mineure (m6)</li>
+<li><b>9</b> — sixte majeure (M6)</li>
+<li><b>10</b> — septième mineure (m7)</li>
+<li><b>11</b> — septième majeure (M7)</li>
+<li><b>12</b> — octave (la même note, plus haute)</li>
+</ul>
+<h3>Justes, majeurs, mineurs</h3>
+<p>L'unisson, la quarte, la quinte et l'octave sont dits <b>justes</b> : ils sonnent « neutres », creux, stables. Les secondes, tierces, sixtes et septièmes existent en version <b>majeure</b> (plus large d'un demi-ton) ou <b>mineure</b>. C'est la <b>tierce</b> qui, dans un accord, décide de la couleur majeur/mineur.</p>
+<h3>Consonance et dissonance</h3>
+<p>Certains intervalles sonnent <b>reposés</b> (consonants : octave, quinte, tierces, sixtes), d'autres <b>tendus</b> (dissonants : secondes, septièmes, triton). La musique, c'est le jeu permanent entre tension et repos : on crée de la tension… pour la résoudre.</p>
+<div class="tip">Truc pour les entendre : associe chaque intervalle au <b>début d'une chanson connue</b>. Quinte montante = début de « Twinkle Twinkle ». Quarte montante = « La Marseillaise ». Octave = « Somewhere over the rainbow ». Tu te fabriques des repères pour l'oreille.</div>
+<div class="tip">Intervalles complémentaires : un intervalle et son renversement font toujours <b>12</b>. Une tierce majeure (4) renversée devient une sixte mineure (8). 4+8=12. Pratique pour retrouver un intervalle dans l'autre sens.</div>`},
+
+/* ---------- ACCORDS ---------- */
+{id:'triades', ic:'🧱', cat:'Accords', title:'Les triades : les 4 couleurs', sub:'Majeur, mineur, diminué, augmenté',
+ body:`
+<p>Une <b>triade</b>, c'est un accord de 3 notes : une <b>fondamentale</b>, sa <b>tierce</b>, sa <b>quinte</b>. On les construit en empilant deux tierces. Selon que ces tierces sont majeures (4 demi-tons) ou mineures (3), on obtient <b>quatre couleurs</b> — et seulement quatre.</p>
+<div class="formula">
+Majeur = 4 + 3 (Do–Mi–Sol)<br>
+Mineur = 3 + 4 (Do–Mib–Sol)<br>
+Diminué = 3 + 3 (Do–Mib–Solb)<br>
+Augmenté = 4 + 4 (Do–Mi–Sol#)
+</div>
+<h3>Ce que chacun raconte</h3>
+<ul>
+<li><b>Majeur</b> — lumineux, affirmatif, « heureux ». La base de tout.</li>
+<li><b>Mineur</b> — sombre, mélancolique, intérieur. Une seule note change (la tierce descend d'un demi-ton) et tout le climat bascule.</li>
+<li><b>Diminué</b> — tendu, anxieux, instable. Deux tierces mineures empilées : ça <b>veut bouger</b>, ça ne peut pas rester en place.</li>
+<li><b>Augmenté</b> — suspendu, rêveur, irréel. Deux tierces majeures : ça flotte, sans gravité.</li>
+</ul>
+<h3>Le rôle de la quinte</h3>
+<p>Dans un majeur et un mineur, la quinte est <b>juste</b> (7 demi-tons) : c'est le pilier qui tient l'accord debout. Le diminué a une quinte <b>diminuée</b> (6, le triton) et l'augmenté une quinte <b>augmentée</b> (8) — c'est ce qui les rend instables.</p>
+<div class="tip">Retiens la clé : <b>c'est la tierce qui décide de l'émotion</b>. Majeur ↔ mineur, un seul demi-ton d'écart au milieu. Tu peux transformer n'importe quel accord d'une couleur à l'autre en bougeant une seule note.</div>`},
+
+{id:'renversements', ic:'🔄', cat:'Accords', title:'Renversements & voicings', sub:'Le même accord, mille visages',
+ body:`
+<p>Un accord, ce sont des <b>notes</b>, pas un ordre imposé. Do–Mi–Sol reste un Do majeur que tu joues Mi–Sol–Do ou Sol–Do–Mi. Changer la note du bas, c'est faire un <b>renversement</b>.</p>
+<h3>Les trois positions d'une triade</h3>
+<ul>
+<li><b>Position fondamentale</b> — la fondamentale en bas (Do–Mi–Sol).</li>
+<li><b>1er renversement</b> — la tierce en bas (Mi–Sol–Do). On le note <b>C/E</b> (« Do sur Mi »).</li>
+<li><b>2e renversement</b> — la quinte en bas (Sol–Do–Mi), noté <b>C/G</b>.</li>
+</ul>
+<p>La notation <b>slash</b> (Accord/Basse) est partout dans les partitions modernes : la lettre après le / est la <b>note la plus grave</b> à jouer.</p>
+<h3>Le voice leading : le secret des pros</h3>
+<p>Quand tu enchaînes deux accords, ne saute pas d'une position fondamentale à l'autre. <b>Bouge le moins de notes possible</b>, par le plus court chemin. Exemple : de C (Do–Mi–Sol) à F, ne joue pas Fa–La–Do en sautant, mais <b>Do–Fa–La</b> (2e renversement de F) : Do reste, Mi→Fa, Sol→La. Deux doigts bougent d'un cheveu. C'est ça qui sonne « fluide » et pro.</p>
+<h3>Voicings : ouverts, fermés, shell</h3>
+<ul>
+<li><b>Fermé</b> — les notes serrées dans la même octave. Compact, un peu épais.</li>
+<li><b>Ouvert</b> — on écarte les notes sur deux octaves. Ça respire, ça sonne « grand ».</li>
+<li><b>Shell (coquille)</b> — pour les accords de 7e, on ne garde que <b>fondamentale + tierce + septième</b> (on lâche la quinte). Les deux notes qui définissent la couleur suffisent. C'est le voicing de base du pianiste de jazz.</li>
+</ul>
+<div class="tip">Le <b>drop 2</b> : prends un voicing fermé à 4 notes et descends la 2e note en partant du haut d'une octave. Instantanément, l'accord s'ouvre et sonne riche. Un des tours les plus rentables du clavier.</div>`},
+
+{id:'septiemes', ic:'🎨', cat:'Accords', title:'Les 7e et les extensions', sub:'Le son adulte : couleur, tension, jazz',
+ body:`
+<p>Ajoute une <b>4e note</b> à ta triade — une septième au-dessus de la fondamentale — et l'accord passe du dessin d'enfant à la peinture. C'est le son « adulte », celui du jazz, de la soul, de la bossa.</p>
+<h3>Les cinq accords de 7e à connaître</h3>
+<div class="formula">
+maj7 = majeur + M7&nbsp;&nbsp;(Do–Mi–Sol–Si) — doux, rêveur<br>
+7 (dominante) = majeur + m7&nbsp;&nbsp;(Do–Mi–Sol–Sib) — ça veut résoudre<br>
+m7 = mineur + m7&nbsp;&nbsp;(Do–Mib–Sol–Sib) — velours, cool<br>
+m7b5 = diminué + m7&nbsp;&nbsp;(Do–Mib–Solb–Sib) — le « demi-diminué »<br>
+dim7 = diminué + 6&nbsp;&nbsp;(Do–Mib–Solb–La) — tension maximale
+</div>
+<h3>La 7e de dominante : le moteur</h3>
+<p>L'accord <b>7</b> (dominante) contient un <b>triton</b> entre sa tierce et sa septième (Mi–Sib). Ce triton est instable : il <b>tire vers la résolution</b>. C'est pour ça que G7 « appelle » C. Tout le mouvement de l'harmonie tonale vient de là.</p>
+<h3>Les extensions : 9, 11, 13</h3>
+<p>On continue d'empiler des tierces au-dessus de la 7e : la <b>9e</b>, la <b>11e</b>, la <b>13e</b>. Ce sont des couleurs qu'on ajoute pour enrichir. Un Cmaj9, c'est un Cmaj7 avec un Ré par-dessus — plus lumineux encore.</p>
+<h3>Les altérations : la tension pure</h3>
+<p>Sur un accord de dominante, on peut <b>altérer</b> ces extensions : b9, #9, #11, b13. Chacune ajoute une couleur épicée, une tension supplémentaire à résoudre. C'est le vocabulaire du jazz moderne — le fameux « accord altéré » (G7alt) qui gratte juste ce qu'il faut avant de tomber sur le Do.</p>
+<div class="tip">Économie : sur un accord de 7e, la <b>fondamentale et la quinte</b> sont les notes les moins importantes (la quinte ne dit rien, la fondamentale est souvent jouée par la basse). La <b>tierce et la septième</b>, elles, portent toute la couleur. D'où les shell voicings.</div>`},
+
+/* ---------- GAMMES & MODES ---------- */
+{id:'gamme-armures', ic:'🪜', cat:'Gammes & modes', title:'La gamme majeure & le cycle des quintes', sub:'D\'où viennent les tonalités et les armures',
+ body:`
+<p>La <b>gamme majeure</b> est la matrice de toute l'harmonie occidentale. Une seule formule d'écarts, transposable sur les 12 notes :</p>
+<div class="formula">Ton – Ton – ½ – Ton – Ton – Ton – ½</div>
+<p>Pars de Do et applique-la : Do–Ré–Mi–Fa–Sol–La–Si–Do. Aucune touche noire : la gamme de Do majeur, ce sont exactement les blanches. Applique la même formule depuis Sol et tu obtiens Sol–La–Si–Do–Ré–Mi–<b>Fa#</b>–Sol : un dièse apparaît.</p>
+<h3>Le cycle des quintes</h3>
+<p>Range les 12 notes non pas à la chromatique mais <b>de quinte en quinte</b> : C–G–D–A–E–B–F#… À chaque quinte montée, la nouvelle gamme majeure gagne <b>un dièse</b> de plus. Dans l'autre sens (de quarte en quarte : C–F–Bb–Eb…), on gagne <b>un bémol</b>.</p>
+<ul>
+<li>Ordre d'apparition des <b>dièses</b> : Fa Do Sol Ré La Mi Si.</li>
+<li>Ordre d'apparition des <b>bémols</b> : Si Mi La Ré Sol Do Fa (l'inverse exact).</li>
+</ul>
+<h3>L'armure</h3>
+<p>L'<b>armure</b>, c'est le nombre de dièses ou de bémols d'une tonalité — sa carte d'identité. Sol majeur = 1 dièse (Fa#). Ré majeur = 2 dièses (Fa#, Do#). Fa majeur = 1 bémol (Sib). Connaître l'armure, c'est savoir instantanément quelles notes sont « dans » la tonalité.</p>
+<h3>La relative mineure</h3>
+<p>Chaque gamme majeure a une <b>jumelle mineure</b> qui utilise exactement les mêmes notes, mais démarre sur le <b>6e degré</b>. Do majeur et <b>La mineur</b> partagent les touches blanches. Même matériel, humeur opposée : c'est juste une question de note autour de laquelle on gravite.</p>
+<div class="tip">Astuce mémoire du cycle : « <b>Père Charles Gagne Des Are En Bêchant</b> » pour les dièses (Fa Do Sol Ré La Mi Si), et l'inverse pour les bémols.</div>`},
+
+{id:'modes', ic:'🎭', cat:'Gammes & modes', title:'Les 7 modes', sub:'Sept ambiances dans une seule gamme',
+ body:`
+<p>Prends la gamme de Do majeur (les blanches) et, au lieu de partir de Do, <b>démarre et gravite autour d'une autre note</b>. Même matériel, mais l'oreille recentre tout : tu obtiens un <b>mode</b>, avec sa couleur propre. Sept degrés, sept modes.</p>
+<ul>
+<li><b>Ionien</b> (depuis Do) — la gamme majeure elle-même. Lumineux, stable.</li>
+<li><b>Dorien</b> (depuis Ré) — mineur, mais avec une <b>sixte majeure</b> qui l'éclaire. Le mineur « cool », jazzy, celui de « So What ».</li>
+<li><b>Phrygien</b> (depuis Mi) — mineur avec une <b>seconde mineure (b2)</b>. Couleur espagnole, flamenco, tendue.</li>
+<li><b>Lydien</b> (depuis Fa) — majeur avec une <b>quarte augmentée (#4)</b>. Rêveur, flottant, « musique de film ».</li>
+<li><b>Mixolydien</b> (depuis Sol) — majeur avec une <b>septième mineure (b7)</b>. Le son dominant, bluesy, rock.</li>
+<li><b>Éolien</b> (depuis La) — le <b>mineur naturel</b>. Mélancolique, la relative mineure.</li>
+<li><b>Locrien</b> (depuis Si) — b2 <b>et</b> b5. Instable, rarement utilisé comme centre, mais roi sur les accords m7b5.</li>
+</ul>
+<h3>La note caractéristique</h3>
+<p>Chaque mode se reconnaît à <b>une note</b> qui le distingue de la gamme majeure ou mineure « attendue » : le #4 du lydien, le b7 du mixolydien, la 6 majeure du dorien, le b2 du phrygien. C'est cette note qu'il faut faire sonner pour que le mode s'entende vraiment.</p>
+<div class="tip">Usage concret : sur un accord de <b>Dm7</b> qui dure, joue la gamme de Do majeur mais en visant Ré comme point d'ancrage → tu improvises en <b>Ré dorien</b>. Sur un <b>G7</b>, vise Sol → mixolydien. Les modes, c'est ta grammaire d'impro accord par accord.</div>
+<div class="warn">Erreur fréquente : croire qu'un mode est « une gamme différente ». Non — c'est la <b>même</b> gamme, avec un centre de gravité déplacé. Ce qui change, c'est la note autour de laquelle tout tourne.</div>`},
+
+{id:'penta-blues', ic:'🎸', cat:'Gammes & modes', title:'Pentatoniques & blues', sub:'Improviser sans jamais tomber à côté',
+ body:`
+<p>Une <b>pentatonique</b>, c'est une gamme de <b>5 notes</b> (penta = cinq). On a retiré de la gamme majeure les deux notes qui créent le plus de frottements — résultat : il devient <b>très difficile de sonner faux</b>. C'est l'échelle idéale pour se lancer dans l'improvisation.</p>
+<div class="formula">
+Penta majeure = 0 – 2 – 4 – 7 – 9&nbsp;&nbsp;(Do Ré Mi Sol La)<br>
+Penta mineure = 0 – 3 – 5 – 7 – 10&nbsp;&nbsp;(La Do Ré Mi Sol)
+</div>
+<p>Comme pour les gammes complètes, la penta majeure de Do et la penta mineure de La sont <b>les mêmes 5 notes</b> : relatives l'une de l'autre.</p>
+<h3>La gamme blues</h3>
+<p>Ajoute à la penta mineure <b>une seule note</b> — la quinte diminuée, la fameuse <b>« blue note »</b> — et tu obtiens la gamme blues :</p>
+<div class="formula">Blues = 0 – 3 – 5 – <b>6</b> – 7 – 10&nbsp;&nbsp;(La Do Ré <b>Mib</b> Mi Sol)</div>
+<p>La blue note ne « reste » jamais : on la traverse, en glissant, pour aller vers la quinte ou la tierce. C'est elle qui donne ce grain plaintif, sale, irrésistible.</p>
+<h3>Pourquoi ça marche</h3>
+<p>Sur toute une progression en Do (par ex. un blues C–F–G), tu peux jouer la <b>même</b> penta/gamme blues du début à la fin, sans changer à chaque accord. Les 5 notes sont assez « neutres » pour coller partout. D'où la magie : une seule échelle, et tu ne peux quasiment pas te tromper.</p>
+<div class="tip">Ne joue pas les notes « en montant l'échelle ». Fais des <b>phrases</b> : 2-3 notes, une respiration, une note tenue, une reprise. La musique, ce sont des phrases, pas des gammes récitées.</div>`},
+
+/* ---------- HARMONIE & RYTHME ---------- */
+{id:'harmonie', ic:'🏛', cat:'Harmonie & rythme', title:'L\'harmonie fonctionnelle', sub:'Pourquoi les accords s\'enchaînent comme ils s\'enchaînent',
+ body:`
+<p>Pourquoi certaines suites d'accords sonnent « justes » et d'autres bancales ? Parce que dans une tonalité, chaque accord a une <b>fonction</b> — un rôle dramatique. L'harmonie, c'est de la mise en scène : repos, mouvement, tension, résolution.</p>
+<h3>Les 7 degrés</h3>
+<p>Construis un accord sur chaque note de la gamme majeure (en empilant les notes de la gamme) et tu obtiens, en Do :</p>
+<div class="formula">I&nbsp;C&nbsp;·&nbsp;ii&nbsp;Dm&nbsp;·&nbsp;iii&nbsp;Em&nbsp;·&nbsp;IV&nbsp;F&nbsp;·&nbsp;V&nbsp;G&nbsp;·&nbsp;vi&nbsp;Am&nbsp;·&nbsp;vii°&nbsp;B°</div>
+<p>Les chiffres romains <b>majuscules</b> = accords majeurs, <b>minuscules</b> = mineurs. Cette numérotation est <b>universelle</b> : un I–V–vi–IV, c'est la même logique dans toutes les tonalités. Tu apprends une fois, tu transposes partout.</p>
+<h3>Les trois fonctions</h3>
+<ul>
+<li><b>Tonique</b> (I, et ses substituts vi et iii) — le <b>repos</b>, la maison. C'est là qu'on veut revenir.</li>
+<li><b>Sous-dominante</b> (IV, ii) — le <b>départ</b>, le mouvement qui éloigne de la maison.</li>
+<li><b>Dominante</b> (V, vii°) — la <b>tension</b> maximale, qui appelle le retour au I.</li>
+</ul>
+<p>La phrase harmonique type : <b>Tonique → Sous-dominante → Dominante → Tonique</b>. Partir, s'éloigner, créer la tension, résoudre.</p>
+<h3>Les cadences</h3>
+<ul>
+<li><b>Parfaite</b> : V → I. La ponctuation forte, le point final.</li>
+<li><b>Plagale</b> : IV → I. Le « Amen » d'église, plus doux.</li>
+<li><b>Rompue</b> : V → vi. On promet le repos (I)… et on file sur vi. Surprise, ça relance.</li>
+<li><b>Demi-cadence</b> : on <b>s'arrête sur V</b>. Suspension, question laissée en l'air.</li>
+</ul>
+<h3>Le ii–V–I : le moteur du jazz</h3>
+<p>Dm7 → G7 → Cmaj7. La sous-dominante prépare, la dominante tend, la tonique résout. C'est la cellule d'harmonie la plus jouée de l'histoire. Apprends-la dans les 12 tonalités et tu as la clé de la moitié du répertoire.</p>
+<div class="tip">Pour aller plus loin : les <b>dominantes secondaires</b> (jouer le V d'un autre degré que le I, ex. A7→Dm = « V de ii ») et les <b>emprunts modaux</b> (piquer un accord au mode mineur parallèle, comme le Fm dans une chanson en Do majeur) sont les deux outils qui font passer une progression de correcte à mémorable.</div>`},
+
+{id:'rythme', ic:'🥁', cat:'Harmonie & rythme', title:'Le rythme', sub:'Ce qui fait que ça groove (ou pas)',
+ body:`
+<p>On peut jouer les bonnes notes et sonner mou, ou trois notes et faire danser une salle. La différence, c'est le <b>rythme</b>. C'est la moitié de la musique, et souvent la plus négligée.</p>
+<h3>Les valeurs</h3>
+<p>On divise le temps par deux à chaque fois : <b>ronde</b> (4 temps) → <b>blanche</b> (2) → <b>noire</b> (1 temps, la pulsation de base) → <b>croche</b> (½) → <b>double-croche</b> (¼). Le <b>point</b> ajoute la moitié de la valeur (noire pointée = 1 temps et demi).</p>
+<h3>La mesure et le chiffrage</h3>
+<p>On regroupe les temps en <b>mesures</b>. Le chiffrage (4/4, 3/4, 6/8) dit combien de temps par mesure et quelle figure vaut un temps. <b>4/4</b> : quatre noires, le standard de la pop/rock. <b>3/4</b> : la valse. <b>6/8</b> : une pulsation ternaire, balancée.</p>
+<h3>Temps forts, temps faibles</h3>
+<p>En 4/4, le <b>1</b> est le plus fort, le <b>3</b> secondaire, les <b>2 et 4</b> faibles — mais ce sont eux qui portent le <b>backbeat</b> (la caisse claire, le clap). Accentuer les temps faibles, c'est ce qui donne l'assise « moderne ».</p>
+<h3>Syncope et contretemps</h3>
+<p>Jouer <b>entre</b> les temps, ou accentuer un temps faible pour créer une surprise rythmique : c'est la <b>syncope</b>. C'est le sel du funk, du reggae, de la bossa. La note arrive « en avance » ou « en retard » sur ce qu'on attend, et ça crée le mouvement.</p>
+<div class="tip">Le <b>swing (ternaire)</b> : au lieu de deux croches égales, la première dure deux tiers du temps et la seconde un tiers — un balancement « doo-ba, doo-ba ». C'est ce qui sépare le jazz et le blues d'une lecture « droite » (binaire).</div>
+<div class="warn">Travaille <b>toujours au métronome</b>, même lentement. Le tempo qui accélère dès que ça devient dur, c'est le défaut n°1 des autodidactes. Un rythme propre et lent bat un rythme rapide et bancal.</div>`},
+
+{id:'composition', ic:'🎼', cat:'Harmonie & rythme', title:'Construire une progression', sub:'Comment naissent les chansons',
+ body:`
+<p>Une chanson n'est pas un miracle : c'est de l'harmonie fonctionnelle mise en mouvement, avec du goût. Voici comment on assemble une progression qui tient debout.</p>
+<h3>1. Choisis une tonalité et son matériel</h3>
+<p>Décide d'un centre (disons Do majeur). Tes accords « maison » sont les 7 degrés : C, Dm, Em, F, G, Am, B°. Tu peux déjà écrire des tubes rien qu'avec eux.</p>
+<h3>2. Fais raconter une histoire aux fonctions</h3>
+<p>Alterne repos et tension. Le <b>I–V–vi–IV</b> (C–G–Am–F) domine des milliers de hits parce qu'il boucle parfaitement : maison → tension → surprise douce (le vi) → relance (le IV) → et ça repart. Le <b>vi–IV–I–V</b>, le <b>I–vi–IV–V</b> (les années 50) : mêmes ingrédients, autre ordre.</p>
+<h3>3. Soigne la basse</h3>
+<p>La <b>ligne de basse</b> (la note la plus grave) est ce que l'oreille suit en priorité. Une basse qui descend par degrés (Do–Si–La–Sol…) donne une sensation de chute irrésistible — c'est le secret de « Hit the Road Jack » ou du canon de Pachelbel. Utilise les <b>renversements</b> (slash) pour dessiner cette ligne.</p>
+<h3>4. Ajoute de la couleur</h3>
+<ul>
+<li><b>Emprunts modaux</b> : glisse un Fm (emprunté au mineur) juste avant de revenir au C → un frisson doux-amer garanti.</li>
+<li><b>Dominantes secondaires</b> : un A7 avant le Dm (au lieu d'un Am) → ça « tire » vers le Dm et enrichit le chemin.</li>
+<li><b>7e et 9e</b> : remplace tes triades par des maj7/m7 → tout de suite plus adulte, plus soul.</li>
+</ul>
+<h3>5. Le turnaround</h3>
+<p>À la fin d'une boucle, un petit enchaînement (souvent un <b>ii–V</b>) qui <b>ramène</b> au début. C'est la porte tournante qui fait qu'on peut rejouer la grille indéfiniment sans que ça coince.</p>
+<div class="tip">Méthode express : prends une progression que tu aimes, identifie ses <b>degrés</b> (pas ses accords), et rejoue-les dans une autre tonalité. Tu viens de comprendre la chanson de l'intérieur — et tu peux en écrire dix variantes.</div>`},
+];
+
+function openTheory(t){
+  openCustom(t.title,(inner)=>{
+    const th=document.createElement('div'); th.className='theory'; th.innerHTML=t.body;
+    inner.appendChild(th);
+    const back=document.createElement('button'); back.className='btn ghost'; back.style.marginTop='18px';
+    back.textContent='← Retour à la bibliothèque'; back.onclick=()=>theoryLibrary();
+    inner.appendChild(back);
+    overlay.scrollTop=0;
+  });
+}
+function openLessonTheory(l){
+  openCustom(l.title,(inner)=>{
+    const th=document.createElement('div'); th.className='theory'; th.innerHTML=l.theory;
+    inner.appendChild(th);
+    const note=document.createElement('p');
+    note.style.cssText='color:var(--dim);font-size:12px;text-align:center;margin-top:16px;line-height:1.5';
+    note.textContent='Lecture libre. Pour valider la leçon (paliers + XP), passe par le Parcours.';
+    inner.appendChild(note);
+    const back=document.createElement('button'); back.className='btn ghost';
+    back.textContent='← Retour à la bibliothèque'; back.onclick=()=>theoryLibrary();
+    inner.appendChild(back);
+    overlay.scrollTop=0;
+  });
+}
+function theoryLibrary(){
+  openCustom('📚 Bibliothèque théorique',(inner)=>{
+    const intro=document.createElement('p'); intro.style.cssText='color:var(--dim);font-size:14px;margin-bottom:4px;line-height:1.5';
+    intro.innerHTML='Toute la théorie, en <b style="color:var(--txt)">accès libre</b> — lis ce que tu veux, quand tu veux, sans attendre le palier du jour. Les dossiers approfondis creusent bien plus loin que les leçons.';
+    inner.appendChild(intro);
+    const cats=[...new Set(THEORY.map(t=>t.cat))];
+    cats.forEach(cat=>{
+      const h=document.createElement('h2');
+      h.style.cssText='font-size:13px;color:var(--acc);text-transform:uppercase;letter-spacing:1.2px;margin:18px 0 8px;padding-left:4px';
+      h.textContent=cat; inner.appendChild(h);
+      THEORY.filter(t=>t.cat===cat).forEach(t=>{
+        const c=document.createElement('div'); c.className='lesson';
+        c.innerHTML=`<div class="ico">${t.ic}</div><div class="t"><b>${t.title}</b><small>${t.sub}</small></div><div class="xp" style="color:var(--dim)">›</div>`;
+        c.onclick=()=>openTheory(t); inner.appendChild(c);
+      });
+    });
+    const h=document.createElement('h2');
+    h.style.cssText='font-size:13px;color:var(--blue);text-transform:uppercase;letter-spacing:1.2px;margin:22px 0 4px;padding-left:4px';
+    h.textContent='Théorie des leçons (accès libre)'; inner.appendChild(h);
+    const sub=document.createElement('p'); sub.style.cssText='color:var(--dim);font-size:12px;margin:0 0 8px;padding-left:4px';
+    sub.textContent='Le cours de chaque leçon du Parcours, lisible sans condition — même celles pas encore débloquées.';
+    inner.appendChild(sub);
+    CURRICULUM.forEach(mod=>{
+      const mh=document.createElement('div');
+      mh.style.cssText='font-size:12px;color:var(--dim);font-weight:800;margin:12px 0 4px;padding-left:4px;text-transform:uppercase;letter-spacing:.5px';
+      mh.textContent=mod.title; inner.appendChild(mh);
+      mod.lessons.forEach(l=>{
+        if(!l.theory) return;
+        const c=document.createElement('div'); c.className='lesson';
+        c.innerHTML=`<div class="ico">${l.icon}</div><div class="t"><b>${l.title}</b><small>${l.sub}</small></div><div class="xp" style="color:var(--dim)">›</div>`;
+        c.onclick=()=>openLessonTheory(l); inner.appendChild(c);
+      });
+    });
+    overlay.scrollTop=0;
   });
 }
 
