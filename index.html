@@ -190,6 +190,14 @@
   .week .bar{background:linear-gradient(180deg,var(--acc),var(--acc2));border-radius:4px;min-height:2px}
   .week .col.z .bar{background:var(--bg3)}
   .week small{font-size:10px;color:var(--dim);font-weight:700}
+  .spark{display:flex;gap:3px;align-items:flex-end;height:40px;margin:8px 0 2px}
+  .spark i{flex:1;min-width:3px;border-radius:2px 2px 0 0;min-height:3px;opacity:.9}
+  .earsum{display:flex;gap:10px;flex-wrap:wrap;margin:6px 0 2px}
+  .earsum .m{flex:1;min-width:80px;background:var(--bg3);border:1px solid var(--line);border-radius:10px;padding:8px 10px;text-align:center}
+  .earsum .m b{display:block;font-size:19px;color:var(--acc)}
+  .earsum .m small{font-size:10px;color:var(--dim)}
+  .trendline{font-size:13px;font-weight:700;margin-top:8px}
+  .trendline.up{color:var(--ok)} .trendline.down{color:var(--bad)} .trendline.flat{color:var(--dim)}
 
   /* ---------- morceaux / play-along ---------- */
   .songitem{display:flex;align-items:center;gap:12px;background:var(--bg2);border:1px solid var(--line);
@@ -1564,6 +1572,30 @@ const EAR_LEVELS=[
    cfg:{kinds:['maj7','m7','dom7'],count:10,sub:'Trois couleurs de 7e.'}},
 ];
 function earStat(id){ if(!S.earStats) S.earStats={}; return S.earStats[id]||{n:0,best:0}; }
+/* historique des séances (pct) pour rendre la progression VISIBLE et mesurée */
+function earPush(id,pct){
+  if(!S.earStats) S.earStats={};
+  const st=S.earStats[id]||{n:0,best:0};
+  st.n=(st.n||0)+1; st.best=Math.max(st.best||0,pct); st.last=pct;
+  st.hist=(st.hist||[]).concat([{d:todayStr(),p:pct}]).slice(-30);
+  S.earStats[id]=st;
+}
+const EAR_MM=['duel','samediff','l1','l2','l3','l4']; /* niveaux majeur/mineur (hors 7e) */
+function earAllHist(){
+  let all=[]; EAR_MM.forEach(id=>{ const st=earStat(id); if(st.hist) all=all.concat(st.hist); });
+  return all.sort((a,b)=> a.d<b.d?-1:a.d>b.d?1:0);
+}
+const _avg=a=>a.length?Math.round(a.reduce((x,y)=>x+y,0)/a.length):0;
+function earTrend(hist){
+  const ps=hist.map(h=>h.p); if(ps.length<2) return null;
+  const half=Math.max(1,Math.floor(ps.length/2));
+  const older=_avg(ps.slice(0,half)), recent=_avg(ps.slice(-Math.min(5,ps.length)));
+  return {recent, delta:recent-older, n:ps.length, best:Math.max.apply(null,ps)};
+}
+function earSpark(hist){
+  const ps=hist.slice(-14).map(h=>h.p);
+  return `<div class="spark">${ps.map(p=>`<i style="height:${Math.max(4,p)}%;background:${p>=80?'var(--ok)':p>=60?'var(--acc)':'var(--bad)'}"></i>`).join('')}</div>`;
+}
 /* le niveau à travailler = le premier pas encore tenu à 80 % */
 function earNextLevel(){
   for(const L of EAR_LEVELS){ const st=earStat(L.id); if(st.best<80) return L.id; }
@@ -1597,9 +1629,7 @@ function earMethod(inner,menu){
 function earRun(inner,L){
   const done=(ok,sc)=>{
     const pct=Math.round(sc/L.cfg.count*100);
-    if(!S.earStats) S.earStats={};
-    const st=earStat(L.id);
-    S.earStats[L.id]={n:st.n+1, best:Math.max(st.best,pct), last:pct};
+    earPush(L.id,pct);
     if(sc>S.earBest){ S.earBest=sc; }
     save();
     dailyMark('ear'); award(10);
@@ -1616,6 +1646,29 @@ function dojoEar(){
     menu.innerHTML=`<p style="color:var(--dim);font-size:14px;margin-bottom:10px">
       Le majeur et le mineur ne diffèrent que par <b style="color:var(--txt)">une seule note</b> : celle du milieu, descendue d'un demi-ton en mineur. Tout est là.</p>`;
     inner.appendChild(menu);
+    /* PROGRESSION MESURÉE : la preuve chiffrée que ton oreille bouge (ou pas) */
+    const allH=earAllHist(), tr=earTrend(allH);
+    if(tr && tr.n>=3){
+      const dir = tr.delta>=6?'up':tr.delta<=-6?'down':'flat';
+      const verdict = dir==='up' ? `▲ +${tr.delta} points depuis tes débuts. Ton oreille progresse — c'est mesuré, pas une impression.`
+        : dir==='down' ? `▼ ${tr.delta} points. Coup de moins bien : c'est souvent la fatigue. Reviens au duel, séances courtes.`
+        : `→ Stable. Pour débloquer des gains, applique la méthode à la lettre (chante la note du milieu) et fais des séances plus courtes mais quotidiennes.`;
+      const pc=document.createElement('div'); pc.className='card'; pc.style.borderColor='var(--acc)';
+      pc.innerHTML=`<b style="font-size:15px">📈 Ta progression — majeur / mineur</b>
+        <div class="earsum">
+          <div class="m"><b>${tr.recent}%</b><small>moyenne récente</small></div>
+          <div class="m"><b>${tr.best}%</b><small>record</small></div>
+          <div class="m"><b>${tr.n}</b><small>séances</small></div>
+        </div>
+        ${earSpark(allH)}
+        <div class="trendline ${dir}">${verdict}</div>`;
+      menu.appendChild(pc);
+    } else {
+      const pc=document.createElement('div'); pc.className='card';
+      pc.innerHTML=`<b style="font-size:15px">📈 Ta progression</b>
+        <p style="color:var(--dim);font-size:13px;margin:4px 0 0">Fais quelques séances : dès la 3ᵉ, tu verras ici ta courbe de progression et ta moyenne récente — la preuve chiffrée que ça bouge.</p>`;
+      menu.appendChild(pc);
+    }
     const mc=document.createElement('div'); mc.className='card'; mc.style.borderColor='var(--blue)';
     mc.innerHTML=`<b style="font-size:15px">🧭 La méthode (lis ça d'abord)</b>
       <p style="color:var(--dim);font-size:13px;margin:4px 0 0">Pourquoi tu stagnes, et la procédure en 3 étapes à appliquer à chaque écoute. 2 minutes de lecture qui valent des semaines de clics au hasard.</p>`;
@@ -1625,12 +1678,14 @@ function dojoEar(){
       const st=earStat(L.id), isReco=(L.id===reco);
       const c=document.createElement('div'); c.className='card';
       if(isReco) c.style.borderColor='var(--acc)';
+      const lt=st.hist?earTrend(st.hist):null;
       c.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
           <b style="font-size:15px">${L.t}</b>
-          ${st.n?`<span style="font-size:12px;font-weight:800;color:${st.best>=80?'var(--ok)':'var(--dim)'}">${st.best}%</span>`:''}
+          ${st.n?`<span style="font-size:12px;font-weight:800;color:${st.best>=80?'var(--ok)':'var(--dim)'}">record ${st.best}%${lt?` · récent ${lt.recent}%`:''}</span>`:''}
         </div>
         ${isReco?'<div style="font-size:11px;font-weight:800;color:var(--acc);letter-spacing:1px;margin-top:2px">▶ COMMENCE ICI</div>':''}
-        <p style="color:var(--dim);font-size:13px;margin:4px 0 0;line-height:1.5">${L.d}</p>`;
+        <p style="color:var(--dim);font-size:13px;margin:4px 0 0;line-height:1.5">${L.d}</p>
+        ${st.hist&&st.hist.length>=2?earSpark(st.hist):''}`;
       const b=document.createElement('button'); b.className=isReco?'btn':'btn ghost'; b.textContent='Lancer';
       b.onclick=()=>{ menu.remove(); earRun(inner,L); };
       c.appendChild(b); menu.appendChild(c);
@@ -2590,7 +2645,7 @@ function runScale(el,ex,cb){
 
 /* ---------- moteur : OREILLE ---------- */
 function runEar(el,ex,cb){
-  let i=0, score=0, answered=false, cur=null; const badIdx=new Set();
+  let i=0, score=0, answered=false, cur=null, prevT=null, streakT=0; const badIdx=new Set();
   const label={maj:'Majeur',min:'Mineur',maj7:'maj7',m7:'m7',dom7:'7'};
   const third={maj:'tierce majeure — brillante (4 demi-tons)', min:'tierce mineure — sombre (3 demi-tons)'};
   el.innerHTML=`<div class="exhead"><div class="target">👂</div><div class="sub">${ex.sub||''}</div></div>
@@ -2612,7 +2667,10 @@ function runEar(el,ex,cb){
   const next=()=>{
     answered=false;
     const root = ex.fixedRoot!=null ? ex.fixedRoot : 52+Math.floor(Math.random()*13);
-    cur={ t:ex.kinds[Math.floor(Math.random()*ex.kinds.length)], rootMidi:root };
+    let t=ex.kinds[Math.floor(Math.random()*ex.kinds.length)];
+    if(t===prevT && streakT>=2 && ex.kinds.length>1){ const o=ex.kinds.filter(k=>k!==prevT); t=o[Math.floor(Math.random()*o.length)]; }
+    streakT = t===prevT ? streakT+1 : 1; prevT=t;
+    cur={ t, rootMidi:root };
     fb.textContent=''; fb.className='fb';
     btns.querySelectorAll('.btn').forEach(b=>{ b.classList.remove('ok'); b.style.opacity=1; b.style.pointerEvents='auto'; });
     progDots(dots,ex.count,i,badIdx);
@@ -2655,7 +2713,7 @@ function runEar(el,ex,cb){
    exige un modèle interne. COMPARER deux accords n'en exige aucun : c'est
    ainsi qu'on FABRIQUE le modèle. On ne passe à l'absolu qu'après. */
 function runEarAB(el,ex,cb){
-  let i=0, score=0, answered=false, cur=null; const badIdx=new Set();
+  let i=0, score=0, answered=false, cur=null, prevSol=null, streakSol=0; const badIdx=new Set();
   const label={maj:'Majeur',min:'Mineur'};
   el.innerHTML=`<div class="exhead"><div class="target">${ex.mode==='duel'?'🅰️🅱️':'↔️'}</div>
     <div class="sub">${ex.sub||''}</div></div>
@@ -2681,12 +2739,16 @@ function runEarAB(el,ex,cb){
     answered=false;
     const root=ex.fixedRoot!=null?ex.fixedRoot:52+Math.floor(Math.random()*13);
     if(ex.mode==='duel'){
-      const majFirst=Math.random()<.5;
-      cur={root, a:majFirst?'maj':'min', b:majFirst?'min':'maj', sol:majFirst?'1':'2'};
+      let majFirst=Math.random()<.5, sol=majFirst?'1':'2';
+      if(sol===prevSol && streakSol>=2){ majFirst=!majFirst; sol=majFirst?'1':'2'; }
+      cur={root, a:majFirst?'maj':'min', b:majFirst?'min':'maj', sol};
     } else {
-      const same=Math.random()<.5, first=Math.random()<.5?'maj':'min';
-      cur={root, a:first, b:same?first:(first==='maj'?'min':'maj'), sol:same?'same':'diff'};
+      let same=Math.random()<.5, sol=same?'same':'diff';
+      if(sol===prevSol && streakSol>=2){ same=!same; sol=same?'same':'diff'; }
+      const first=Math.random()<.5?'maj':'min';
+      cur={root, a:first, b:same?first:(first==='maj'?'min':'maj'), sol};
     }
+    streakSol = cur.sol===prevSol ? streakSol+1 : 1; prevSol=cur.sol;
     fb.textContent=''; fb.className='fb';
     btns.querySelectorAll('.btn').forEach(b=>{ b.classList.remove('ok'); b.style.pointerEvents='auto'; });
     progDots(dots,ex.count,i,badIdx);
