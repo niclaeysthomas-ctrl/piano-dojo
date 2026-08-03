@@ -294,6 +294,18 @@ const CHORD_TYPES = {
   dom7: {iv:[0,4,7,10], suf:'7',    nom:'7 (dominante)'},
   maj7: {iv:[0,4,7,11], suf:'maj7', nom:'majeur 7'},
   m7:   {iv:[0,3,7,10], suf:'m7',   nom:'mineur 7'},
+  /* accords colorés / originaux */
+  sus2: {iv:[0,2,7],       suf:'sus2', nom:'suspendu 2 (tierce → seconde)'},
+  sus4: {iv:[0,5,7],       suf:'sus4', nom:'suspendu 4 (tierce → quarte)'},
+  dim:  {iv:[0,3,6],       suf:'dim',  nom:'diminué (3+3)'},
+  aug:  {iv:[0,4,8],       suf:'aug',  nom:'augmenté (4+4)'},
+  m7b5: {iv:[0,3,6,10],    suf:'m7b5', nom:'demi-diminué (m7♭5)'},
+  dim7: {iv:[0,3,6,9],     suf:'dim7', nom:'diminué 7 (tierces mineures empilées)'},
+  dom9: {iv:[0,4,7,10,14], suf:'9',    nom:'9 (dominante + 9e)'},
+  maj9: {iv:[0,4,7,11,14], suf:'maj9', nom:'majeur 9'},
+  m9:   {iv:[0,3,7,10,14], suf:'m9',   nom:'mineur 9'},
+  dom11:{iv:[0,7,10,14,17],suf:'11',   nom:'11 (dominante, sans la tierce)'},
+  d7b9: {iv:[0,4,7,10,13], suf:'7♭9',  nom:'7 altéré (♭9)'},
 };
 const chordName = (root,t,bass=null) =>
   NOTE[root] + CHORD_TYPES[t].suf + (bass!=null ? '/'+NOTE[bass] : '');
@@ -1297,6 +1309,7 @@ const DAILY_DRILLS=[
   {req:'m2l2', ic:'🎲', txt:'Joue une progression tirée au sort', fn:()=>dojoProg()},
   {req:'m6l1', ic:'🪜', txt:'Gammes depuis une fondamentale au hasard', fn:()=>dojoScale()},
   {req:null, ic:'🧠', txt:'Quiz : formats & grilles', fn:()=>dojoTheoryQuiz()},
+  {req:'m5l1', ic:'🎨', txt:'Accords colorés (sus, dim, 9, 11)', fn:()=>chordLabRoom()},
 ];
 const INTENSITIES=[['normal','Normal'],['intense','Intense'],['forge','Forge'],['marathon','Marathon']];
 function curIntensity(){ return S.intensity||'intense'; }
@@ -1472,6 +1485,9 @@ const DRILLS=[
   {id:'tquiz', icon:'🧠', title:'Quiz — formats & grilles', req:null,
    desc:()=>'Blues, ii–V–I, anatole, AABA, modes, dominantes secondaires… Les formats et progressions que tout musicien doit connaître par cœur.',
    run:()=>dojoTheoryQuiz()},
+  {id:'colab', icon:'🎨', title:'Accords colorés', req:'m5l1',
+   desc:()=>'Au-delà de maj/min/7 : sus2/sus4, dim, m7♭5, dim7, et les extensions 9 & 11. Le vocabulaire du son jazz — à construire au clavier.',
+   run:()=>chordLabRoom()},
   {id:'sprint', icon:'⚡', title:'Sprint d\'accords', req:'m0l2',
    desc:()=>'10 accords aléatoires, chronométrés.'+(S.best.sprint?` Record sans faute : <b style="color:var(--acc)">${S.best.sprint}s</b>.`:' Fais un sans-faute pour poser un record.'),
    run:()=>dojoChords()},
@@ -2125,6 +2141,11 @@ const THEORY_QUIZ=[
  {q:'Un accord sus4 (ex. Csus4) :', ok:'la tierce remplacée par la quarte (Do–Fa–Sol)', bad:['la quinte baissée','la 7e ajoutée','la tierce doublée'], why:'sus4 = « suspendu » : la 4te prend la place de la 3ce, l\'accord ne dit ni majeur ni mineur.'},
  {q:'Dans le cycle des quintes, une quinte au-dessus de Do :', ok:'Sol (armure : 1 dièse, Fa#)', bad:['Fa (1 bémol)','Ré (2 dièses)','La (3 dièses)'], why:'Monter d\'une quinte ajoute un dièse : Do → Sol, armure = Fa#.'},
  {q:'Un blues MINEUR (ex. en La mineur) repose surtout sur :', ok:'i – iv – V (Am – Dm – E7)', bad:['I – IV – V majeurs','ii – V – I','I – vi – IV – V'], why:'Blues mineur : degrés i et iv mineurs, et un V (souvent dominante) qui ramène. Couleur sombre.'},
+ {q:'Un accord sus4 (ex. Asus4) :', ok:'la tierce est remplacée par la quarte (La–Ré–Mi)', bad:['la tierce remplacée par la seconde','la quinte baissée','la 7e ajoutée'], why:'sus4 = suspendu : la 4te prend la place de la 3ce. sus2, c\'est la 2de à la place de la 3ce. Dans les deux cas : ni majeur ni mineur.'},
+ {q:'Le demi-diminué (m7♭5), ex. Bm7♭5, se construit :', ok:'triade diminuée + 7e mineure (Si–Ré–Fa–La)', bad:['mineur + 7e majeure','majeur + quinte augmentée','diminué + 6te'], why:'m7♭5 = fondamentale, 3ce min, 5te DIMINUÉE, 7e min. C\'est le ii des tonalités mineures (le début d\'un ii–V mineur).'},
+ {q:'Le dim7 (diminué 7) est fait de :', ok:'tierces mineures empilées (Do–Mib–Solb–La)', bad:['tierces majeures empilées','une triade majeure + 7e','quartes empilées'], why:'dim7 = 4 notes à 3 demi-tons d\'écart chacune. Parfaitement symétrique, tension maximale.'},
+ {q:'Un accord de 9 (ex. C9) ajoute à la 7 de dominante :', ok:'la 9e (Ré au-dessus, soit Do–Mi–Sol–Sib–Ré)', bad:['la 6te','une 2e fondamentale','la quarte'], why:'La 9e = la 2de montée d\'une octave. On empile une tierce de plus au-dessus de la 7e. Son riche, funky.'},
+ {q:'Sur un dominant 11 (ex. C11), on omet souvent :', ok:'la tierce (elle frotte avec la 11e)', bad:['la fondamentale','la 7e','la quinte'], why:'La 11e (Fa sur un C) est à un demi-ton de la tierce (Mi) → on lâche la 3ce. C11 sonne comme Gm7/C.'},
 ];
 function genTheoryQuiz(n){
   return THEORY_QUIZ.slice().sort(()=>Math.random()-.5).slice(0,n).map(Q=>{
@@ -2135,6 +2156,42 @@ function genTheoryQuiz(n){
 function dojoTheoryQuiz(){
   openCustom('🧠 Quiz — formats & grilles',(inner,close)=>{
     runQuiz(inner,{qs:genTheoryQuiz(6)}, ok=>{ if(ok){ award(10); dailyMark('drill'); toast('+10 XP'); } close(); });
+  });
+}
+/* ---------- ACCORDS COLORÉS : sus, dim, altérés, extensions 9/11 ---------- */
+const CHORD_FAMILIES=[
+  {id:'sus', t:'Suspendus · sus2 / sus4', ex:[9,'sus2',9,'sus4'],
+   types:['sus2','sus4'], d:'Ni majeur ni mineur : la tierce cède la place à la 2de (sus2) ou la 4te (sus4). Le son « en suspens », qui attend de résoudre.'},
+  {id:'dark', t:'Diminués & augmentés', ex:[0,'dim',0,'aug'],
+   types:['dim','aug','m7b5','dim7'], d:'Les couleurs tendues : le diminué (3+3), l\'augmenté (4+4), le demi-diminué m7♭5 (le ii des tonalités mineures) et le dim7 — piliers du jazz.'},
+  {id:'ext', t:'Extensions · 9 et 11', ex:[0,'dom9',0,'maj9'],
+   types:['dom9','maj9','m9','dom11'], d:'On empile au-delà de la 7e : la 9e, la 11e. Le son riche, adulte, moderne. (Le 11 se joue sans la tierce.)'},
+  {id:'alt', t:'Tension altérée · 7♭9', ex:[7,'dom7',7,'d7b9'],
+   types:['dom7','d7b9'], d:'La dominante qui gratte encore plus : la 7♭9. Compare-la à la 7 simple, sens la différence de tension.'},
+  {id:'all', t:'Tout mélangé', ex:[2,'m9',5,'dim7'],
+   types:['sus2','sus4','m7b5','dim7','dom9','maj9','m9'], d:'Le grand mélange, toutes tonalités. Le vrai test de maîtrise du clavier coloré.'},
+];
+function chordLabRoom(){
+  const R12=[0,1,2,3,4,5,6,7,8,9,10,11];
+  openCustom('🎨 Accords colorés',(inner)=>{
+    const menu=document.createElement('div');
+    menu.innerHTML=`<p style="color:var(--dim);font-size:14px;margin-bottom:8px">Au-delà de maj/min/7 : les accords qui font le son jazz, soul et moderne. On les <b style="color:var(--txt)">construit</b> sur le clavier — l'app valide les notes, dans n'importe quel renversement.</p>`;
+    inner.appendChild(menu);
+    CHORD_FAMILIES.forEach(F=>{
+      const c=document.createElement('div'); c.className='card';
+      c.innerHTML=`<b style="font-size:15px">${F.t}</b>
+        <p style="color:var(--dim);font-size:13px;margin:4px 0 6px;line-height:1.5">${F.d}</p>
+        <p style="color:var(--acc);font-size:12px;font-weight:800;margin:0">Ex : ${chordName(F.ex[0],F.ex[1])} · ${chordName(F.ex[2],F.ex[3])}</p>`;
+      const b=document.createElement('button'); b.className='btn ghost'; b.textContent='Lancer (8 accords)';
+      b.onclick=()=>{ menu.remove(); const box=document.createElement('div'); inner.appendChild(box);
+        runChord(box,{gen:{types:F.types,roots:R12,count:8}, sub:'Construis l\'accord affiché — appuie sur « 🔊 Écouter la cible » si besoin.'},
+          ok=>{ if(ok){ award(12); dailyMark('drill'); chime(); toast('🎨 +12 XP · accords colorés'); }
+            const rb=document.createElement('button'); rb.className='btn'; rb.style.marginTop='14px';
+            rb.textContent='← Autres familles'; rb.onclick=()=>chordLabRoom(); box.appendChild(rb); overlay.scrollTop=0; });
+        overlay.scrollTop=0; };
+      c.appendChild(b); menu.appendChild(c);
+    });
+    overlay.scrollTop=0;
   });
 }
 const VL_KEYS=[0,2,5,7,9];
