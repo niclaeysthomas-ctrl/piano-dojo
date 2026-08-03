@@ -198,6 +198,25 @@
   .earsum .m small{font-size:10px;color:var(--dim)}
   .trendline{font-size:13px;font-weight:700;margin-top:8px}
   .trendline.up{color:var(--ok)} .trendline.down{color:var(--bad)} .trendline.flat{color:var(--dim)}
+  /* ---------- rythme ---------- */
+  .rpad{height:150px;border-radius:18px;background:linear-gradient(160deg,var(--bg3),var(--bg2));
+    border:2px solid var(--line);display:flex;flex-direction:column;align-items:center;justify-content:center;
+    font-size:20px;font-weight:800;color:var(--dim);user-select:none;cursor:pointer;margin:12px 0;touch-action:none}
+  .rpad small{font-size:12px;font-weight:600;color:var(--dim);margin-top:4px}
+  .rpad.hit{border-color:var(--acc);background:linear-gradient(160deg,#2a2f42,var(--acc2));color:#1a1200}
+  .rpad.rec{border-color:var(--acc);color:var(--acc)}
+  .rbeats{display:flex;gap:8px;justify-content:center;margin:10px 0}
+  .rbeats i{width:14px;height:14px;border-radius:50%;background:var(--bg3);border:1px solid var(--line)}
+  .rbeats i.on{background:var(--acc);border-color:var(--acc);transform:scale(1.25)}
+  .rbeats i.a1{border-color:var(--dim)}
+  .rpills{display:flex;gap:5px;flex-wrap:wrap;justify-content:center;margin:8px 0}
+  .rpill{min-width:30px;text-align:center;padding:6px 8px;border-radius:8px;background:var(--bg3);border:1px solid var(--line);
+    font-weight:800;font-size:13px;color:var(--dim)}
+  .rpill.play{outline:2px solid var(--txt)}
+  .rpill.perfect{background:var(--ok);color:#02180b;border-color:var(--ok)}
+  .rpill.good{background:var(--acc);color:#1a1200;border-color:var(--acc)}
+  .rpill.loose{background:var(--acc2);color:#1a1200;border-color:var(--acc2)}
+  .rpill.miss{background:var(--bad);color:#2a0a0e;border-color:var(--bad)}
 
   /* ---------- morceaux / play-along ---------- */
   .songitem{display:flex;align-items:center;gap:12px;background:var(--bg2);border:1px solid var(--line);
@@ -302,7 +321,7 @@ const LEVELS = [
 ];
 
 /* ---------------- état / sauvegarde ---------------- */
-const DEFAULT_STATE = {xp:0, done:{}, prog:{}, streak:0, lastDay:null, earBest:0, daily:null, hist:{}, best:{}, labels:false, songs:{}, songsHand:{}, songsLH:{}, bilan:null, bilanRewarded:false, errs:{}, earStats:{}, noteStats:{}, intensity:'intense'};
+const DEFAULT_STATE = {xp:0, done:{}, prog:{}, streak:0, lastDay:null, earBest:0, daily:null, hist:{}, best:{}, labels:false, songs:{}, songsHand:{}, songsLH:{}, bilan:null, bilanRewarded:false, errs:{}, earStats:{}, noteStats:{}, rhythmStats:{}, intensity:'forge'};
 const USER='Thomas';
 /* restauration de progression via ?restore=<base64> (transfert d'appareil / d'origine) */
 (function(){ try{
@@ -1278,7 +1297,7 @@ const DAILY_DRILLS=[
   {req:'m2l2', ic:'🎲', txt:'Joue une progression tirée au sort', fn:()=>dojoProg()},
   {req:'m6l1', ic:'🪜', txt:'Gammes depuis une fondamentale au hasard', fn:()=>dojoScale()},
 ];
-const INTENSITIES=[['normal','Normal'],['intense','Intense'],['forge','Forge']];
+const INTENSITIES=[['normal','Normal'],['intense','Intense'],['forge','Forge'],['marathon','Marathon']];
 function curIntensity(){ return S.intensity||'intense'; }
 /* Le programme du jour : plus l'intensité monte, plus il y a de travail (mais toujours
    UN palier de leçon/jour). warm/lesson/ear = socle ; tech/song/mix = surcharge. */
@@ -1291,13 +1310,16 @@ function dailyProgram(){
   P.push({key:'lesson', ic:'📖', lesson:true,
     txt: nl?('Leçon : '+nl.title):'Révision : une leçon au hasard',
     fn:()=>openLesson(nl||ALL_LESSONS[Math.floor(Math.random()*ALL_LESSONS.length)])});
-  P.push((wk && wk.key==='degres' && S.done['m2l1'])
+  /* RYTHME tous les jours (priorité : c'est ce qui manque le plus pour jouer vraiment) */
+  P.push({key:'rhythm', ic:'🥁', txt:'Rythme : tape la mesure en place', fn:()=>rhythmRoom()});
+  /* écoute : UNE SEULE par jour, alternée note/couleur (moins d'écoute, plus d'entraînement) */
+  const earDay=Math.floor(Date.now()/864e5)%2;
+  if(earDay===0) P.push({key:'notes', ic:'🎧', txt:'Oreille des notes : retrouve la note', fn:()=>noteEarRoom()});
+  else P.push((wk && wk.key==='degres' && S.done['m2l1'])
     ? {key:'ear', ic:'🏛', txt:'Point faible : quiz des degrés', fn:()=>dojoDeg()}
     : {key:'ear', ic:'👂', txt:'Oreille des couleurs : majeur/mineur', fn:()=>dojoEar()});
-  /* module OBLIGATOIRE tous les jours : l'oreille des notes (point faible de Thomas) */
-  P.push({key:'notes', ic:'🎧', txt:'Oreille des notes : retrouve la note', fn:()=>noteEarRoom()});
   if(lvl==='normal') return P;
-  /* intense : + technique (renversements/7e) + un morceau joué en entier */
+  /* intense : + technique (renversements/7e) + un exercice varié tournant */
   if(S.done['m5l1']) P.push({key:'tech', ic:'🎨', txt:'Technique : sprint des 7e', fn:()=>dojoSev()});
   else if(S.done['m1l1']) P.push({key:'tech', ic:'🔄', txt:'Technique : les renversements', fn:()=>dojoInv()});
   const pool=DAILY_DRILLS.filter(x=>!x.req||S.done[x.req]);
@@ -1306,8 +1328,11 @@ function dailyProgram(){
     P.push({key:'drill', ic:pick.ic, txt:pick.txt, fn:pick.fn});
   }
   if(lvl==='intense') return P;
-  /* forge : + session mixte (révision de tout l\'acquis) */
+  /* forge & marathon : + session mixte (révision de tout l\'acquis) */
   if(S.done['m0l2']) P.push({key:'mix', ic:'🎯', txt:'Session mixte : révise tout', fn:()=>dojoMix()});
+  if(lvl==='forge') return P;
+  /* marathon (temps doublé) : + technique gammes & arpèges */
+  P.push({key:'scales', ic:'🎼', txt:'Technique : gammes & arpèges', fn:()=>dojoScale()});
   return P;
 }
 function renderParcours(){
@@ -1440,6 +1465,9 @@ const DRILLS=[
   {id:'notes', icon:'🎧', title:'L\'oreille des notes', req:null,
    desc:()=>{ const s=noteStat(noteNextLevel()); return 'Entends une note, retrouve-la sur le clavier. 4 niveaux, de « explore librement » à « à l\'aveugle ».'+(s.best?` Meilleur : <b style="color:var(--acc)">${s.best}%</b>.`:''); },
    run:()=>noteEarRoom()},
+  {id:'rhythm', icon:'🥁', title:'L\'atelier rythme', req:null,
+   desc:()=>{ const s=rhythmStat(rhythmNextLevel()); return 'Tape le rythme en place, l\'app note ta précision au millième. Noires → croches → syncopes → triolets → doubles. 8 niveaux.'+(s.best?` Meilleur : <b style="color:var(--acc)">${s.best}%</b>.`:''); },
+   run:()=>rhythmRoom()},
   {id:'sprint', icon:'⚡', title:'Sprint d\'accords', req:'m0l2',
    desc:()=>'10 accords aléatoires, chronométrés.'+(S.best.sprint?` Record sans faute : <b style="color:var(--acc)">${S.best.sprint}s</b>.`:' Fais un sans-faute pour poser un record.'),
    run:()=>dojoChords()},
@@ -1820,6 +1848,194 @@ function noteEarRoom(){
     });
   });
 }
+
+/* ================================================================
+   L'ATELIER RYTHME — taper les rythmes EN PLACE, précision notée au ms
+   (le chaînon qui sépare « connaître la théorie » de « jouer vraiment »)
+   ================================================================ */
+function woodblock(t,accent){
+  const ctx=ac(), o=ctx.createOscillator(), g=ctx.createGain();
+  o.type='triangle'; o.frequency.value=accent?1250:840;
+  g.gain.setValueAtTime(.0001,t); g.gain.exponentialRampToValueAtTime(accent?.5:.34,t+.002);
+  g.gain.exponentialRampToValueAtTime(.0001,t+.06);
+  o.connect(g); g.connect(ctx.destination); o.start(t); o.stop(t+.08);
+}
+const _rr=()=>Math.random();
+/* générateurs : renvoient les onsets (en temps, dans [0,4)) d'UNE mesure à 4 temps */
+function rgQuarter(){ return [0,1,2,3]; }
+function rgEighth(){ return [0,.5,1,1.5,2,2.5,3,3.5]; }
+function rgMix(){ const o=[]; for(let b=0;b<4;b++){ if(_rr()<.5) o.push(b); else o.push(b,b+.5); } return o; }
+function rgRest(){ const o=[0]; [.5,1,1.5,2,2.5,3,3.5].forEach(g=>{ if(_rr()<.55) o.push(g); }); return o.sort((a,b)=>a-b); }
+function rgSync(){ const s=new Set([0]); for(let b=0;b<4;b++){ if(_rr()<.65) s.add(b+.5); if(b>0&&_rr()<.35) s.add(b); } return [...s].sort((a,b)=>a-b); }
+function rgTriplet(){ const o=[]; for(let b=0;b<4;b++){ if(_rr()<.7) o.push(b,b+1/3,b+2/3); else o.push(b); } return o; }
+function rgSixteenth(){ const figs=[[0],[0,.5],[0,.25,.5,.75],[0,.25,.5],[0,.5,.75],[0,.75]]; const o=[]; for(let b=0;b<4;b++){ figs[Math.floor(_rr()*figs.length)].forEach(x=>o.push(b+x)); } return o; }
+function rgDictee(){ const p=[rgMix,rgRest,rgSync,rgSixteenth]; return p[Math.floor(_rr()*p.length)](); }
+const RHYTHM_LEVELS=[
+  {id:'rq', t:'① Les noires', d:'Un tap sur chaque temps. La pulsation — la fondation de tout.', bpm:80, gen:rgQuarter},
+  {id:'re', t:'② Les croches', d:'Deux fois par temps : « 1 & 2 & ». Diviser le temps en deux.', bpm:76, gen:rgEighth},
+  {id:'rm', t:'③ Noires & croches', d:'Des motifs qui mélangent les deux. Lis le rythme, ne le devine pas.', bpm:78, gen:rgMix},
+  {id:'rr', t:'④ Avec silences', d:'Ne tape QUE les onsets marqués. Le silence fait partie du rythme.', bpm:80, gen:rgRest},
+  {id:'rs', t:'⑤ Syncopes', d:'L\'accent sur le contretemps — le sel du groove.', bpm:74, gen:rgSync},
+  {id:'rt', t:'⑥ Triolets', d:'Trois par temps : « 1-et-là ». La pulsation ternaire.', bpm:72, gen:rgTriplet},
+  {id:'rx', t:'⑦ Doubles-croches', d:'Quatre par temps. Là, ça devient sérieux.', bpm:64, gen:rgSixteenth},
+  {id:'rd', t:'⑧ Dictée rythmique', d:'Motif tiré au hasard à chaque mesure. Le vrai test de lecture.', bpm:76, gen:rgDictee},
+];
+function rhythmStat(id){ if(!S.rhythmStats) S.rhythmStats={}; return S.rhythmStats[id]||{n:0,best:0}; }
+function rhythmNextLevel(){ for(const L of RHYTHM_LEVELS){ if(rhythmStat(L.id).best<80) return L.id; } return RHYTHM_LEVELS[RHYTHM_LEVELS.length-1].id; }
+function rhythmPush(id,pct,bpm){
+  if(!S.rhythmStats) S.rhythmStats={};
+  const st=S.rhythmStats[id]||{n:0,best:0};
+  st.n=(st.n||0)+1; st.best=Math.max(st.best||0,pct); st.last=pct;
+  if(pct>=80) st.bpmBest=Math.max(st.bpmBest||0,bpm);
+  st.hist=(st.hist||[]).concat([{d:todayStr(),p:pct}]).slice(-30);
+  S.rhythmStats[id]=st;
+}
+/* étiquette de comptage d'un onset (1, 1&, 1e, 1a, ou triolet) */
+function countLabel(b){
+  const w=Math.floor(b+1e-6), f=b-w, base=(w%4)+1;
+  if(f<.02) return ''+base;
+  if(Math.abs(f-.5)<.03) return base+'&';
+  if(Math.abs(f-.25)<.03) return base+'e';
+  if(Math.abs(f-.75)<.03) return base+'a';
+  if(Math.abs(f-1/3)<.04) return base+'·';
+  if(Math.abs(f-2/3)<.04) return base+'··';
+  return ''+base;
+}
+/* SCORING pur (testable) : compare les frappes aux onsets attendus (temps en secondes) */
+function rhythmScore(expected, taps, spb){
+  const win=Math.min(.19, spb*.5), used=new Array(taps.length).fill(false), per=[];
+  let sumErr=0,sumAbs=0,perfect=0,good=0,loose=0,missed=0;
+  expected.forEach(et=>{
+    let bi=-1,bd=1e9;
+    taps.forEach((tt,ti)=>{ if(used[ti])return; const d=tt-et; if(Math.abs(d)<Math.abs(bd)&&Math.abs(d)<=win){bd=d;bi=ti;} });
+    if(bi>=0){ used[bi]=true; const a=Math.abs(bd); sumErr+=bd; sumAbs+=a;
+      let q; if(a<.055){perfect++;q='perfect';} else if(a<.11){good++;q='good';} else {loose++;q='loose';}
+      per.push(q);
+    } else { missed++; per.push('miss'); }
+  });
+  const matched=perfect+good+loose, extra=used.filter(u=>!u).length;
+  const points=perfect*100+good*72+loose*42, penalty=extra*45;
+  const pct=Math.max(0,Math.min(100,Math.round((points-penalty)/(expected.length*100)*100)));
+  return {pct, matched, perfect, good, loose, missed, extra, per,
+    avgMs: matched?Math.round(sumAbs/matched*1000):null,
+    rushMs: matched?Math.round(sumErr/matched*1000):0};
+}
+/* moteur : compte, joue la pulsation, l'utilisateur tape, on note la précision */
+function runRhythm(el, cfg, cb){
+  const bars=cfg.bars||2;
+  let bpm=cfg.bpm, pattern=cfg.gen();
+  let taps=[], recording=false, running=false, t0=0, endT=0, raf=null, done=false;
+  el.innerHTML=`<div class="exhead"><div class="target">🥁</div><div class="sub" id="rsub">${cfg.name||cfg.t||''}</div></div>
+    <div class="rpills" id="rpills"></div>
+    <div class="rbeats" id="rbeats"><i class="a1"></i><i></i><i></i><i></i></div>
+    <div class="tempo"><span class="tl">Tempo</span><input type="range" min="50" max="120" step="2" value="${bpm}"><span class="tv">${bpm} BPM</span></div>
+    <div class="rpad" id="rpad">TAPE ICI<small>en rythme avec le clic</small></div>
+    <div class="fb" id="rfb"></div>
+    <div class="exrow"><button class="btn ghost" id="rhear">🔊 Écouter le rythme</button><button class="btn" id="rgo">🎯 À toi</button></div>`;
+  const pills=el.querySelector('#rpills'), beats=[...el.querySelectorAll('#rbeats i')], pad=el.querySelector('#rpad'),
+        fb=el.querySelector('#rfb'), sub=el.querySelector('#rsub'), tv=el.querySelector('.tv'), slider=el.querySelector('input');
+  function drawPills(){
+    pills.innerHTML=pattern.map(b=>`<span class="rpill" data-b="${b}">${countLabel(b)}</span>`).join('');
+  }
+  drawPills();
+  slider.oninput=()=>{ if(running) return; bpm=+slider.value; tv.textContent=bpm+' BPM'; };
+  el.querySelector('#rhear').onclick=()=>{ if(!running) demo(); };
+  el.querySelector('#rgo').onclick=()=>{ if(!running) start(); };
+  pad.addEventListener('pointerdown',e=>{ e.preventDefault(); if(!recording) return;
+    taps.push(ac().currentTime); pad.classList.add('hit'); setTimeout(()=>pad.classList.remove('hit'),90); });
+
+  function spb(){ return 60/bpm; }
+  function demo(){
+    running=true; const S0=spb(), t=ac().currentTime+.15;
+    for(let k=0;k<4;k++) woodblock(t+k*S0, k===0);        // décompte
+    pattern.forEach(b=> woodblock(t+(4+b)*S0, false));     // la mesure jouée
+    for(let k=0;k<4;k++) Metro.click(t+(4+k)*S0, k===0);
+    setTimeout(()=>{ running=false; }, (8*S0+.3)*1000);
+  }
+  function start(){
+    running=true; recording=false; taps=[]; done=false; drawPills(); fb.textContent=''; fb.className='fb';
+    pad.classList.add('rec'); pad.firstChild.textContent='…';
+    const S0=spb(), base=ac().currentTime+.15;
+    for(let k=0;k<4;k++) woodblock(base+k*S0, k===0);      // décompte 1 mesure
+    t0=base+4*S0;                                          // début de l'enregistrement
+    for(let k=0;k<bars*4;k++) Metro.click(t0+k*S0, k%4===0);
+    endT=t0+bars*4*S0;
+    setTimeout(()=>{ recording=true; pad.firstChild.textContent='TAPE !'; }, (base+4*S0-ac().currentTime)*1000);
+    frame();
+  }
+  function frame(){
+    if(!running) return;
+    const now=ac().currentTime, S0=spb();
+    if(now>=t0){
+      const bt=Math.floor((now-t0)/S0)%4;
+      beats.forEach((d,i)=>d.classList.toggle('on', i===bt && now<endT));
+      const posInBar=((now-t0)/S0)%4;
+      el.querySelectorAll('.rpill').forEach(p=>{ const b=+p.dataset.b; p.classList.toggle('play', Math.abs(b-posInBar)<.14); });
+    }
+    if(now>=endT+.25){ beats.forEach(d=>d.classList.remove('on')); return finish(); }
+    raf=requestAnimationFrame(frame);
+  }
+  function finish(){
+    if(done) return; done=true; running=false; recording=false;
+    pad.classList.remove('rec'); pad.firstChild.textContent='TAPE ICI';
+    const S0=spb(), expected=[]; for(let bar=0;bar<bars;bar++) pattern.forEach(b=> expected.push(t0+(bar*4+b)*S0));
+    const r=rhythmScore(expected, taps, S0);
+    /* coloration des pills (sur la 1re mesure, à titre indicatif) */
+    const first=r.per.slice(0,pattern.length);
+    el.querySelectorAll('.rpill').forEach((p,i)=>{ if(first[i]) p.classList.add(first[i]); });
+    const timing = r.avgMs==null ? '' :
+      (Math.abs(r.rushMs)<18 ? ' · pile en place' : r.rushMs<0 ? ` · tu presses (~${-r.rushMs} ms en avance)` : ` · tu traînes (~${r.rushMs} ms en retard)`);
+    sub.textContent=`${r.pct}%${timing}`;
+    fb.className='fb '+(r.pct>=80?'ok':'bad');
+    fb.innerHTML=`${r.perfect} pile · ${r.good} bon · ${r.loose} approx · ${r.missed} manqué${r.extra?` · ${r.extra} en trop`:''}`;
+    cb(r.pct, bpm);
+  }
+}
+function rhythmRoom(){
+  openCustom('🥁 L\'atelier rythme',(inner)=>{
+    const menu=document.createElement('div');
+    menu.innerHTML=`<p style="color:var(--dim);font-size:14px;margin-bottom:8px">Le rythme, c'est la moitié de la musique — et ça se muscle comme le reste. Tape le motif <b style="color:var(--txt)">en place</b> avec le clic ; l'app note ta précision au millième et te dit si tu presses ou si tu traînes.</p>`;
+    inner.appendChild(menu);
+    const allH=[]; RHYTHM_LEVELS.forEach(L=>{ const st=rhythmStat(L.id); if(st.hist) allH.push.apply(allH,st.hist); });
+    allH.sort((a,b)=> a.d<b.d?-1:a.d>b.d?1:0);
+    const tr=earTrend(allH);
+    if(tr && tr.n>=3){
+      const dir=tr.delta>=6?'up':tr.delta<=-6?'down':'flat';
+      const verdict=dir==='up'?`▲ +${tr.delta} points depuis tes débuts. Ta horloge interne se cale — c'est mesuré.`
+        :dir==='down'?`▼ ${tr.delta} points. Ralentis le tempo et vise la régularité avant la vitesse.`
+        :`→ Stable. Baisse le tempo, cherche le « pile en place », puis remonte progressivement.`;
+      const pc=document.createElement('div'); pc.className='card'; pc.style.borderColor='var(--acc)';
+      pc.innerHTML=`<b style="font-size:15px">📈 Ta progression — rythme</b>
+        <div class="earsum"><div class="m"><b>${tr.recent}%</b><small>moyenne récente</small></div>
+        <div class="m"><b>${tr.best}%</b><small>record</small></div><div class="m"><b>${tr.n}</b><small>séances</small></div></div>
+        ${earSpark(allH)}<div class="trendline ${dir}">${verdict}</div>`;
+      menu.appendChild(pc);
+    }
+    const reco=rhythmNextLevel();
+    RHYTHM_LEVELS.forEach(L=>{
+      const st=rhythmStat(L.id), isReco=L.id===reco, lt=st.hist?earTrend(st.hist):null;
+      const c=document.createElement('div'); c.className='card'; if(isReco) c.style.borderColor='var(--acc)';
+      c.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+          <b style="font-size:15px">${L.t}</b>
+          ${st.n?`<span style="font-size:12px;font-weight:800;color:${st.best>=80?'var(--ok)':'var(--dim)'}">${st.best}%${st.bpmBest?` · ${st.bpmBest} BPM`:''}</span>`:''}</div>
+        ${isReco?'<div style="font-size:11px;font-weight:800;color:var(--acc);letter-spacing:1px;margin-top:2px">▶ COMMENCE ICI</div>':''}
+        <p style="color:var(--dim);font-size:13px;margin:4px 0 0;line-height:1.5">${L.d}</p>
+        ${st.hist&&st.hist.length>=2?earSpark(st.hist):''}`;
+      const b=document.createElement('button'); b.className=isReco?'btn':'btn ghost'; b.textContent='Lancer';
+      b.onclick=()=>{ menu.remove(); const box=document.createElement('div'); inner.appendChild(box);
+        runRhythm(box,{name:L.t,bpm:L.bpm,gen:L.gen,bars:2},(pct,bpm)=>{
+          rhythmPush(L.id,pct,bpm); save(); dailyMark('rhythm'); award(12); chime();
+          toast(`🥁 +12 XP · ${pct}% en rythme`);
+          const rb=document.createElement('button'); rb.className='btn'; rb.style.marginTop='14px';
+          rb.textContent='↺ Un autre motif'; rb.onclick=()=>rhythmRoom();
+          box.appendChild(rb);
+        });
+        overlay.scrollTop=0; };
+      c.appendChild(b); menu.appendChild(c);
+    });
+    overlay.scrollTop=0;
+  });
+}
 const DOJO_PROGS=[
   {name:'I–V–vi–IV', deg:[[0,'maj'],[7,'maj'],[9,'min'],[5,'maj']]},
   {name:'vi–IV–I–V', deg:[[9,'min'],[5,'maj'],[0,'maj'],[7,'maj']]},
@@ -2034,7 +2250,7 @@ function dojoModes(){
 function dojoScale(){
   const ex=genScaleEx();
   openCustom('🪜 '+ex.name,(inner,close)=>{
-    runScale(inner,ex,ok=>{ if(ok){award(10); dailyMark('drill'); toast('+10 XP');} close(); });
+    runScale(inner,ex,ok=>{ if(ok){award(10); dailyMark('drill'); dailyMark('scales'); toast('+10 XP');} close(); });
   });
 }
 
