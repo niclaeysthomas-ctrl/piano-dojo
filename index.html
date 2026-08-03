@@ -1296,6 +1296,7 @@ const DAILY_DRILLS=[
   {req:'m1l2', ic:'🌊', txt:'Enchaînements fluides (voice leading)', fn:()=>dojoVL()},
   {req:'m2l2', ic:'🎲', txt:'Joue une progression tirée au sort', fn:()=>dojoProg()},
   {req:'m6l1', ic:'🪜', txt:'Gammes depuis une fondamentale au hasard', fn:()=>dojoScale()},
+  {req:null, ic:'🧠', txt:'Quiz : formats & grilles', fn:()=>dojoTheoryQuiz()},
 ];
 const INTENSITIES=[['normal','Normal'],['intense','Intense'],['forge','Forge'],['marathon','Marathon']];
 function curIntensity(){ return S.intensity||'intense'; }
@@ -1468,6 +1469,9 @@ const DRILLS=[
   {id:'rhythm', icon:'🥁', title:'L\'atelier rythme', req:null,
    desc:()=>{ const s=rhythmStat(rhythmNextLevel()); return 'Tape le rythme en place, l\'app note ta précision au millième. Noires → croches → syncopes → triolets → doubles. 8 niveaux.'+(s.best?` Meilleur : <b style="color:var(--acc)">${s.best}%</b>.`:''); },
    run:()=>rhythmRoom()},
+  {id:'tquiz', icon:'🧠', title:'Quiz — formats & grilles', req:null,
+   desc:()=>'Blues, ii–V–I, anatole, AABA, modes, dominantes secondaires… Les formats et progressions que tout musicien doit connaître par cœur.',
+   run:()=>dojoTheoryQuiz()},
   {id:'sprint', icon:'⚡', title:'Sprint d\'accords', req:'m0l2',
    desc:()=>'10 accords aléatoires, chronométrés.'+(S.best.sprint?` Record sans faute : <b style="color:var(--acc)">${S.best.sprint}s</b>.`:' Fais un sans-faute pour poser un record.'),
    run:()=>dojoChords()},
@@ -2098,6 +2102,40 @@ function genDegQs(n){
     }
   }
   return qs;
+}
+/* ---------- QUIZ THÉORIQUE : formats, grilles, progressions ---------- */
+const THEORY_QUIZ=[
+ {q:'Le blues standard, c\'est quelle forme ?', ok:'12 mesures, sur I–IV–V', bad:['8 mesures, sur I–V','16 mesures, sur ii–V–I','32 mesures, forme AABA'], why:'Le blues standard fait 12 mesures et n\'utilise que trois accords : I, IV et V (souvent en accords de 7).'},
+ {q:'La grille de blues en 12 mesures (en Do), c\'est :', ok:'C·C·C·C · F·F·C·C · G·F·C·G', bad:['C·F·G·C répété trois fois','C·C·C·C · F·G sur 12 mesures','F·F·C·C·G·G·…'], why:'4 mesures de I, 2 de IV, 2 de I, puis V–IV–I–V. Le squelette à connaître par cœur.'},
+ {q:'La cadence ii–V–I en Do majeur :', ok:'Dm7 – G7 – Cmaj7', bad:['Dm7 – F7 – Cmaj7','Em7 – A7 – Dmaj7','Fm7 – G7 – Cmaj7'], why:'ii = Dm7, V = G7, I = Cmaj7. La cellule la plus jouée du jazz.'},
+ {q:'« L\'anatole » (le turnaround des standards), c\'est quels degrés ?', ok:'I – vi – ii – V', bad:['I – IV – V – I','ii – V – I – vi','I – V – vi – IV'], why:'I–vi–ii–V (ex. C–Am–Dm–G) : la ronde qui ramène au début, base du « rhythm changes ».'},
+ {q:'La progression « pop » derrière des milliers de tubes :', ok:'I – V – vi – IV', bad:['I – ii – iii – IV','I – IV – ii – V','vi – V – IV – I'], why:'I–V–vi–IV (ex. C–G–Am–F). Quatre accords, une infinité de chansons.'},
+ {q:'La forme la plus courante d\'un standard de jazz :', ok:'AABA, 32 mesures', bad:['ABAB, 16 mesures','AABB, 24 mesures','12 mesures'], why:'32 mesures en AABA : deux fois le thème A, un pont B contrastant, puis A.'},
+ {q:'Un accord maj7 :', ok:'majeur + 7e majeure (Do–Mi–Sol–Si)', bad:['majeur + 7e mineure (Do–Mi–Sol–Sib)','mineur + 7e mineure','majeur + la sixte'], why:'maj7 = triade majeure + septième MAJEURE (un demi-ton sous l\'octave). Son doux, rêveur.'},
+ {q:'Un accord « 7 » (dominante, ex. G7) contient une 7e :', ok:'mineure (Fa sur un G7)', bad:['majeure (Fa# sur un G7)','augmentée','pas de 7e'], why:'dom7 = triade majeure + 7e MINEURE. C\'est elle qui crée la tension qui veut résoudre.'},
+ {q:'Sur un Dm7 (le ii), quelle gamme improviser ?', ok:'Ré dorien', bad:['Ré majeur','Ré phrygien','Ré lydien'], why:'Le ii se joue en dorien : la gamme majeure parente (Do) centrée sur Ré.'},
+ {q:'Sur un G7 (le V), quel mode colle naturellement ?', ok:'Sol mixolydien', bad:['Sol majeur (ionien)','Sol dorien','Sol lydien'], why:'Le V se joue en mixolydien : majeur avec la 7e mineure — exactement les notes du G7.'},
+ {q:'Ce qui crée la tension d\'un G7 vers Do :', ok:'le triton entre Si et Fa', bad:['la quinte Sol–Ré','l\'octave','la fondamentale Sol'], why:'La 3ce (Si) et la 7e (Fa) du G7 forment un triton instable qui « tire » vers Do.'},
+ {q:'La relative mineure de Do majeur :', ok:'La mineur', bad:['Mi mineur','Ré mineur','Sol mineur'], why:'Mêmes notes que Do majeur, centrées sur le 6e degré : La mineur.'},
+ {q:'Une gamme pentatonique compte :', ok:'5 notes', bad:['6 notes','7 notes','8 notes'], why:'Penta = cinq. On retire les 2 notes les plus « frottantes » → très dur de sonner faux.'},
+ {q:'La « blue note » de la gamme blues :', ok:'la quinte diminuée (b5)', bad:['la tierce majeure','la septième majeure','la seconde'], why:'Gamme blues = penta mineure + la b5, note de passage au grain plaintif.'},
+ {q:'« So What » (Miles Davis) est bâti sur :', ok:'un seul accord m7 (modal, dorien)', bad:['un blues 12 mesures','un ii–V–I à répétition','des dominantes altérées'], why:'16 mesures de Dm7, 8 d\'Ebm7, 8 de Dm7 : du modal pur, on improvise en dorien.'},
+ {q:'Une dominante secondaire : le « V de V » en Do :', ok:'D7 (qui résout vers G)', bad:['G7','A7','Db7'], why:'Le V du V : la dominante de Sol est Ré7. Elle tonicise le G avant le retour au Do.'},
+ {q:'« Just the Two of Us » est célèbre pour sa suite de :', ok:'dominantes secondaires qui descendent', bad:['un blues mineur','trois accords seulement','une pédale sur un seul accord'], why:'Une chaîne ii–V descendante (Cmaj7–B7–Em7–A7–Dm7–G7) : chaque 7 tire vers l\'accord suivant.'},
+ {q:'Un accord sus4 (ex. Csus4) :', ok:'la tierce remplacée par la quarte (Do–Fa–Sol)', bad:['la quinte baissée','la 7e ajoutée','la tierce doublée'], why:'sus4 = « suspendu » : la 4te prend la place de la 3ce, l\'accord ne dit ni majeur ni mineur.'},
+ {q:'Dans le cycle des quintes, une quinte au-dessus de Do :', ok:'Sol (armure : 1 dièse, Fa#)', bad:['Fa (1 bémol)','Ré (2 dièses)','La (3 dièses)'], why:'Monter d\'une quinte ajoute un dièse : Do → Sol, armure = Fa#.'},
+ {q:'Un blues MINEUR (ex. en La mineur) repose surtout sur :', ok:'i – iv – V (Am – Dm – E7)', bad:['I – IV – V majeurs','ii – V – I','I – vi – IV – V'], why:'Blues mineur : degrés i et iv mineurs, et un V (souvent dominante) qui ramène. Couleur sombre.'},
+];
+function genTheoryQuiz(n){
+  return THEORY_QUIZ.slice().sort(()=>Math.random()-.5).slice(0,n).map(Q=>{
+    const opts=[Q.ok,...Q.bad.slice(0,3)].sort(()=>Math.random()-.5);
+    return {q:Q.q, opts, a:opts.indexOf(Q.ok), why:Q.why};
+  });
+}
+function dojoTheoryQuiz(){
+  openCustom('🧠 Quiz — formats & grilles',(inner,close)=>{
+    runQuiz(inner,{qs:genTheoryQuiz(6)}, ok=>{ if(ok){ award(10); dailyMark('drill'); toast('+10 XP'); } close(); });
+  });
 }
 const VL_KEYS=[0,2,5,7,9];
 function vlCycle(key){
@@ -3245,6 +3283,16 @@ const SONGS=[
 
   {id:'vamppro', ico:'🕶️', title:'Vamp Am·G·F — le son pro', jam:true, sub:'La leçon 🕶️ en boucle : gamme blues de La par-dessus', key:'La mineur', bpm:76, ts:4,
    mel:[], ch:[[9,'min'],[7,'maj'],[5,'maj'],[7,'maj']], hint:'Gamme blues de La : A C D D# E G. Le Ré# EN PASSANT seulement. Phrases courtes, silences, atterris sur La.'},
+
+  {id:'twotwo', ico:'🎷', title:'« Just the Two of Us » (grille)', jam:true, sub:'La chaîne de dominantes qui descend', key:'Do majeur', bpm:92, ts:4,
+   mel:[], ch:[[0,'maj7'],[11,'dom7'],[4,'m7'],[9,'dom7'],[2,'m7'],[7,'dom7']],
+   hint:'Cmaj7–B7–Em7–A7–Dm7–G7 : chaque « 7 » tire vers l\'accord suivant. Improvise en Do majeur ; sur chaque dominante, vise sa tierce et sa 7e.'},
+  {id:'sowhat', ico:'🎺', title:'« So What » (jazz modal)', jam:true, sub:'Deux accords, tout le reste est à toi', key:'Ré dorien', bpm:130, ts:4,
+   mel:[], ch:[[2,'m7'],[2,'m7'],[3,'m7'],[2,'m7']],
+   hint:'Modal : improvise en Ré dorien (la gamme de Do centrée sur Ré). Sur l\'Ebm7, glisse en Mib dorien (gamme de Réb). Phrases longues, espace.'},
+  {id:'nogood', ico:'🖤', title:'Vamp mineur soul', jam:true, sub:'Esprit « You Know I\'m No Good » — i·iv·V en Rém', key:'Ré mineur', bpm:100, ts:4,
+   mel:[], ch:[[2,'m7'],[7,'m7'],[9,'dom7'],[2,'m7']],
+   hint:'Dm7–Gm7–A7–Dm7. Improvise en Ré mineur (penta mineure de Ré ou Ré dorien) ; sur le A7, le Do# (sa tierce) crée la tension avant de retomber sur Rém.'},
 ];
 const diffLabel = s => s.jam ? ['jam','Jam'] : [['','f1','f2','f3'][s.diff], ['','Très facile','Facile','Interm.'][s.diff]];
 
