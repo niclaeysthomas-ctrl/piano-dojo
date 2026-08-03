@@ -1329,9 +1329,12 @@ function dailyProgram(){
   /* écoute : UNE SEULE par jour, alternée note/couleur (moins d'écoute, plus d'entraînement) */
   const earDay=Math.floor(Date.now()/864e5)%2;
   if(earDay===0) P.push({key:'notes', ic:'🎧', txt:'Oreille des notes : retrouve la note', fn:()=>noteEarRoom()});
-  else P.push((wk && wk.key==='degres' && S.done['m2l1'])
-    ? {key:'ear', ic:'🏛', txt:'Point faible : quiz des degrés', fn:()=>dojoDeg()}
-    : {key:'ear', ic:'👂', txt:'Oreille des couleurs : majeur/mineur', fn:()=>dojoEar()});
+  else {
+    const fondOK = earStat('fond').best>=85 || earStat('duel').best>=80;
+    if(!fondOK) P.push({key:'ear', ic:'🌱', txt:'Fondation : entendre majeur / mineur', fn:()=>earFoundation()});
+    else if(wk && wk.key==='degres' && S.done['m2l1']) P.push({key:'ear', ic:'🏛', txt:'Point faible : quiz des degrés', fn:()=>dojoDeg()});
+    else P.push({key:'ear', ic:'👂', txt:'Oreille des couleurs : majeur/mineur', fn:()=>dojoEar()});
+  }
   if(lvl==='normal') return P;
   /* intense : + technique (renversements/7e) + un exercice varié tournant */
   if(S.done['m5l1']) P.push({key:'tech', ic:'🎨', txt:'Technique : sprint des 7e', fn:()=>dojoSev()});
@@ -1628,7 +1631,7 @@ function earPush(id,pct){
   st.hist=(st.hist||[]).concat([{d:todayStr(),p:pct}]).slice(-30);
   S.earStats[id]=st;
 }
-const EAR_MM=['duel','samediff','l1','l2','l3','l4']; /* niveaux majeur/mineur (hors 7e) */
+const EAR_MM=['fond','duel','samediff','l1','l2','l3','l4']; /* niveaux majeur/mineur (hors 7e) */
 function earAllHist(){
   let all=[]; EAR_MM.forEach(id=>{ const st=earStat(id); if(st.hist) all=all.concat(st.hist); });
   return all.sort((a,b)=> a.d<b.d?-1:a.d>b.d?1:0);
@@ -1687,6 +1690,89 @@ function earRun(inner,L){
   if(L.ab) runEarAB(inner,L.cfg,done);
   else runEar(inner,{...L.cfg,pass:0},done);
 }
+
+/* ================================================================
+   FONDATION DE L'OREILLE — le socle : entendre majeur vs mineur
+   Une note tenue + la tierce qui bascule d'un demi-ton. Lent, visuel,
+   sans pression. La seule chose à faire tant qu'on ne l'entend pas.
+   ================================================================ */
+function earFoundation(){
+  const ROOT=60; /* Do4 fixe, pour ne jamais changer de repère */
+  openCustom('🌱 Fondation de l\'oreille',(inner)=>{
+    const box=document.createElement('div'); inner.appendChild(box);
+    function sound(q,when,dur){ when=when||0; dur=dur||2.2;
+      playNote(ROOT,dur,.3,when); playNote(ROOT+(q==='maj'?4:3),dur,.42,when); }
+    function feel(){
+      box.innerHTML=`<p style="color:var(--dim);font-size:14px;line-height:1.5;margin-bottom:4px">
+        Une seule chose à entendre : <b style="color:var(--txt)">une note qui bouge</b>. On garde le Do en bas, et la note du milieu descend d'un demi-ton pour passer de <b style="color:var(--acc)">majeur</b> à <b style="color:var(--purple)">mineur</b>. Écoute, compare, autant que tu veux — <b>aucun score ici</b>.</p>`;
+      const kb=buildKeyboard(60,72,(m,k)=>{ playNote(m); k.classList.add('flash'); setTimeout(()=>k.classList.remove('flash'),160); });
+      box.appendChild(kb);
+      const light=q=>{ kb.clearSel(); const r=kb.keyEl(ROOT); if(r) r.classList.add('hint');
+        const th=kb.keyEl(ROOT+(q==='maj'?4:3)); if(th) th.classList.add('sel','target'); };
+      const cap=document.createElement('div'); cap.className='fb'; cap.style.minHeight='24px'; cap.style.margin='10px 0'; box.appendChild(cap);
+      const row=document.createElement('div'); row.className='earbtns'; box.appendChild(row);
+      const bmaj=document.createElement('button'); bmaj.className='btn'; bmaj.textContent='☀️ Majeur';
+      const bmin=document.createElement('button'); bmin.className='btn'; bmin.style.background='var(--purple)'; bmin.style.color='#fff'; bmin.textContent='🌑 Mineur';
+      bmaj.onclick=()=>{ sound('maj'); light('maj'); cap.className='fb ok'; cap.textContent='☀️ Do + Mi — brillant, ça sourit'; };
+      bmin.onclick=()=>{ sound('min'); light('min'); cap.className='fb'; cap.style.color='var(--purple)'; cap.textContent='🌑 Do + Mib — sombre, ça se referme'; };
+      row.appendChild(bmaj); row.appendChild(bmin);
+      const both=document.createElement('button'); both.className='btn ghost'; both.style.marginTop='8px'; both.textContent='🔁 Les deux à la suite';
+      both.onclick=()=>{ sound('maj',0,1.6); light('maj'); cap.className='fb ok'; cap.style.color=''; cap.textContent='☀️ majeur…';
+        setTimeout(()=>{ sound('min',0,1.8); light('min'); cap.style.color='var(--purple)'; cap.textContent='🌑 …puis mineur — tu entends la note descendre ?'; },1900); };
+      box.appendChild(both);
+      const tip=document.createElement('div'); tip.className='theory';
+      tip.innerHTML=`<div class="tip" style="margin:14px 0 6px">Fais-le dix fois : majeur, mineur, majeur, mineur… <b>ferme les yeux</b> et sens juste la bascule brillant ↔ sombre. Ne cherche pas à « comprendre », laisse l'oreille prendre le pli.</div>`;
+      box.appendChild(tip);
+      const go=document.createElement('button'); go.className='btn ok'; go.style.marginTop='6px'; go.textContent='Prêt ? Teste-toi (5 écoutes) →';
+      go.onclick=()=>test(); box.appendChild(go);
+    }
+    function test(){
+      let i=0, score=0, cur=null, answered=false;
+      const render=()=>{
+        box.innerHTML=`<div class="exhead"><div class="target">🌱 ${i+1}/5</div><div class="sub">Majeur ou mineur ? (toujours le même Do en bas)</div></div>
+          <div class="exprog" id="fd"></div>
+          <div class="exrow"><button class="btn ghost" id="rep">🔊 Réécouter</button></div>`;
+        progDots(box.querySelector('#fd'),5,i);
+        const kb=buildKeyboard(60,72,(m,k)=>{ playNote(m); k.classList.add('flash'); setTimeout(()=>k.classList.remove('flash'),150); });
+        box.appendChild(kb);
+        const fb=document.createElement('div'); fb.className='fb'; box.appendChild(fb);
+        const btns=document.createElement('div'); btns.className='earbtns'; box.appendChild(btns);
+        const bmaj=document.createElement('button'); bmaj.className='btn'; bmaj.textContent='☀️ Majeur';
+        const bmin=document.createElement('button'); bmin.className='btn'; bmin.style.background='var(--purple)'; bmin.style.color='#fff'; bmin.textContent='🌑 Mineur';
+        btns.appendChild(bmaj); btns.appendChild(bmin);
+        cur=Math.random()<.5?'maj':'min'; answered=false;
+        box.querySelector('#rep').onclick=()=>sound(cur);
+        setTimeout(()=>sound(cur),350);
+        const answer=g=>{
+          if(answered) return; answered=true;
+          bmaj.style.pointerEvents='none'; bmin.style.pointerEvents='none';
+          kb.clearSel(); const r=kb.keyEl(ROOT); if(r) r.classList.add('hint'); const th=kb.keyEl(ROOT+(cur==='maj'?4:3)); if(th) th.classList.add('sel');
+          if(g===cur){ score++; tada(); fb.className='fb ok'; fb.textContent='✓ '+(cur==='maj'?'Majeur — Do + Mi':'Mineur — Do + Mib'); }
+          else { buzz(); fb.className='fb bad'; fb.innerHTML='C\'était <b>'+(cur==='maj'?'majeur':'mineur')+'</b>. Réécoute les deux à la suite :';
+            sound('maj',0,1.6); setTimeout(()=>sound('min',0,1.8),1800); }
+          setTimeout(()=>{ i++; if(i<5) render(); else finish(); }, g===cur?1150:3900);
+        };
+        bmaj.onclick=()=>answer('maj'); bmin.onclick=()=>answer('min');
+      };
+      const finish=()=>{
+        const pct=Math.round(score/5*100);
+        earPush('fond',pct); save(); dailyMark('ear'); award(12); chime();
+        const msg = score>=4 ? 'Ton oreille s\'ouvre — c\'est exactement ça. Reviens demain : elle se solidifie même en dormant.'
+          : score>=2 ? 'Ça vient. Refais d\'abord la partie « ressens », enchaîne majeur/mineur, puis reteste — c\'est la répétition du CONTRASTE qui installe le repère.'
+          : 'Parfaitement normal au début — personne ne naît en l\'entendant. Reste sur « ressens », dix bascules les yeux fermés, et reviens demain.';
+        box.innerHTML=`<div class="exhead"><div class="target">🌱 ${score}/5</div><div class="sub" style="line-height:1.5">${msg}</div></div>`;
+        const b1=document.createElement('button'); b1.className='btn'; b1.textContent='↻ Retour à « ressens »'; b1.onclick=()=>{ box.innerHTML=''; feel(); };
+        box.appendChild(b1);
+        toast('🌱 +12 XP · fondation');
+        overlay.scrollTop=0;
+      };
+      render();
+      overlay.scrollTop=0;
+    }
+    feel();
+    overlay.scrollTop=0;
+  });
+}
 function dojoEar(){
   openCustom('👂 Salle d\'écoute',(inner,close)=>{
     const menu=document.createElement('div');
@@ -1694,6 +1780,13 @@ function dojoEar(){
     menu.innerHTML=`<p style="color:var(--dim);font-size:14px;margin-bottom:10px">
       Le majeur et le mineur ne diffèrent que par <b style="color:var(--txt)">une seule note</b> : celle du milieu, descendue d'un demi-ton en mineur. Tout est là.</p>`;
     inner.appendChild(menu);
+    /* LA FONDATION en premier, tant qu'elle n'est pas solide */
+    const fondOK = earStat('fond').best>=85 || earStat('duel').best>=80;
+    const fc=document.createElement('div'); fc.className='card'; fc.style.borderColor=fondOK?'var(--line)':'var(--ok)';
+    fc.innerHTML=`<b style="font-size:15px">🌱 ${fondOK?'La fondation (révision)':'Tu bloques sur majeur / mineur ? COMMENCE ICI'}</b>
+      <p style="color:var(--dim);font-size:13px;margin:4px 0 0;line-height:1.5">Le socle, ultra-simple : une note qui bascule, en boucle, sans score. Ressens d'abord, teste-toi ensuite. 3 minutes par jour et l'oreille se cale.</p>`;
+    const fbtn=document.createElement('button'); fbtn.className=fondOK?'btn ghost':'btn'; fbtn.textContent='🌱 Ouvrir la fondation';
+    fbtn.onclick=()=>earFoundation(); fc.appendChild(fbtn); menu.appendChild(fc);
     /* PROGRESSION MESURÉE : la preuve chiffrée que ton oreille bouge (ou pas) */
     const allH=earAllHist(), tr=earTrend(allH);
     if(tr && tr.n>=3){
