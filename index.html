@@ -333,7 +333,7 @@ const LEVELS = [
 ];
 
 /* ---------------- état / sauvegarde ---------------- */
-const DEFAULT_STATE = {xp:0, done:{}, prog:{}, streak:0, lastDay:null, earBest:0, daily:null, hist:{}, best:{}, labels:false, songs:{}, songsHand:{}, songsLH:{}, bilan:null, bilanRewarded:false, errs:{}, earStats:{}, noteStats:{}, rhythmStats:{}, intensity:'forge'};
+const DEFAULT_STATE = {xp:0, done:{}, prog:{}, streak:0, lastDay:null, earBest:0, daily:null, hist:{}, best:{}, labels:false, songs:{}, songsHand:{}, songsLH:{}, bilan:null, bilanRewarded:false, errs:{}, errLog:{}, earStats:{}, noteStats:{}, rhythmStats:{}, intensity:'forge'};
 const USER='Thomas';
 /* restauration de progression via ?restore=<base64> (transfert d'appareil / d'origine) */
 (function(){ try{
@@ -423,9 +423,25 @@ function errKey(kind,d){
   if(kind==='quiz')  return 'q:'+String(d.q||'').slice(0,70);
   return 'x:'+JSON.stringify(d).slice(0,70);
 }
+/* JOURNAL CUMULATIF PERMANENT : ne s'efface JAMAIS (contrairement au Leitner),
+   pour repérer les patterns dans la durée et exporter le tout. */
+const EAR_LABEL={maj:'Majeur',min:'Mineur',maj7:'maj7',m7:'m7',dom7:'7 (dominante)'};
+function errLabel(kind,d){
+  if(kind==='chord') return chordName(d.root,d.t, d.bass!=null?d.bass:null);
+  if(kind==='ear') return 'Oreille : '+(EAR_LABEL[d.t]||d.t)+' (raté)';
+  if(kind==='quiz') return d.q||'(question)';
+  return JSON.stringify(d).slice(0,60);
+}
+function logErr(kind,d){
+  if(!S.errLog) S.errLog={};
+  const k=errKey(kind,d), L=S.errLog[k];
+  S.errLog[k]={kind, label:errLabel(kind,d), n:(L?L.n:0)+1, first:L?L.first:todayStr(), last:todayStr(),
+    meta: kind==='chord' ? {root:d.root, t:d.t, bass:(d.bass!=null?d.bass:null)} : kind==='ear' ? {t:d.t} : null};
+}
 function errAdd(kind,d){
   const E=errsObj(), k=errKey(kind,d), cur=E[k];
   E[k]={kind, d, n:(cur?cur.n:0)+1, box:0, last:todayStr()};
+  logErr(kind,d);
   save();
 }
 function errPass(k){
@@ -434,9 +450,87 @@ function errPass(k){
   if(e.box>=2){ delete E[k]; save(); return true; }
   save(); return false;
 }
-function errFail(k){ const e=errsObj()[k]; if(e){ e.box=0; e.n++; e.last=todayStr(); save(); } }
+function errFail(k){ const e=errsObj()[k]; if(e){ e.box=0; e.n++; e.last=todayStr(); logErr(e.kind,e.d); save(); } }
 function errCount(){ return Object.keys(errsObj()).length; }
 function errsOf(kind){ return Object.entries(errsObj()).filter(([,e])=>e.kind===kind); }
+
+/* ---------- RAPPORT D'ERREURS : synthèse + export (à envoyer à Claude) ---------- */
+function buildErrReport(){
+  const arr=Object.values(S.errLog||{});
+  if(!arr.length) return {empty:true};
+  const total=arr.reduce((s,e)=>s+e.n,0);
+  const ds=arr.flatMap(e=>[e.first,e.last]).sort();
+  const byKind=k=>arr.filter(e=>e.kind===k).sort((a,b)=>b.n-a.n);
+  const chords=byKind('chord'), ears=byKind('ear'), quiz=byKind('quiz');
+  const sum=a=>a.reduce((s,e)=>s+e.n,0);
+  const L=[];
+  L.push('RAPPORT D\'ERREURS — PIANO DOJO');
+  L.push('Généré le '+todayStr()+' · Période '+ds[0]+' → '+ds[ds.length-1]);
+  L.push('Total : '+total+' erreurs ('+sum(chords)+' accords · '+sum(ears)+' oreille · '+sum(quiz)+' quiz)');
+  L.push('');
+  if(chords.length){
+    L.push('— ACCORDS — les plus récurrents :');
+    chords.slice(0,10).forEach(e=>L.push('  • '+e.label+'  ×'+e.n+'  ('+e.first+'→'+e.last+')'));
+    const byType={}; let black=0,white=0,inv=0;
+    chords.forEach(e=>{ const m=e.meta||{}; if(m.t) byType[m.t]=(byType[m.t]||0)+e.n;
+      if(m.root!=null){ if([1,3,6,8,10].includes(m.root%12)) black+=e.n; else white+=e.n; }
+      if(m.bass!=null) inv+=e.n; });
+    const tt=Object.entries(byType).sort((a,b)=>b[1]-a[1])[0];
+    L.push('  Patterns :');
+    if(tt) L.push('   – Type le plus raté : '+(CHORD_TYPES[tt[0]]?CHORD_TYPES[tt[0]].nom:tt[0])+' (×'+tt[1]+')');
+    L.push('   – Fondamentales sur touches noires : '+black+' · blanches : '+white);
+    if(inv) L.push('   – Renversements (basse imposée) : ×'+inv);
+    L.push('');
+  }
+  if(ears.length){
+    L.push('— OREILLE —');
+    ears.slice(0,8).forEach(e=>L.push('  • '+(EAR_LABEL[e.meta&&e.meta.t]||e.label)+'  raté ×'+e.n));
+    L.push('   → Confusion dominante : '+(EAR_LABEL[ears[0].meta&&ears[0].meta.t]||ears[0].label));
+    L.push('');
+  }
+  if(quiz.length){
+    L.push('— QUIZ (théorie) —');
+    quiz.slice(0,8).forEach(e=>L.push('  • ×'+e.n+' — '+e.label));
+    L.push('');
+  }
+  L.push('(Envoie ce rapport à Claude pour l\'analyse des patterns.)');
+  return {empty:false, text:L.join('\n'), json:JSON.stringify(S.errLog), total};
+}
+function errCopy(txt,label){
+  const done=()=>toast('📋 '+label+' copié — colle-le à Claude');
+  if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(done).catch(()=>errCopyFallback(txt,done));
+  else errCopyFallback(txt,done);
+}
+function errCopyFallback(txt,done){
+  const ta=document.createElement('textarea'); ta.value=txt; ta.style.cssText='position:fixed;opacity:0';
+  document.body.appendChild(ta); ta.focus(); ta.select();
+  try{ document.execCommand('copy'); done(); }catch(e){ toast('Copie auto impossible — sélectionne le texte à la main'); }
+  document.body.removeChild(ta);
+}
+function errReportView(){
+  openCustom('📋 Rapport d\'erreurs',(inner)=>{
+    const r=buildErrReport();
+    if(r.empty){
+      const p=document.createElement('p'); p.style.cssText='color:var(--dim);font-size:14px;line-height:1.5';
+      p.textContent='Aucune erreur enregistrée pour l\'instant. Fais des exercices : tout ce que tu rates est archivé ici pour toujours, et tu pourras l\'exporter pour qu\'on cherche les patterns.';
+      inner.appendChild(p); return;
+    }
+    const intro=document.createElement('p'); intro.style.cssText='color:var(--dim);font-size:13px;line-height:1.5;margin-bottom:10px';
+    intro.innerHTML='Tout ce que tu rates est archivé <b style="color:var(--txt)">en permanence</b> (même une fois rattrapé). Copie ce rapport et envoie-le à Claude : on repérera tes patterns et on ciblera le travail.';
+    inner.appendChild(intro);
+    const pre=document.createElement('div');
+    pre.style.cssText='white-space:pre-wrap;font-family:ui-monospace,Menlo,monospace;font-size:12px;background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:12px;color:#c9cde0;overflow-x:auto;line-height:1.5;margin-bottom:12px';
+    pre.textContent=r.text; inner.appendChild(pre);
+    const b1=document.createElement('button'); b1.className='btn'; b1.textContent='📋 Copier le rapport (pour Claude)'; b1.onclick=()=>errCopy(r.text,'Rapport'); inner.appendChild(b1);
+    const b2=document.createElement('button'); b2.className='btn ghost'; b2.textContent='🧾 Copier les données brutes (JSON)'; b2.onclick=()=>errCopy(r.json,'JSON'); inner.appendChild(b2);
+    const b3=document.createElement('button'); b3.className='btn ghost'; b3.textContent='⬇️ Télécharger .txt';
+    b3.onclick=()=>{ try{ const blob=new Blob([r.text],{type:'text/plain'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='erreurs-piano-'+todayStr()+'.txt'; document.body.appendChild(a); a.click(); document.body.removeChild(a); setTimeout(()=>URL.revokeObjectURL(a.href),2000);}catch(e){ toast('Téléchargement indispo — utilise Copier'); } };
+    inner.appendChild(b3);
+    const b4=document.createElement('button'); b4.className='btn ghost'; b4.style.cssText='margin-top:18px;opacity:.65;font-size:13px'; b4.textContent='🗑 Vider le journal';
+    b4.onclick=()=>{ if(confirm('Effacer DÉFINITIVEMENT tout le journal d\'erreurs ? Irréversible.')){ S.errLog={}; save(); toast('Journal vidé'); closeOverlay(); } };
+    inner.appendChild(b4);
+  });
+}
 
 /* ---------------- audio ---------------- */
 let AC=null;
@@ -2173,6 +2267,14 @@ function renderOutils(){
   <div class="week">${days.map(d=>`<div class="col${d.xp?'':' z'}"><div class="bar" style="height:${Math.max(3,Math.round(d.xp/mx*100))}%"></div><small>${d.lbl}</small></div>`).join('')}</div>
   <div style="text-align:center;font-size:11px;color:var(--dim);margin-top:6px">XP des 7 derniers jours — la régularité se voit ici.</div>`;
   main.appendChild(c4);
+
+  const cErr=document.createElement('div'); cErr.className='card';
+  const nLog=Object.keys(S.errLog||{}).length;
+  const totLog=Object.values(S.errLog||{}).reduce((s,e)=>s+e.n,0);
+  cErr.innerHTML=`<b style="font-size:16px">📋 Journal d'erreurs</b>
+    <p style="color:var(--dim);font-size:13px;margin:4px 0 0;line-height:1.5">Tout ce que tu rates est archivé <b style="color:var(--txt)">pour toujours</b> — ${nLog?`<b style="color:var(--acc)">${totLog}</b> erreurs sur ${nLog} points`:'rien encore'}. Exporte-le et envoie-le à Claude pour repérer tes patterns.</p>`;
+  const eb=document.createElement('button'); eb.className='btn ghost'; eb.textContent='📋 Voir & exporter le rapport';
+  eb.onclick=()=>errReportView(); cErr.appendChild(eb); main.appendChild(cErr);
 
   const cB=document.createElement('div'); cB.className='card';
   cB.innerHTML=`<b style="font-size:16px">🎓 Le bilan</b>
