@@ -349,7 +349,7 @@ const LEVELS = [
 ];
 
 /* ---------------- état / sauvegarde ---------------- */
-const DEFAULT_STATE = {xp:0, done:{}, prog:{}, streak:0, lastDay:null, earBest:0, daily:null, hist:{}, best:{}, labels:false, songs:{}, songsHand:{}, songsLH:{}, bilan:null, bilanRewarded:false, errs:{}, errLog:{}, earStats:{}, noteStats:{}, rhythmStats:{}, intensity:'forge'};
+const DEFAULT_STATE = {xp:0, done:{}, prog:{}, streak:0, lastDay:null, earBest:0, daily:null, hist:{}, best:{}, labels:false, songs:{}, songsHand:{}, songsLH:{}, bilan:null, bilanRewarded:false, errs:{}, errLog:{}, earStats:{}, noteStats:{}, rhythmStats:{}, defi:{}, intensity:'forge'};
 const USER='Thomas';
 /* restauration de progression via ?restore=<base64> (transfert d'appareil / d'origine) */
 (function(){ try{
@@ -1425,6 +1425,16 @@ function renderParcours(){
     <p style="color:var(--dim);font-size:13px;margin:4px 0 0;line-height:1.5">${ad.msg}</p>`;
   const cb=document.createElement('button'); cb.className='btn ghost'; cb.textContent=ad.btn;
   cb.onclick=ad.run; cc.appendChild(cb); main.appendChild(cc);
+
+  /* défi du jour : un challenge spécial, +30 XP */
+  const D=todaysDefi(), dDone=defiState().done;
+  const dc=document.createElement('div'); dc.className='card'; dc.style.borderColor=dDone?'var(--line)':'var(--purple)';
+  dc.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center">
+      <b style="font-size:15px">🎲 Défi du jour</b>
+      <small style="color:${dDone?'var(--ok)':'var(--purple)'};font-weight:800">${dDone?'✓ relevé':'+30 XP'}</small></div>
+    <p style="color:var(--dim);font-size:13px;margin:4px 0 0;line-height:1.5">${D.ic} <b style="color:var(--txt)">${D.title}</b> — ${D.desc}</p>`;
+  const db=document.createElement('button'); db.className=dDone?'btn ghost':'btn'; db.textContent=dDone?'↻ Rejouer le défi':'🎲 Relever le défi';
+  db.onclick=()=>openDefi(); dc.appendChild(db); main.appendChild(dc);
 
   const d=ensureDaily();
   const prog=dailyProgram();
@@ -4045,6 +4055,45 @@ function lexiconView(){
         list.appendChild(r); });
     };
     inp.oninput=()=>draw(inp.value); draw('');
+  });
+}
+
+/* ================================================================
+   DÉFI DU JOUR — un challenge spécial chaque jour, +30 XP bonus
+   ================================================================ */
+const R12A=[0,1,2,3,4,5,6,7,8,9,10,11];
+const DEFIS=[
+  {ic:'⚡', title:'Sprint d\'accords', req:'m0l2', desc:'10 accords majeurs/mineurs d\'affilée, toutes tonalités. Vise le sans-faute.',
+   launch:(box,done)=>runChord(box,{gen:{types:['maj','min'],roots:R12A,count:10}, pass:8, sub:'DÉFI · 10 accords, toutes tonalités.'}, done)},
+  {ic:'🧠', title:'Quiz éclair', req:null, desc:'6 questions de théorie. Le sans-faute est l\'objectif.',
+   launch:(box,done)=>runQuiz(box,{qs:genTheoryQuiz(6)}, done)},
+  {ic:'🪜', title:'Gamme surprise', req:null, desc:'Construis la gamme tirée au sort, note après note.',
+   launch:(box,done)=>runScale(box, genScaleEx(), done)},
+  {ic:'🎨', title:'Les 7e sous pression', req:'m5l1', desc:'8 accords de 7e (maj7 / m7 / 7), toutes tonalités.',
+   launch:(box,done)=>runChord(box,{gen:{types:['maj7','m7','dom7'],roots:R12A,count:8}, pass:6, sub:'DÉFI · les couleurs de 7e.'}, done)},
+  {ic:'🎭', title:'Accords colorés', req:'m5l1', desc:'8 accords sus / dim / 9 / 11 à construire au clavier.',
+   launch:(box,done)=>runChord(box,{gen:{types:['sus2','sus4','m7b5','dim7','dom9','maj9','m9'],roots:R12A,count:8}, pass:6, sub:'DÉFI coloré.'}, done)},
+  {ic:'🔄', title:'Renversements', req:'m1l1', desc:'10 accords slash — les bonnes notes ET la bonne basse en bas.',
+   launch:(box,done)=>runChord(box,{items:genInvItems(10,['maj','min']), pass:8, sub:'DÉFI renversements.'}, done)},
+  {ic:'🎲', title:'La progression', req:'m2l2', desc:'Joue une progression connue, tirée au sort dans une tonalité au hasard.',
+   launch:(box,done)=>{ const p=DOJO_PROGS[Math.floor(Math.random()*DOJO_PROGS.length)], key=[0,2,5,7,9][Math.floor(Math.random()*5)];
+     runProg(box,{rounds:1,free:true,chords:p.deg.map(([d,t])=>({root:(key+d)%12,t})),sub:'DÉFI · '+p.name+' en '+NOTE[key]}, done); }},
+];
+function availDefis(){ return DEFIS.filter(d=>!d.req||S.done[d.req]); }
+function todaysDefi(){ const a=availDefis(); return a[Math.floor(Date.now()/864e5)%a.length]; }
+function defiState(){ const t=todayStr(); if(!S.defi||S.defi.date!==t){ S.defi={date:t,done:false}; save(); } return S.defi; }
+function openDefi(){
+  const D=todaysDefi();
+  openCustom('🎲 Défi du jour',(inner)=>{
+    const head=document.createElement('div'); head.className='card'; head.style.borderColor='var(--purple)';
+    head.innerHTML=`<b style="font-size:16px">${D.ic} ${D.title}</b>
+      <p style="color:var(--dim);font-size:13px;margin:4px 0 0;line-height:1.5">${D.desc}</p>
+      <p style="color:var(--acc);font-size:12px;font-weight:800;margin:6px 0 0">Réussite = +30 XP bonus</p>`;
+    inner.appendChild(head);
+    const box=document.createElement('div'); inner.appendChild(box);
+    const d=defiState();
+    if(d.done){ box.innerHTML='<p style="color:var(--ok);text-align:center;font-weight:700;margin-top:16px">✓ Défi déjà relevé aujourd\'hui. Reviens demain pour un nouveau !</p>'; return; }
+    D.launch(box, ok=>{ if(ok){ const s=defiState(); if(!s.done){ s.done=true; save(); award(30); chime(); tada(); toast('🎲 Défi relevé · +30 XP'); } } });
   });
 }
 
