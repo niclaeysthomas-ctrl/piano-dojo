@@ -1363,6 +1363,10 @@ function dailyProgram(){
   P.push({key:'ear', ic:'👂', txt:'Oreille : majeur ou mineur ?', fn:()=>dojoEar()});
   /* impro guidée : construis la gamme, déduis la grille, joue tes phrases par-dessus */
   P.push({key:'impro', ic:'🎹', txt:'Impro guidée : construis et joue', fn:()=>improRoom()});
+  /* construction de gamme OBLIGATOIRE tous les jours (demande de Thomas) */
+  P.push({key:'scales', ic:'🪜', txt:'Construis une gamme (au hasard)', fn:()=>dojoScale()});
+  /* accords colorés — sus2/sus4, 9, 11 — dès que les 7e sont vues */
+  if(S.done['m5l1']) P.push({key:'colab', ic:'🎨', txt:'Accords colorés : sus, 9, 11', fn:()=>chordLabRoom()});
   if(lvl==='normal') return P;
   /* intense : + technique (renversements/7e) + un exercice varié tournant */
   if(S.done['m5l1']) P.push({key:'tech', ic:'🎨', txt:'Technique : sprint des 7e', fn:()=>dojoSev()});
@@ -1376,8 +1380,8 @@ function dailyProgram(){
   /* forge & marathon : + session mixte (révision de tout l\'acquis) */
   if(S.done['m0l2']) P.push({key:'mix', ic:'🎯', txt:'Session mixte : révise tout', fn:()=>dojoMix()});
   if(lvl==='forge') return P;
-  /* marathon (temps doublé) : + technique gammes & arpèges */
-  P.push({key:'scales', ic:'🎼', txt:'Technique : gammes & arpèges', fn:()=>dojoScale()});
+  /* marathon (temps doublé) : + quiz théorique (formats, modes, grilles) */
+  P.push({key:'tquiz', ic:'🧠', txt:'Quiz : formats, modes & grilles', fn:()=>dojoTheoryQuiz()});
   return P;
 }
 function renderParcours(){
@@ -1495,6 +1499,9 @@ const DRILLS=[
   {id:'colab', icon:'🎨', title:'Accords colorés', req:'m5l1',
    desc:()=>'Au-delà de maj/min/7 : sus2/sus4, dim, m7♭5, dim7, et les extensions 9 & 11. Le vocabulaire du son jazz — à construire au clavier.',
    run:()=>chordLabRoom()},
+  {id:'modes', icon:'🎭', title:'Explorer les modes', req:null,
+   desc:()=>'Tu ne comprends rien aux modes ? Écoute-les côte à côte sur le même Do, vois la note qui change. Du plus lumineux au plus sombre — par l\'oreille, pas par les mots.',
+   run:()=>modesExplorer()},
   {id:'sprint', icon:'⚡', title:'Sprint d\'accords', req:'m0l2',
    desc:()=>'10 accords aléatoires, chronométrés.'+(S.best.sprint?` Record sans faute : <b style="color:var(--acc)">${S.best.sprint}s</b>.`:' Fais un sans-faute pour poser un record.'),
    run:()=>dojoChords()},
@@ -1777,6 +1784,19 @@ const THEORY_QUIZ=[
  {q:'Le dim7 (diminué 7) est fait de :', ok:'tierces mineures empilées (Do–Mib–Solb–La)', bad:['tierces majeures empilées','une triade majeure + 7e','quartes empilées'], why:'dim7 = 4 notes à 3 demi-tons d\'écart chacune. Parfaitement symétrique, tension maximale.'},
  {q:'Un accord de 9 (ex. C9) ajoute à la 7 de dominante :', ok:'la 9e (Ré au-dessus, soit Do–Mi–Sol–Sib–Ré)', bad:['la 6te','une 2e fondamentale','la quarte'], why:'La 9e = la 2de montée d\'une octave. On empile une tierce de plus au-dessus de la 7e. Son riche, funky.'},
  {q:'Sur un dominant 11 (ex. C11), on omet souvent :', ok:'la tierce (elle frotte avec la 11e)', bad:['la fondamentale','la 7e','la quinte'], why:'La 11e (Fa sur un C) est à un demi-ton de la tierce (Mi) → on lâche la 3ce. C11 sonne comme Gm7/C.'},
+ /* ---- MODES : expliqués simplement ---- */
+ {q:'Un « mode », c\'est quoi, en une phrase ?', ok:'les mêmes notes d\'une gamme, mais une AUTRE note sert de « maison »', bad:['une gamme avec des notes en plus','un accord de 4 notes','une vitesse de jeu'], why:'Même matériel (ex. les touches blanches), mais on tourne autour d\'une autre note → une nouvelle couleur. C\'est tout le secret.'},
+ {q:'Si tu joues les touches BLANCHES mais en tournant autour de RÉ, tu joues :', ok:'Ré dorien', bad:['Ré majeur','Ré mineur naturel','Ré lydien'], why:'Les blanches = gamme de Do. Centrées sur Ré → mode dorien. Mêmes notes, maison différente.'},
+ {q:'Le mode DORIEN, c\'est :', ok:'un mineur, mais avec la 6te MAJEURE (plus « cool »)', bad:['un majeur avec un #4','le mineur le plus triste','un majeur normal'], why:'Dorien = mineur + 6te majeure. Moins sombre qu\'un vrai mineur — le son jazzy de « So What ».'},
+ {q:'Le mode LYDIEN se reconnaît à :', ok:'son #4 (quarte augmentée) — son rêveur, « musique de film »', bad:['sa 7e mineure','sa 2de mineure','sa tierce mineure'], why:'Lydien = majeur avec le 4e degré haussé. Ça flotte, ça rêve (le thème des Simpson).'},
+ {q:'Le mode MIXOLYDIEN, c\'est :', ok:'un majeur avec la 7e MINEURE (le son « dominante », bluesy)', bad:['un majeur normal','un mineur','un majeur avec #4'], why:'Mixolydien = majeur + b7. Exactement les notes d\'un accord de 7 → le son rock/blues.'},
+ {q:'Le mode ÉOLIEN, c\'est :', ok:'le mineur NATUREL (le vrai mineur « triste »)', bad:['le majeur','un mineur jazzy','un mode instable'], why:'Éolien = mineur naturel, la relative mineure. La couleur mélancolique par défaut.'},
+ {q:'Le mode PHRYGIEN se reconnaît à :', ok:'sa 2de mineure (b2) — couleur espagnole / flamenco', bad:['sa 6te majeure','son #4','sa 7e majeure'], why:'Phrygien = mineur + b2. Le demi-ton juste au-dessus de la fondamentale → son sombre, hispanique.'},
+ {q:'Pour ENTENDRE la différence entre deux modes, le mieux est de :', ok:'les jouer sur la MÊME fondamentale, l\'un après l\'autre', bad:['les jouer très vite','les jouer dans des tonalités différentes','lire leur nom grec'], why:'En les comparant sur le même Do, la note qui change saute à l\'oreille. C\'est comme ça qu\'on comprend les modes.'},
+ {q:'Les modes rangés du plus LUMINEUX au plus SOMBRE, ça donne :', ok:'Lydien → Ionien → Mixolydien → Dorien → Éolien → Phrygien → Locrien', bad:['Ionien → Dorien → … (ordre alphabétique)','Locrien → Phrygien → … (aléatoire)','Majeur → mineur seulement'], why:'C\'est l\'ordre de « brillance » : chaque cran abaisse une note. Un repère mental très utile.'},
+ {q:'Sur un accord Cmaj7, quel mode sonne « juste » ?', ok:'Do ionien (ou lydien pour la couleur)', bad:['Do phrygien','Do mixolydien','Do locrien'], why:'Un maj7 est majeur avec 7e majeure → ionien colle. Le lydien (#4) ajoute une touche rêveuse.'},
+ {q:'Sur un accord G7 (dominante), le mode « maison » est :', ok:'Sol mixolydien', bad:['Sol ionien','Sol dorien','Sol lydien'], why:'G7 contient un Fa (7e mineure) → le mode qui a ce Fa est le mixolydien. Les notes de l\'accord SONT dans le mode.'},
+ {q:'Le mode LOCRIEN est surtout utilisé :', ok:'sur les accords m7♭5 (demi-diminués)', bad:['sur les accords majeurs','comme tonalité principale d\'une chanson','sur un blues'], why:'Locrien a une b5 → il épouse le m7♭5. Trop instable pour être une « maison », parfait comme couleur de passage.'},
 ];
 function genTheoryQuiz(n){
   return THEORY_QUIZ.slice().sort(()=>Math.random()-.5).slice(0,n).map(Q=>{
@@ -1786,7 +1806,7 @@ function genTheoryQuiz(n){
 }
 function dojoTheoryQuiz(){
   openCustom('🧠 Quiz — formats & grilles',(inner,close)=>{
-    runQuiz(inner,{qs:genTheoryQuiz(6)}, ok=>{ if(ok){ award(10); dailyMark('drill'); toast('+10 XP'); } close(); });
+    runQuiz(inner,{qs:genTheoryQuiz(6)}, ok=>{ if(ok){ award(10); dailyMark('drill'); dailyMark('tquiz'); toast('+10 XP'); } close(); });
   });
 }
 /* ---------- ACCORDS COLORÉS : sus, dim, altérés, extensions 9/11 ---------- */
@@ -1816,12 +1836,68 @@ function chordLabRoom(){
       const b=document.createElement('button'); b.className='btn ghost'; b.textContent='Lancer (8 accords)';
       b.onclick=()=>{ menu.remove(); const box=document.createElement('div'); inner.appendChild(box);
         runChord(box,{gen:{types:F.types,roots:R12,count:8}, sub:'Construis l\'accord affiché — appuie sur « 🔊 Écouter la cible » si besoin.'},
-          ok=>{ if(ok){ award(12); dailyMark('drill'); chime(); toast('🎨 +12 XP · accords colorés'); }
+          ok=>{ if(ok){ award(12); dailyMark('drill'); dailyMark('colab'); chime(); toast('🎨 +12 XP · accords colorés'); }
             const rb=document.createElement('button'); rb.className='btn'; rb.style.marginTop='14px';
             rb.textContent='← Autres familles'; rb.onclick=()=>chordLabRoom(); box.appendChild(rb); overlay.scrollTop=0; });
         overlay.scrollTop=0; };
       c.appendChild(b); menu.appendChild(c);
     });
+    overlay.scrollTop=0;
+  });
+}
+
+/* ================================================================
+   EXPLORER LES MODES — les ENTENDRE côte à côte sur le même Do.
+   Objectif : comprendre les modes par l'oreille, pas par les mots grecs.
+   ================================================================ */
+const MODE_LIST=[ /* rangés du plus lumineux au plus sombre */
+  {id:'lyd', name:'Lydien',      iv:[0,2,4,6,7,9,11], char:6,   fam:'famille majeure',
+   tag:'majeur + un #4', mood:'Rêveur, flottant, un peu magique — « musique de film ».', ref:'thème des Simpson, B.O. de films'},
+  {id:'ion', name:'Ionien',      iv:[0,2,4,5,7,9,11], char:null, fam:'famille majeure',
+   tag:'= la gamme MAJEURE', mood:'Lumineux, stable, « heureux ». Le majeur pur que tu connais déjà.', ref:'presque toute la pop'},
+  {id:'mix', name:'Mixolydien',  iv:[0,2,4,5,7,9,10], char:10,  fam:'famille majeure',
+   tag:'majeur + un b7', mood:'Majeur, mais bluesy, rock, groovy — le son « dominante ».', ref:'« Sweet Home Alabama », blues-rock'},
+  {id:'dor', name:'Dorien',      iv:[0,2,3,5,7,9,10], char:9,   fam:'famille mineure',
+   tag:'mineur + une 6te MAJEURE', mood:'Mineur COOL, jazzy, funky — pas vraiment triste.', ref:'« So What », « Oye Como Va »'},
+  {id:'aeo', name:'Éolien',      iv:[0,2,3,5,7,8,10], char:8,   fam:'famille mineure',
+   tag:'= le mineur NATUREL', mood:'Mélancolique, sombre — le vrai mineur « triste ».', ref:'« Losing My Religion », les ballades'},
+  {id:'phr', name:'Phrygien',    iv:[0,1,3,5,7,8,10], char:1,   fam:'famille mineure',
+   tag:'mineur + un b2', mood:'Sombre, tendu, espagnol/flamenco, un peu menaçant.', ref:'flamenco, métal'},
+  {id:'loc', name:'Locrien',     iv:[0,1,3,5,6,8,10], char:6,   fam:'famille mineure',
+   tag:'mineur + b2 ET b5', mood:'Instable, bancal, angoissant. Rare comme « maison ».', ref:'sur les accords m7♭5'},
+];
+function modesExplorer(){
+  const ROOT=60; /* tout part de Do : on compare les modes sur la MÊME note */
+  openCustom('🎭 Explorer les modes',(inner)=>{
+    const intro=document.createElement('div'); intro.className='theory';
+    intro.innerHTML=`<p>Un mode = <b>les mêmes notes</b>, mais on choisit une autre note comme « maison ». Ici on garde toujours <b style="color:var(--acc)">Do</b> comme maison et on bouge une ou deux notes pour chaque couleur. <b>Écoute-les l'un après l'autre</b> — c'est en comparant qu'on comprend, pas en lisant.</p>
+    <div class="tip">Ils sont rangés <b>du plus lumineux (Lydien) au plus sombre (Locrien)</b>. Le point qui <b>pulse</b> sur le clavier = la note qui donne sa couleur au mode.</div>`;
+    inner.appendChild(intro);
+    const kb=buildKeyboard(60,72,(m,k)=>{ playNote(m); k.classList.add('flash'); setTimeout(()=>k.classList.remove('flash'),150); });
+    inner.appendChild(kb);
+    const seg=document.createElement('div'); seg.className='selrow'; seg.style.flexWrap='wrap'; seg.style.marginTop='10px'; inner.appendChild(seg);
+    const info=document.createElement('div'); info.className='card'; inner.appendChild(info);
+    function playScale(M){ M.iv.concat([12]).forEach((x,i)=>playNote(ROOT+x,.5,.4,i*.42)); }
+    function playColor(M){ playNote(ROOT-12,3.4,.26); playNote(ROOT,3.4,.2); M.iv.forEach((x,i)=>playNote(ROOT+x,.55,.32,.25+i*.32)); }
+    function show(M){
+      kb.clearSel();
+      M.iv.forEach(x=>{ const kk=kb.keyEl(ROOT+x); if(kk) kk.classList.add('hint'); });
+      const tk=kb.keyEl(ROOT); if(tk){ tk.classList.remove('hint'); tk.classList.add('sel'); }
+      if(M.char!=null){ const ck=kb.keyEl(ROOT+M.char); if(ck){ ck.classList.remove('hint'); ck.classList.add('sel','target'); } }
+      info.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
+          <b style="font-size:17px">${M.name}</b><span style="color:var(--dim);font-size:12px;font-weight:700">${M.fam}</span></div>
+        <div style="color:var(--acc);font-weight:800;font-size:13px;margin:2px 0 6px">${M.tag}</div>
+        <p style="color:#c9cde0;font-size:14px;line-height:1.5;margin:0 0 4px">${M.mood}</p>
+        <p style="color:var(--dim);font-size:12px;margin:0">🎧 Tu l'entends dans : ${M.ref}</p>`;
+      const row=document.createElement('div'); row.className='exrow'; row.style.marginTop='10px';
+      const bS=document.createElement('button'); bS.className='btn ghost'; bS.textContent='▶ La gamme'; bS.onclick=()=>playScale(M);
+      const bC=document.createElement('button'); bC.className='btn'; bC.textContent='🎨 La couleur'; bC.onclick=()=>playColor(M);
+      row.appendChild(bS); row.appendChild(bC); info.appendChild(row);
+    }
+    MODE_LIST.forEach(M=>{ const t=document.createElement('div'); t.className='tag'; t.textContent=M.name;
+      t.onclick=()=>{ seg.querySelectorAll('.tag').forEach(x=>x.classList.remove('on')); t.classList.add('on'); show(M); }; seg.appendChild(t); });
+    const startIdx=MODE_LIST.findIndex(M=>M.id==='ion'); /* on démarre sur le majeur, repère connu */
+    seg.children[startIdx].classList.add('on'); show(MODE_LIST[startIdx]);
     overlay.scrollTop=0;
   });
 }
@@ -3657,6 +3733,7 @@ dim7 = diminué + 6&nbsp;&nbsp;(Do–Mib–Solb–La) — tension maximale
 
 {id:'modes', ic:'🎭', cat:'Gammes & modes', title:'Les 7 modes', sub:'Sept ambiances dans une seule gamme',
  body:`
+<div class="tip" style="border-left-color:var(--acc)">🎭 <b>Tu comprends mieux en écoutant.</b> Ouvre l'<button onclick="closeOverlay();modesExplorer()" style="background:var(--acc);color:#1a1200;border:none;border-radius:8px;padding:4px 10px;font-weight:800;cursor:pointer">Explorateur de modes</button> : les 7 modes sur le même Do, avec la note qui change allumée.</div>
 <p>Prends la gamme de Do majeur (les blanches) et, au lieu de partir de Do, <b>démarre et gravite autour d'une autre note</b>. Même matériel, mais l'oreille recentre tout : tu obtiens un <b>mode</b>, avec sa couleur propre. Sept degrés, sept modes.</p>
 <ul>
 <li><b>Ionien</b> (depuis Do) — la gamme majeure elle-même. Lumineux, stable.</li>
