@@ -1528,6 +1528,9 @@ const DRILLS=[
   {id:'modes', icon:'🎭', title:'Explorer les modes', req:null,
    desc:()=>'Tu ne comprends rien aux modes ? Écoute-les côte à côte sur le même Do, vois la note qui change. Du plus lumineux au plus sombre — par l\'oreille, pas par les mots.',
    run:()=>modesExplorer()},
+  {id:'coord', icon:'🤝', title:'Deux mains & impro', req:null,
+   desc:()=>'L\'app joue une main, tu joues l\'autre. Répertoire gradué (pop → « You Know I\'m No Good » → jazz) avec la penta donnée et surlignée. Le vrai chaînon pour improviser à deux mains.',
+   run:()=>coordRoom()},
   {id:'sprint', icon:'⚡', title:'Sprint d\'accords', req:'m0l2',
    desc:()=>'10 accords aléatoires, chronométrés.'+(S.best.sprint?` Record sans faute : <b style="color:var(--acc)">${S.best.sprint}s</b>.`:' Fais un sans-faute pour poser un record.'),
    run:()=>dojoChords()},
@@ -2409,7 +2412,7 @@ function renderOutils(){
    ================================================================ */
 const overlay=document.getElementById('overlay');
 const overlayInner=document.getElementById('overlayInner');
-function closeOverlay(){ overlay.classList.remove('open'); Metro.stop(); Player.stop(false); render(); }
+function closeOverlay(){ overlay.classList.remove('open'); Metro.stop(); Player.stop(false); if(typeof CoordPlayer!=='undefined')CoordPlayer.stop(); render(); }
 function openCustom(title,fill){
   overlayInner.innerHTML=`<div class="topbar"><button class="back">←</button><b>${title}</b></div>`;
   overlayInner.querySelector('.back').onclick=closeOverlay;
@@ -3758,6 +3761,26 @@ dim7 = diminué + 6&nbsp;&nbsp;(Do–Mib–Solb–La) — tension maximale
 <p>Sur un accord de dominante, on peut <b>altérer</b> ces extensions : b9, #9, #11, b13. Chacune ajoute une couleur épicée, une tension supplémentaire à résoudre. C'est le vocabulaire du jazz moderne — le fameux « accord altéré » (G7alt) qui gratte juste ce qu'il faut avant de tomber sur le Do.</p>
 <div class="tip">Économie : sur un accord de 7e, la <b>fondamentale et la quinte</b> sont les notes les moins importantes (la quinte ne dit rien, la fondamentale est souvent jouée par la basse). La <b>tierce et la septième</b>, elles, portent toute la couleur. D'où les shell voicings.</div>`},
 
+{id:'zoom911', ic:'💎', cat:'Accords', title:'Zoom : 9, 11 et le m7♭5', sub:'Bien comprendre les accords qui « colorent »',
+ body:`
+<p>Tu construis ces accords dans l'app — voici <b>pourquoi</b> ils sonnent comme ça, en clair.</p>
+<h3>La 9e (ex. C9)</h3>
+<p>On empile une tierce de plus <b>au-dessus de la 7e</b>. La 9e, c'est la <b>2de montée d'une octave</b> : sur un Do, c'est le <b>Ré</b>. Donc C9 = Do–Mi–Sol–Sib–<b>Ré</b>.</p>
+<div class="formula">C7 + Ré = C9&nbsp;&nbsp;(Do Mi Sol Sib Ré)</div>
+<p>Pourquoi ce son « funky / soul » ? Parce que la 9e ajoute une couleur brillante sans changer la fonction de l'accord. On la retrouve partout chez Stevie Wonder, dans la soul, le funk. <b>Astuce de jeu</b> : lâche la fondamentale (jouée par la basse) et garde 3–5–7–9, ça sonne déjà pro.</p>
+<h3>La 11e (ex. C11)</h3>
+<p>Encore une tierce au-dessus : la 11e, c'est la <b>4te montée d'une octave</b> → sur un Do, c'est le <b>Fa</b>. Mais attention : le Fa (11e) est à un <b>demi-ton</b> de la tierce Mi. Ça frotte méchamment.</p>
+<div class="warn">Solution universelle : sur un accord de <b>11</b> de dominante, on <b>enlève la tierce</b>. C11 = Do–Sol–Sib–Ré–Fa (sans Mi). Résultat : ça sonne exactement comme un <b>Gm7 posé sur un Do</b> (Gm7/C) — d'où sa couleur suspendue, ouverte.</p>
+<h3>Le m7♭5 — le « demi-diminué » (ex. Em7♭5)</h3>
+<p>Son vrai nom : <b>demi-diminué</b>. On part d'une triade <b>diminuée</b> (deux tierces mineures : Mi–Sol–Sib) et on ajoute une <b>7e mineure</b> (Ré).</p>
+<div class="formula">Em7♭5 = Mi – Sol – Si♭ – Ré&nbsp;&nbsp;(fond. · 3ce min · 5te DIMINUÉE · 7e min)</div>
+<p>La note-clé, c'est la <b>quinte diminuée</b> (le ♭5) : au lieu de la quinte juste, elle est descendue d'un demi-ton. C'est elle qui donne ce son <b>trouble, en suspens, un peu inquiet</b>.</p>
+<h3>À quoi ça sert vraiment</h3>
+<p>Le m7♭5 est le <b>ii des tonalités mineures</b> : il ouvre le <b>ii–V–i mineur</b>, la cadence reine du jazz sombre.</p>
+<div class="formula">En La mineur : Bm7♭5 → E7 → Am&nbsp;&nbsp;(ii – V – i)</div>
+<p>Dès que tu entends une ballade jazz mélancolique, il y a un m7♭5 qui ouvre le mouvement. Le reconnaître, c'est comprendre la moitié des standards mineurs (Autumn Leaves, Blue Bossa…).</p>
+<div class="tip">Repère express : un m7♭5, c'est un <b>accord mineur 7 dont on a « cassé » la quinte</b> (descendue d'un demi-ton). Joue Em7 (Mi–Sol–Si–Ré) puis descends le Si en Si♭ : tu obtiens Em7♭5. Une note qui bouge, encore.</div>`},
+
 /* ---------- GAMMES & MODES ---------- */
 {id:'gamme-armures', ic:'🪜', cat:'Gammes & modes', title:'La gamme majeure & le cycle des quintes', sub:'D\'où viennent les tonalités et les armures',
  body:`
@@ -3967,7 +3990,25 @@ function circleOfFifths(){
       if(play) playChord(voicingFor(maj,'maj'),1.5);
     }
     COF.forEach((M,i)=>{ place(i,Ro,'cofchip',NOTE[M.pc],()=>show(i,true)); place(i,Ri,'cofmin',NOTE[(M.pc+9)%12]+'m',()=>show(i,true)); });
-    show(0,false); overlay.scrollTop=0;
+    show(0,false);
+    const more=document.createElement('div'); more.className='theory'; inner.appendChild(more);
+    more.innerHTML=`
+<h3>Comprendre le cercle</h3>
+<p>Range les 12 notes non pas à la suite (Do, Do#, Ré…) mais <b>de quinte en quinte</b> : Do → Sol → Ré → La… Après 12 quintes, tu es revenu à Do. C'est un cercle, pas une échelle.</p>
+<h3>Pourquoi c'est LA carte des musiciens</h3>
+<ul>
+<li><b>Les armures se lisent d'un coup.</b> Chaque pas vers la droite = <b>+1 dièse</b> ; vers la gauche = <b>+1 bémol</b>. Do n'a rien, Sol a 1 dièse, Ré 2… c'est cumulatif.</li>
+<li><b>Les tonalités voisines sont « compatibles ».</b> Do, Fa et Sol (voisins directs) partagent presque toutes leurs notes → passer de l'une à l'autre sonne naturel. C'est pour ça que <b>I–IV–V</b> (les 3 voisins) est la base de milliers de chansons.</li>
+<li><b>La relative mineure est juste en dessous.</b> Chaque majeure a sa jumelle mineure (mêmes notes) sur l'anneau intérieur : Do ↔ La mineur.</li>
+</ul>
+<h3>À quoi ça sert en vrai</h3>
+<ul>
+<li><b>Transposer</b> : la même chanson dans une autre tonalité = tu tournes d'un cran, les rapports restent identiques.</li>
+<li><b>Les ii–V–I</b> descendent le cercle : G7 → C, D7 → G… chaque dominante « tire » vers son voisin de gauche. La « chaîne » de <i>Just the Two of Us</i>, c'est exactement ça.</li>
+<li><b>Improviser / composer</b> : si tu es perdu, va piocher chez les <b>voisins</b> — ça sonnera toujours.</li>
+</ul>
+<div class="tip">Le réflexe à installer : quand tu vois un accord, pense à ses <b>deux voisins</b> sur le cercle. 90 % du temps, l'accord suivant d'une chanson est juste à côté.</div>`;
+    overlay.scrollTop=0;
   });
 }
 
@@ -4094,6 +4135,108 @@ function openDefi(){
     const d=defiState();
     if(d.done){ box.innerHTML='<p style="color:var(--ok);text-align:center;font-weight:700;margin-top:16px">✓ Défi déjà relevé aujourd\'hui. Reviens demain pour un nouveau !</p>'; return; }
     D.launch(box, ok=>{ if(ok){ const s=defiState(); if(!s.done){ s.done=true; save(); award(30); chime(); tada(); toast('🎲 Défi relevé · +30 XP'); } } });
+  });
+}
+
+/* ================================================================
+   DEUX MAINS & IMPRO — l'app joue une main, tu joues l'autre.
+   Répertoire gradué de grilles + gamme d'impro donnée et surlignée.
+   ================================================================ */
+const pentaMaj=r=>[r%12,(r+2)%12,(r+4)%12,(r+7)%12,(r+9)%12];
+const pentaMin=r=>[r%12,(r+3)%12,(r+5)%12,(r+7)%12,(r+10)%12];
+const COORD_GRILLES=[
+  {id:'pop', diff:1, title:'Pop · 4 accords', bpm:82, chords:[[0,'maj'],[7,'maj'],[9,'min'],[5,'maj']],
+   scale:pentaMaj(0), scaleName:'penta majeure de Do', tip:'Le classique C–G–Am–F. Improvise avec la penta majeure de Do : impossible de sonner faux. Commence par une note par mesure.'},
+  {id:'bluesA', diff:2, title:'Blues mineur en La', bpm:74, chords:[[9,'min'],[2,'min'],[9,'min'],[4,'dom7']],
+   scale:pentaMin(9), scaleName:'penta mineure de La', tip:'i–iv–i–V en La mineur. Penta mineure de La par-dessus ; glisse le Ré# EN PASSANT pour le grain blues. Le E7 tire vers le retour.'},
+  {id:'twofive', diff:3, title:'ii–V–I jazz en Do', bpm:100, chords:[[2,'m7'],[7,'dom7'],[0,'maj7'],[0,'maj7']],
+   scale:pentaMaj(0), scaleName:'penta majeure de Do', tip:'La cadence reine. Des accords de 7e à travailler (Dm7–G7–Cmaj7). La penta de Do colle sur les trois — concentre-toi sur la coordination.'},
+  {id:'nogood', diff:3, title:'Soul mineur (« You Know I\'m No Good »)', bpm:96, chords:[[2,'m7'],[7,'m7'],[9,'dom7'],[2,'m7']],
+   scale:pentaMin(2), scaleName:'penta mineure de Ré', tip:'Dm7–Gm7–A7–Dm7. Le son que tu connais. Impro : penta mineure de Ré ; sur le A7, vise le Do# (sa tierce) pour la tension avant de retomber sur Rém.'},
+  {id:'twotwo', diff:4, title:'« Just the Two of Us »', bpm:90, chords:[[0,'maj7'],[11,'dom7'],[4,'m7'],[9,'dom7'],[2,'m7'],[7,'dom7']],
+   scale:pentaMaj(0), scaleName:'penta majeure de Do', tip:'La chaîne de dominantes descendantes : 6 accords de 7e différents, le vrai défi de coordination. Impro : reste sur la penta de Do, ça passe partout.'},
+];
+const COORD_STEPS=[
+  '① Écoute la boucle une fois, sans jouer. Sens la pulsation.',
+  '② Main droite seule : UNE note bleue sur le temps 1 de chaque mesure.',
+  '③ Main droite : deux-trois notes bleues par mesure, des petites phrases.',
+  '④ Passe l\'app sur « à toi la gauche » : joue la basse au temps 1, l\'app tient les accords.',
+  '⑤ Règle sur « juste le clic » : les DEUX mains, librement. Respire, laisse des silences.',
+];
+const CoordPlayer={
+  g:null, bpm:82, hands:'left', playing:false, ctx:null, timer:null, raf:null,
+  anchorTime:0, anchorBeat:0, ai:0, spb:0, ae:[], total:0, kb:null, els:{},
+  build(){
+    const g=this.g, ts=4, ae=[], h=this.hands;
+    g.chords.forEach((c,bar)=>{ const root=c[0], type=c[1], bs=bar*ts;
+      if(h==='both'||h==='left'){ ae.push({t:bs,midi:36+root,dur:1.9,vel:.42}); ae.push({t:bs+2,midi:36+((root+7)%12),dur:1.8,vel:.36}); }
+      if(h==='both'||h==='right'){ voicingFor(root,type).forEach(m=>{ ae.push({t:bs,midi:m,dur:1.7,vel:.17}); ae.push({t:bs+2,midi:m,dur:1.6,vel:.15}); }); }
+    });
+    this.total=g.chords.length*ts;
+    for(let b=0;b<this.total;b++) ae.push({t:b,click:true,accent:b%ts===0});
+    ae.sort((a,b)=>a.t-b.t); this.ae=ae;
+  },
+  start(){
+    this.stop(); this.build(); const ctx=ac(); this.ctx=ctx; this.spb=60/this.bpm;
+    const t0=ctx.currentTime+.15; for(let k=0;k<4;k++) Metro.click(t0+k*this.spb,k===0);
+    this.anchorTime=t0+4*this.spb; this.anchorBeat=0; this.ai=0; this.playing=true;
+    this.timer=setInterval(()=>this._sched(),25); this._frame();
+    if(this.els.play) this.els.play.textContent='⏸ Stop';
+  },
+  _sched(){ if(!this.playing) return; const ctx=this.ctx, look=.13, spb=this.spb;
+    while(this.ai<this.ae.length){ const ev=this.ae[this.ai], when=this.anchorTime+(ev.t-this.anchorBeat)*spb;
+      if(when<ctx.currentTime+look){ if(when>ctx.currentTime-.06){ if(ev.click) Metro.click(when,ev.accent); else playNote(ev.midi,Math.max(.14,ev.dur*spb*.9),ev.vel,when-ctx.currentTime); } this.ai++; } else return; }
+    const endT=this.anchorTime+(this.total-this.anchorBeat)*spb;
+    if(ctx.currentTime>=endT-.02){ this.anchorBeat=0; this.anchorTime=endT; this.ai=0; } /* boucle */
+  },
+  _frame(){ if(!this.playing) return;
+    const beat=(this.ctx.currentTime-this.anchorTime)/this.spb+this.anchorBeat;
+    const bb=((beat%this.total)+this.total)%this.total, bar=Math.floor(bb/4)%this.g.chords.length;
+    if(this.els.now){ const c=this.g.chords[bar]; this.els.now.textContent=chordName(c[0],c[1]); }
+    if(this.els.beat) this.els.beat.forEach((d,i)=>d.classList.toggle('on', i===Math.floor(bb)%4));
+    this.raf=requestAnimationFrame(()=>this._frame());
+  },
+  stop(){ this.playing=false; if(this.timer){clearInterval(this.timer);this.timer=null;} if(this.raf){cancelAnimationFrame(this.raf);this.raf=null;} if(this.els.beat) this.els.beat.forEach(d=>d.classList.remove('on')); if(this.els.play) this.els.play.textContent='▶ Lancer la boucle'; }
+};
+function coordRoom(){
+  openCustom('🤝 Deux mains & impro',(inner)=>{
+    let g=COORD_GRILLES[0];
+    CoordPlayer.stop(); CoordPlayer.hands='left'; CoordPlayer.els={};
+    const intro=document.createElement('p'); intro.style.cssText='color:var(--dim);font-size:13px;line-height:1.5;margin-bottom:8px';
+    intro.innerHTML='L\'app joue une main, <b style="color:var(--txt)">tu joues l\'autre</b> — c\'est comme ça qu\'on apprend à coordonner sans se nouer le cerveau. Les touches <b style="color:var(--blue)">bleues</b> = ta gamme d\'impro : tu ne peux pas sonner faux. Monte les paliers un par un.';
+    inner.appendChild(intro);
+    const gsel=document.createElement('div'); gsel.className='selrow'; gsel.style.flexWrap='wrap'; inner.appendChild(gsel);
+    const now=document.createElement('div'); now.className='nowchord'; now.innerHTML='<div class="cn" id="ccn">—</div><div class="nn" id="cnn"></div>'; inner.appendChild(now);
+    const beats=document.createElement('div'); beats.className='rbeats'; beats.innerHTML='<i></i><i></i><i></i><i></i>'; inner.appendChild(beats);
+    const kb=buildKeyboard(48,72,(m,k)=>{ playNote(m); k.classList.add('flash'); setTimeout(()=>k.classList.remove('flash'),150); });
+    inner.appendChild(kb);
+    const scaleTxt=document.createElement('div'); scaleTxt.className='fb'; scaleTxt.style.color='var(--blue)'; scaleTxt.style.fontWeight='700'; inner.appendChild(scaleTxt);
+    const tip=document.createElement('div'); tip.className='theory'; inner.appendChild(tip);
+    const tempo=document.createElement('div'); tempo.className='tempo'; tempo.innerHTML='<span class="tl">Tempo</span><input type="range" min="50" max="120" step="2"><span class="tv"></span>'; inner.appendChild(tempo);
+    const slider=tempo.querySelector('input'), tv=tempo.querySelector('.tv');
+    const hsel=document.createElement('div'); hsel.className='selrow'; hsel.style.flexWrap='wrap'; inner.appendChild(hsel);
+    const HANDS=[['left','🎹 L\'app joue la basse (à toi la droite)'],['right','🎵 L\'app joue les accords (à toi la gauche)'],['both','▶ L\'app joue tout'],['off','🥁 Juste le clic (à toi les deux)']];
+    const play=document.createElement('button'); play.className='btn'; play.textContent='▶ Lancer la boucle';
+    play.onclick=()=>{ if(CoordPlayer.playing) CoordPlayer.stop(); else CoordPlayer.start(); };
+    inner.appendChild(play);
+    const steps=document.createElement('div'); steps.className='card'; steps.style.marginTop='12px';
+    steps.innerHTML='<b style="font-size:14px">🪜 Les paliers de coordination</b>'+COORD_STEPS.map(s=>`<div style="color:#c9cde0;font-size:13px;line-height:1.5;margin-top:6px">${s}</div>`).join('');
+    inner.appendChild(steps);
+    CoordPlayer.kb=kb; CoordPlayer.els={ now:now.querySelector('#ccn'), beat:[...beats.querySelectorAll('i')], play };
+    function highlight(){ kb.clearSel(); for(let m=48;m<=72;m++){ if(g.scale.includes(m%12)){ const kk=kb.keyEl(m); if(kk) kk.classList.add('hint'); } } }
+    function load(gg){ g=gg; CoordPlayer.g=g; CoordPlayer.bpm=g.bpm; slider.value=g.bpm; tv.textContent=g.bpm+' BPM';
+      scaleTxt.textContent='🎹 Improvise avec : '+g.scale.map(pc=>NOTE_FR[pc]).join(' · ');
+      now.querySelector('#cnn').textContent=g.scaleName;
+      tip.innerHTML=`<div class="tip" style="margin:10px 0">${g.tip}</div>`;
+      highlight(); if(CoordPlayer.playing) CoordPlayer.start();
+    }
+    COORD_GRILLES.forEach((gg,i)=>{ const t=document.createElement('div'); t.className='tag'+(i===0?' on':'');
+      t.innerHTML=gg.title+' <span style="opacity:.55">'+'◆'.repeat(gg.diff)+'</span>';
+      t.onclick=()=>{ gsel.querySelectorAll('.tag').forEach(x=>x.classList.remove('on')); t.classList.add('on'); load(gg); }; gsel.appendChild(t); });
+    HANDS.forEach(([v,l])=>{ const t=document.createElement('div'); t.className='tag'+(v==='left'?' on':''); t.textContent=l;
+      t.onclick=()=>{ CoordPlayer.hands=v; hsel.querySelectorAll('.tag').forEach(x=>x.classList.remove('on')); t.classList.add('on'); if(CoordPlayer.playing) CoordPlayer.start(); }; hsel.appendChild(t); });
+    slider.oninput=()=>{ CoordPlayer.bpm=+slider.value; tv.textContent=slider.value+' BPM'; if(CoordPlayer.playing) CoordPlayer.start(); };
+    load(g); overlay.scrollTop=0;
   });
 }
 
