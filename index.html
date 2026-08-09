@@ -2727,11 +2727,17 @@ function runEar(el,ex,cb){
   });
   if(ex.kinds.length===3) btns.style.gridTemplateColumns='1fr 1fr 1fr';
   const notesOf=()=>{ const iv=CHORD_TYPES[cur.t].iv; const use=ex.dyad?[iv[0],iv[1]]:iv; return use.map(x=>cur.rootMidi+x); };
+  /* identification maj/min : on donne un REPÈRE (la fondamentale seule) avant l'accord
+     égrené — pour juger la tierce PAR RAPPORT à une note qu'on vient d'entendre. */
+  const isMM = ex.kinds.every(k=>k==='maj'||k==='min');
+  const anchored = ex.anchor!==false && isMM && !ex.dyad && ex.fixedRoot==null;
   const playBlock=()=>{ if(cur) playChord(notesOf(),1.8, ex.dyad?0:.03); };
-  const playArp=()=>{ if(cur) notesOf().forEach((m,idx)=>playNote(m,.7,.4,idx*.52)); };
-  el.querySelector('#replay').onclick=playBlock;
+  const playArp=()=>{ if(cur) notesOf().forEach((m,idx)=>playNote(m,.75,.42,idx*.5)); };
+  const playAnchored=()=>{ if(!cur) return; playNote(cur.rootMidi,1.0,.34); notesOf().forEach((m,idx)=>playNote(m,.8,.42, 1.2+idx*.5)); };
+  const play=()=> anchored?playAnchored() : (ex.arp?playArp():playBlock());
+  el.querySelector('#replay').onclick=play;
   el.querySelector('#arp').onclick=playArp;
-  const play=()=> ex.arp?playArp():playBlock();
+  if(anchored){ const sb=el.querySelector('.exhead .sub'); if(sb) sb.innerHTML='Tu entends d\'abord la <b>fondamentale</b> (ton repère), puis l\'accord égrené. La 2e note — la <b>tierce</b> — sonne-t-elle brillante (majeur) ou sombre (mineur) ?'; el.querySelector('#replay').textContent='🔊 Repère + accord'; }
   const next=()=>{
     answered=false;
     const root = ex.fixedRoot!=null ? ex.fixedRoot : 52+Math.floor(Math.random()*13);
