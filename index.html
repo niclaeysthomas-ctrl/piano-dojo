@@ -2733,11 +2733,11 @@ function runEar(el,ex,cb){
   const anchored = ex.anchor!==false && isMM && !ex.dyad && ex.fixedRoot==null;
   const playBlock=()=>{ if(cur) playChord(notesOf(),1.8, ex.dyad?0:.03); };
   const playArp=()=>{ if(cur) notesOf().forEach((m,idx)=>playNote(m,.75,.42,idx*.5)); };
-  const playAnchored=()=>{ if(!cur) return; playNote(cur.rootMidi,1.0,.34); notesOf().forEach((m,idx)=>playNote(m,.8,.42, 1.2+idx*.5)); };
+  const playAnchored=()=>{ if(!cur) return; playNote(cur.rootMidi,1.0,.34); notesOf().forEach((m,idx)=>playNote(m,1.7,.4, 1.2+idx*.02)); };
   const play=()=> anchored?playAnchored() : (ex.arp?playArp():playBlock());
   el.querySelector('#replay').onclick=play;
   el.querySelector('#arp').onclick=playArp;
-  if(anchored){ const sb=el.querySelector('.exhead .sub'); if(sb) sb.innerHTML='Tu entends d\'abord la <b>fondamentale</b> (ton repère), puis l\'accord égrené. La 2e note — la <b>tierce</b> — sonne-t-elle brillante (majeur) ou sombre (mineur) ?'; el.querySelector('#replay').textContent='🔊 Repère + accord'; }
+  if(anchored){ const sb=el.querySelector('.exhead .sub'); if(sb) sb.innerHTML='D\'abord la <b>fondamentale</b> (ton repère), puis l\'<b>accord plaqué</b>. Sonne-t-il brillant (majeur) ou sombre (mineur) ? Besoin d\'isoler la tierce ? « 🎵 Note par note ».'; el.querySelector('#replay').textContent='🔊 Repère + accord'; }
   const next=()=>{
     answered=false;
     const root = ex.fixedRoot!=null ? ex.fixedRoot : 52+Math.floor(Math.random()*13);
