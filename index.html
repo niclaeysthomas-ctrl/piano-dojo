@@ -1826,6 +1826,13 @@ const THEORY_QUIZ=[
  {q:'Sur un accord Cmaj7, quel mode sonne « juste » ?', ok:'Do ionien (ou lydien pour la couleur)', bad:['Do phrygien','Do mixolydien','Do locrien'], why:'Un maj7 est majeur avec 7e majeure → ionien colle. Le lydien (#4) ajoute une touche rêveuse.'},
  {q:'Sur un accord G7 (dominante), le mode « maison » est :', ok:'Sol mixolydien', bad:['Sol ionien','Sol dorien','Sol lydien'], why:'G7 contient un Fa (7e mineure) → le mode qui a ce Fa est le mixolydien. Les notes de l\'accord SONT dans le mode.'},
  {q:'Le mode LOCRIEN est surtout utilisé :', ok:'sur les accords m7♭5 (demi-diminués)', bad:['sur les accords majeurs','comme tonalité principale d\'une chanson','sur un blues'], why:'Locrien a une b5 → il épouse le m7♭5. Trop instable pour être une « maison », parfait comme couleur de passage.'},
+ /* ---- GYMNASTIQUE : ramener un mode à sa gamme majeure parente ---- */
+ {q:'On joue en RÉ DORIEN. Quelle gamme majeure jouer ?', ok:'Do majeur', bad:['Ré majeur','Mi majeur','Sol majeur'], why:'Dorien = 2e degré → la parente est un TON en dessous. Ré → Do. Joue Do majeur, mais reviens sur Ré.'},
+ {q:'On joue en FA LOCRIEN. Quelle gamme majeure jouer ?', ok:'Sol♭ majeur', bad:['Fa majeur','Do majeur','Mi majeur'], why:'Locrien = 7e degré → la parente est un DEMI-TON au-dessus. Fa → Sol♭. Joue Sol♭ majeur en gravitant autour de Fa.'},
+ {q:'On joue en SOL MIXOLYDIEN. Quelle gamme majeure ?', ok:'Do majeur', bad:['Sol majeur','Ré majeur','Fa majeur'], why:'Mixolydien = 5e degré. Sol est le 5e degré de Do → gamme de Do, en visant le Fa (la b7).'},
+ {q:'On joue en MI PHRYGIEN. Quelle gamme majeure ?', ok:'Do majeur', bad:['Mi majeur','La majeur','Sol majeur'], why:'Phrygien = 3e degré. Mi est le 3e degré de Do majeur.'},
+ {q:'Pour trouver la gamme majeure « parente » d\'un mode, on repère :', ok:'de quel DEGRÉ de la majeure il part (dorien=2, locrien=7…)', bad:['sa vitesse de jeu','le nombre de dièses de son nom','sa première lettre'], why:'Chaque mode est un degré de la majeure : Ionien 1, Dorien 2… Locrien 7. On remonte à la tonique de cette majeure.'},
+ {q:'Sur un accord Em7 qui dure longtemps, quelle gamme majeure improviser ?', ok:'Ré majeur (Mi dorien)', bad:['Mi majeur','Do majeur','Sol majeur'], why:'Sur un m7 on pense dorien : Mi dorien = les notes de Ré majeur (Mi en est le 2e degré), en gravitant autour de Mi.'},
 ];
 function genTheoryQuiz(n){
   return THEORY_QUIZ.slice().sort(()=>Math.random()-.5).slice(0,n).map(Q=>{
@@ -3885,7 +3892,48 @@ dim7 = diminué + 6&nbsp;&nbsp;(Do–Mib–Solb–La) — tension maximale
 <h3>La note caractéristique</h3>
 <p>Chaque mode se reconnaît à <b>une note</b> qui le distingue de la gamme majeure ou mineure « attendue » : le #4 du lydien, le b7 du mixolydien, la 6 majeure du dorien, le b2 du phrygien. C'est cette note qu'il faut faire sonner pour que le mode s'entende vraiment.</p>
 <div class="tip">Usage concret : sur un accord de <b>Dm7</b> qui dure, joue la gamme de Do majeur mais en visant Ré comme point d'ancrage → tu improvises en <b>Ré dorien</b>. Sur un <b>G7</b>, vise Sol → mixolydien. Les modes, c'est ta grammaire d'impro accord par accord.</div>
-<div class="warn">Erreur fréquente : croire qu'un mode est « une gamme différente ». Non — c'est la <b>même</b> gamme, avec un centre de gravité déplacé. Ce qui change, c'est la note autour de laquelle tout tourne.</div>`},
+<div class="warn">Erreur fréquente : croire qu'un mode est « une gamme différente ». Non — c'est la <b>même</b> gamme, avec un centre de gravité déplacé. Ce qui change, c'est la note autour de laquelle tout tourne.</div>
+
+<h3>🧠 LA gymnastique : se ramener à une gamme majeure</h3>
+<p>Voici le truc qui rend les modes JOUABLES. Chaque mode est le <b>degré</b> d'une gamme majeure que tu connais déjà :</p>
+<div class="formula">Ionien 1 · Dorien 2 · Phrygien 3 · Lydien 4 · Mixolydien 5 · Éolien 6 · Locrien 7</div>
+<p>Donc pour jouer un mode, tu ne réfléchis pas à ses notes une par une : tu trouves <b>sa gamme majeure parente</b> et tu la joues… en gravitant autour de la note du mode. Comment trouver la parente à partir de la note du mode :</p>
+<ul>
+<li><b>Dorien</b> → la majeure <b>un ton EN DESSOUS</b>. (Ré dorien → <b>Do</b> majeur)</li>
+<li><b>Phrygien</b> → la majeure une <b>tierce majeure en dessous</b>. (Mi phrygien → <b>Do</b>)</li>
+<li><b>Lydien</b> → la majeure une <b>quarte en dessous</b>. (Fa lydien → <b>Do</b>)</li>
+<li><b>Mixolydien</b> → la majeure une <b>quinte en dessous</b> (= une quarte au-dessus). (Sol mixolydien → <b>Do</b>)</li>
+<li><b>Éolien</b> → la majeure une <b>tierce mineure au-dessus</b> (= sa relative majeure). (La éolien → <b>Do</b>)</li>
+<li><b>Locrien</b> → la majeure un <b>demi-ton AU-DESSUS</b>. (Si locrien → <b>Do</b>)</li>
+</ul>
+<div class="tip">Exemple, ta question : <b>« on joue en Fa locrien »</b>. Locrien = 7e degré → la parente est un <b>demi-ton au-dessus</b> de Fa = <b>Sol♭ majeur</b>. Donc : joue simplement la gamme de <b>Sol♭ majeur</b>, mais commence et reviens toujours sur <b>Fa</b>. Tu joues du Fa locrien sans avoir mémorisé une seule de ses notes. 🎯</div>
+
+<h3>Moyens mnémotechniques</h3>
+<ul>
+<li><b>L'ordre des modes</b> (par degré) : « <b>I</b>onien <b>D</b>orien <b>P</b>hrygien <b>L</b>ydien <b>M</b>ixolydien <b>A</b>éolien <b>L</b>ocrien » → la phrase anglaise classique « <b>I Don't Particularly Like Modes A Lot</b> ».</li>
+<li><b>Majeur ou mineur ?</b> Les modes à tierce MAJEURE (brillants) = Ionien, Lydien, Mixolydien. Les autres (Dorien, Phrygien, Éolien, Locrien) sont mineurs. Astuce : les 3 « majeurs » sont les degrés <b>1, 4, 5</b> — les mêmes que les accords majeurs de la gamme !</li>
+<li><b>Du plus lumineux au plus sombre</b> : Lydien → Ionien → Mixolydien → Dorien → Éolien → Phrygien → Locrien. À chaque cran, <b>une note descend d'un demi-ton</b>.</li>
+</ul>
+
+<h3>Comment utiliser chaque mode (sur quel accord, quelle couleur)</h3>
+<ul>
+<li><b>Ionien</b> — sur un accord <b>majeur</b> stable (le I). Lumineux, « chez soi ».</li>
+<li><b>Lydien</b> — sur un <b>maj7</b> (souvent le IV). Fais sonner le <b>#4</b> : rêveur (thème des Simpson).</li>
+<li><b>Mixolydien</b> — sur un accord de <b>7 (dominante)</b>. Fais sonner le <b>b7</b> : blues, rock, funk (« Sweet Home Alabama »).</li>
+<li><b>Dorien</b> — sur un <b>m7</b> (le ii, ou un vamp mineur). Fais sonner la <b>6te majeure</b> : mineur cool, jazzy (« So What »).</li>
+<li><b>Éolien</b> — sur un <b>mineur</b> (le vi). Le mineur triste par défaut.</li>
+<li><b>Phrygien</b> — sur un mineur, couleur <b>espagnole/métal</b>. Fais sonner le <b>b2</b>.</li>
+<li><b>Locrien</b> — sur un <b>m7♭5</b>. Instable, de passage ; rare comme « maison ».</li>
+</ul>
+
+<h3>✍️ Petits exos (fais-les de tête)</h3>
+<ul>
+<li>On joue en <b>Ré dorien</b> → quelle gamme majeure ? <i>(réponse : Do — un ton en dessous)</i></li>
+<li>Sur un <b>G7</b> qui dure, quel mode et quelle gamme ? <i>(Sol mixolydien = gamme de Do, en visant le Fa)</i></li>
+<li>On te dit <b>Mi phrygien</b> → gamme parente ? <i>(Do majeur — Mi est son 3e degré)</i></li>
+<li>Ta colle : <b>Fa♯ locrien</b> → ? <i>(un demi-ton au-dessus = Sol majeur)</i></li>
+</ul>
+<div class="tip">🎭 Entends tout ça : ouvre l'<button onclick="closeOverlay();modesExplorer()" style="background:var(--acc);color:#1a1200;border:none;border-radius:8px;padding:4px 10px;font-weight:800;cursor:pointer">Explorateur de modes</button> et compare-les sur le même Do.</div>`},
 
 {id:'penta-blues', ic:'🎸', cat:'Gammes & modes', title:'Pentatoniques & blues', sub:'Improviser sans jamais tomber à côté',
  body:`
