@@ -1104,18 +1104,18 @@ Exemple <b>C mineur</b> : C, compte 3 → Eb, compte 4 → G. <b>C–Eb–G</b>.
 </ul>
 <div class="warn">Ne clique pas au hasard pour finir vite : chaque réponse au pif entraîne ton oreille à ne pas écouter. Mieux vaut 10 vraies écoutes que 30 clics.</div>`,
     ex:{type:'ear', kinds:['maj','min'], count:10, pass:8, sub:'Objectif : 8/10 minimum.'}},
-  { id:'m7l2', icon:'🏆', title:'BOSS FINAL : les couleurs de 7e', sub:'maj7, m7 ou 7 à l\'oreille', xp:120,
+  { id:'m7l2', icon:'🏆', title:'BOSS FINAL : l\'oreille sans filet', sub:'majeur ou mineur, toutes tonalités', xp:120,
     theory:`
-<p>Boss final du parcours. L'app joue un accord de 7e : tu identifies <b>maj7, m7 ou 7</b>. C'est le niveau "musicien qui écoute" — beaucoup de guitaristes avec 5 ans de pratique en sont incapables.</p>
-<h3>Tes repères émotionnels</h3>
+<p>Boss final du parcours. L'app joue un accord <b>majeur ou mineur</b> sur une tonalité tirée au hasard : à toi de trancher, sans repère préalable en tête. C'est le vrai test de ton oreille sur la couleur la plus fondamentale.</p>
+<h3>Ta méthode</h3>
 <ul>
-<li><b>maj7</b> : suspendu, rêveur, générique de film des années 80. Ça flotte.</li>
-<li><b>7</b> : frottement, blues, envie de bouger. Ça DOIT se résoudre quelque part.</li>
-<li><b>m7</b> : rond, feutré, lounge. Triste mais confortable.</li>
+<li>Tu entends d'abord la <b>fondamentale</b> (le repère), puis l'accord.</li>
+<li>Vise la <b>note du milieu</b> — la tierce. Brillante et ouverte → <b>majeur</b>. Resserrée, sombre → <b>mineur</b>.</li>
+<li>Dans le doute, isole-la avec « 🎵 Note par note ».</li>
 </ul>
-<p>Objectif : <b>7/10</b>. Rate-le, recommence demain — l'oreille progresse en dormant, littéralement (consolidation nocturne, c'est documenté).</p>
-<p>Après ce boss : le parcours est fini, pas ton apprentissage. Le Dojo reste ouvert pour t'entraîner en illimité, et chaque module se rejoue. Un grade, ça s'entretient.</p>`,
-    ex:{type:'ear', kinds:['maj7','m7','dom7'], count:10, pass:7, sub:'Boss final : 7/10 minimum.'}},
+<p>Objectif : <b>8/10</b>. Rate-le, recommence demain — l'oreille progresse en dormant, littéralement (consolidation nocturne, c'est documenté).</p>
+<p>(Les couleurs de 7e à l'oreille — maj7/m7/7 — viendront plus tard : c'est un cran au-dessus, on ne l'attaque pas tant que le majeur/mineur n'est pas solide.)</p>`,
+    ex:{type:'ear', kinds:['maj','min'], count:10, pass:8, sub:'Boss final : 8/10 minimum.'}},
 ]},
 { id:'m8', title:'Module 7 · Gammes & modes', lessons:[
   { id:'m8l1', icon:'🗝', title:'Les 12 gammes, sans exception', sub:'Celles que tu évites sont celles qui te manquent', xp:90,
@@ -2084,7 +2084,7 @@ function dojoScale(){
    sont notés par lot (sans faute = maîtrisé). */
 function dojoErrs(){
   const chordErrs=errsOf('chord').slice(0,8);
-  const earErrs=errsOf('ear').slice(0,4);
+  const earErrs=errsOf('ear').filter(([,e])=>e.d.t==='maj'||e.d.t==='min').slice(0,4);
   const quizErrs=errsOf('quiz').slice(0,4);
   if(!chordErrs.length && !earErrs.length && !quizErrs.length){
     return openCustom('🩹 Mes erreurs',(inner,close)=>{
@@ -2149,7 +2149,7 @@ function mixSegments(){
   }
   if(S.done['m5l1']) segs.push(['Les 7e','chord',{gen:{types:['maj7','m7','dom7'],roots:R12,count:3},sub:'4 notes.'}]);
   if(S.done['m6l1']) segs.push(['Gamme','scale',genScaleEx()]);
-  segs.push(['Oreille','ear',{kinds:S.done['m7l2']?['maj7','m7','dom7']:['maj','min'],count:3,pass:0,sub:'Écoute avant de cliquer.'}]);
+  segs.push(['Oreille','ear',{kinds:['maj','min'],count:3,pass:0,sub:'Écoute avant de cliquer.'}]);
   return segs;
 }
 function dojoMix(){
