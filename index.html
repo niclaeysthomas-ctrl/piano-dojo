@@ -1561,6 +1561,9 @@ const DRILLS=[
   {id:'modes', icon:'🎨', title:'Les modes', req:'m8l3',
    desc:()=>'Dorien, phrygien, lydien, mixolydien… à jouer depuis n\'importe quelle note, ou à reconnaître. Mêmes touches, autre maison.',
    run:()=>dojoModes()},
+  {id:'fiches', icon:'🃏', title:'Fiches des modes', req:'m8l3',
+   desc:()=>'Les 7 modes en fiches simples (« de Mi à Mi dans Do majeur… »), la gymnastique « je suis en X, je veux tel mode », et des exos au choix.',
+   run:()=>modesFiches()},
   {id:'scale', icon:'🪜', title:'Gammes', req:'m6l1',
    desc:()=>'Gamme majeure (ou pentatonique) depuis une fondamentale tirée au sort.',
    run:()=>dojoScale()},
@@ -1909,6 +1912,8 @@ function modesExplorer(){
     intro.innerHTML=`<p>Un mode = <b>les mêmes notes</b>, mais on choisit une autre note comme « maison ». Ici on garde toujours <b style="color:var(--acc)">Do</b> comme maison et on bouge une ou deux notes pour chaque couleur. <b>Écoute-les l'un après l'autre</b> — c'est en comparant qu'on comprend, pas en lisant.</p>
     <div class="tip">Ils sont rangés <b>du plus lumineux (Lydien) au plus sombre (Locrien)</b>. Le point qui <b>pulse</b> sur le clavier = la note qui donne sa couleur au mode.</div>`;
     inner.appendChild(intro);
+    const fbtn=document.createElement('button'); fbtn.className='btn ghost'; fbtn.textContent='🃏 Voir les fiches (résumé + gymnastique « je suis en X »)';
+    fbtn.onclick=()=>{ closeOverlay(); modesFiches(); }; inner.appendChild(fbtn);
     const kb=buildKeyboard(60,72,(m,k)=>{ playNote(m); k.classList.add('flash'); setTimeout(()=>k.classList.remove('flash'),150); });
     inner.appendChild(kb);
     const seg=document.createElement('div'); seg.className='selrow'; seg.style.flexWrap='wrap'; seg.style.marginTop='10px'; inner.appendChild(seg);
@@ -1934,6 +1939,140 @@ function modesExplorer(){
       t.onclick=()=>{ seg.querySelectorAll('.tag').forEach(x=>x.classList.remove('on')); t.classList.add('on'); show(M); }; seg.appendChild(t); });
     const startIdx=MODE_LIST.findIndex(M=>M.id==='ion'); /* on démarre sur le majeur, repère connu */
     seg.children[startIdx].classList.add('on'); show(MODE_LIST[startIdx]);
+    overlay.scrollTop=0;
+  });
+}
+/* ================================================================
+   FICHES DES MODES — simples, façon « De X à X dans Do majeur » +
+   la gymnastique « je suis en tel ton, je veux tel mode ».
+   ================================================================ */
+const MODE_FICHE={
+  ion:{fam:'majeure', sigOff:null, forme:'1 · 2 · 3 · 4 · 5 · 6 · 7',
+    pentaType:'majeure', pentaAdd:'la 4 et la 7', alterBase:'majeur', alterChange:'rien — c’est la gamme majeure elle-même',
+    usage:'sur un accord <b>maj7</b> (le I). Le majeur pur : presque toute la pop.'},
+  dor:{fam:'mineure', sigOff:9, forme:'1 · 2 · ♭3 · 4 · 5 · <b>6</b> · ♭7',
+    pentaType:'mineure', pentaAdd:'la 2 et surtout la <b>6ᵉ MAJEURE</b>', alterBase:'mineur', alterChange:'la <b>6ᵉ MAJEURE</b> (au lieu de mineure)',
+    usage:'sur un <b>m7</b> ou un vamp mineur. Au lieu de la penta mineure, fais chanter la 6ᵉ majeure → mineur cool, jazzy (« So What »).'},
+  phr:{fam:'mineure', sigOff:1, forme:'1 · <b>♭2</b> · ♭3 · 4 · 5 · ♭6 · ♭7',
+    pentaType:'mineure', pentaAdd:'la <b>♭2</b> et la ♭6', alterBase:'mineur', alterChange:'la <b>2ᵈᵉ abaissée</b> (♭2)',
+    usage:'sur un <b>m7</b>, pour une couleur espagnole/flamenco/metal. Le ♭2 juste au-dessus de la fondamentale = la tension.'},
+  lyd:{fam:'majeure', sigOff:6, forme:'1 · 2 · 3 · <b>♯4</b> · 5 · 6 · 7',
+    pentaType:'majeure', pentaAdd:'la <b>♯4</b> et la 7', alterBase:'majeur', alterChange:'la <b>4ᵗᵉ augmentée</b> (♯4)',
+    usage:'sur un <b>maj7(♯11)</b> (le IV). Rêveur, flottant — « musique de film ».'},
+  mix:{fam:'majeure', sigOff:10, forme:'1 · 2 · 3 · 4 · 5 · 6 · <b>♭7</b>',
+    pentaType:'majeure', pentaAdd:'la 4 et la <b>♭7</b>', alterBase:'majeur', alterChange:'la <b>7ᵉ abaissée</b> (♭7)',
+    usage:'sur un accord <b>7</b> (dominante). Au lieu de la penta majeure, la ♭7 donne le son blues/rock (« Sweet Home Alabama »).'},
+  eol:{fam:'mineure', sigOff:8, forme:'1 · 2 · ♭3 · 4 · 5 · <b>♭6</b> · ♭7',
+    pentaType:'mineure', pentaAdd:'la 2 et la <b>♭6</b>', alterBase:'mineur', alterChange:'rien — c’est le mineur naturel',
+    usage:'sur un <b>m7</b> (le vi). Le mineur « triste » classique, la ♭6 renforce la mélancolie.'},
+  loc:{fam:'mineure', sigOff:6, forme:'1 · <b>♭2</b> · ♭3 · 4 · <b>♭5</b> · ♭6 · ♭7',
+    pentaType:'mineure', pentaAdd:'⚠ pas une simple « penta + notes » : sa <b>quinte est diminuée</b> (♭5)', alterBase:'mineur', alterChange:'la <b>♭2</b> ET la <b>quinte diminuée</b> (♭5)',
+    usage:'sur un <b>m7♭5</b> (demi-diminué). Instable — rare comme « maison ».'},
+};
+const cap=s=>s.charAt(0).toUpperCase()+s.slice(1);
+/* quiz « gymnastique » : X tel mode → quelle gamme majeure jouer ? (réponses calculées) */
+function genGymQs(n){
+  const qs=[], roots=[0,2,4,5,7,9,11,10];   /* blanches + Sib : parentes propres */
+  const mk=(q,good,others,why)=>{ const o=[good,...others].sort(()=>Math.random()-.5); return {q,opts:o,a:o.indexOf(good),why}; };
+  let guard=0;
+  while(qs.length<n && guard++<200){
+    const M=MODES[1+Math.floor(Math.random()*6)];         /* dorien..locrien (ionien trivial) */
+    const rootPc=roots[Math.floor(Math.random()*roots.length)];
+    const parent=(rootPc-MAJ_DEG_PC[M.deg-1]+24)%12;
+    const good=NOTE_FR[parent]+' majeur';
+    const others=[]; const cand=[rootPc,(parent+7)%12,(parent+5)%12,(parent+2)%12,(parent+9)%12];
+    for(const p of cand){ if(others.length>=3)break; const nm=NOTE_FR[p]+' majeur'; if(nm!==good && !others.includes(nm)) others.push(nm); }
+    qs.push(mk(`Tu improvises en <b>${NOTE_FR[rootPc]} ${M.nom}</b>. Quelle gamme <b>MAJEURE</b> joues-tu (en gravitant autour de ${NOTE_FR[rootPc]}) ?`,
+      good, others,
+      `${cap(M.nom)} = degré ${M.deg}. ${NOTE_FR[rootPc]} est le degré ${M.deg} de <b>${NOTE_FR[parent]} majeur</b> → joue ${NOTE_FR[parent]} majeur, mais fais du ${NOTE_FR[rootPc]} ta maison.`));
+  }
+  return qs;
+}
+function modesFiches(){
+  openCustom('🃏 Fiches des modes',(inner)=>{
+    const intro=document.createElement('div'); intro.className='theory';
+    intro.innerHTML=`<p>Toutes les touches <b>blanches</b> Do→Do contiennent les 7 modes : il suffit de <b>partir d’une autre note</b>. Chaque fiche te donne la note de départ dans <b style="color:var(--acc)">Do majeur</b>, la <b>forme</b>, et comment l’utiliser <b>à la place de la penta</b>.</p>`;
+    inner.appendChild(intro);
+    const kb=buildKeyboard(60,72,(m,k)=>{ playNote(m); k.classList.add('flash'); setTimeout(()=>k.classList.remove('flash'),150); });
+    inner.appendChild(kb);
+    const hint=document.createElement('div'); hint.style.cssText='text-align:center;color:var(--dim);font-size:12px;margin:4px 0 12px'; hint.textContent='Touche une fiche pour l’entendre et la voir en Do (maison en ambre, note-couleur en bleu).'; inner.appendChild(hint);
+    function showFiche(M,card){
+      kb.clearSel();
+      MAJ_DEG_PC.concat([12]).forEach(p=>{ const k=kb.keyEl(60+p); if(k)k.classList.add('hint'); });
+      const home=kb.keyEl(60+MAJ_DEG_PC[M.deg-1]); if(home){ home.classList.remove('hint'); home.classList.add('sel'); }
+      const so=MODE_FICHE[M.id].sigOff;
+      if(so!=null){ const sk=kb.keyEl(60+((MAJ_DEG_PC[M.deg-1]+so)%12)); if(sk){ sk.classList.remove('hint'); sk.classList.add('sel','target'); } }
+      const start=60+MAJ_DEG_PC[M.deg-1];
+      M.p.concat([12]).forEach((x,i)=>playNote(start+x,.5,.4,i*.4));
+      inner.querySelectorAll('.fiche').forEach(x=>x.style.borderColor='var(--line)');
+      if(card) card.style.borderColor='var(--acc)';
+      overlay.scrollTop=Math.max(0, kb.offsetTop-70);
+    }
+    MODES.forEach(M=>{ const F=MODE_FICHE[M.id], startNote=NOTE_FR[MAJ_DEG_PC[M.deg-1]];
+      const card=document.createElement('div'); card.className='card fiche'; card.style.cursor='pointer';
+      card.innerHTML=`<div style="font-size:11px;color:var(--dim);font-weight:800;text-transform:uppercase;letter-spacing:.5px">De ${startNote} à ${startNote} dans Do majeur</div>
+        <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin:2px 0 7px">
+          <b style="font-size:19px">${cap(M.nom)}</b><span style="color:var(--dim);font-size:12px;font-weight:700">famille ${F.fam}</span></div>
+        <div style="background:var(--bg3);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-weight:700;text-align:center;margin-bottom:7px">${F.forme}</div>
+        <div style="color:#c9cde0;font-size:13.5px;line-height:1.5;margin-bottom:4px">≈ penta <b>${F.pentaType}</b> + ${F.pentaAdd}.</div>
+        <div style="color:#c9cde0;font-size:13.5px;line-height:1.5">🎯 ${F.usage}</div>`;
+      card.onclick=()=>showFiche(M,card);
+      inner.appendChild(card);
+    });
+
+    /* ---- La gymnastique mentale ---- */
+    const gt=document.createElement('div'); gt.className='theory';
+    gt.innerHTML=`<h3 style="margin-top:22px">🧠 « Je suis en X, je veux improviser en tel mode »</h3>
+      <p>Le cas concret. Choisis ta <b>note-maison</b> puis le <b>mode voulu</b> — l’app te donne quoi jouer, de 3 façons.</p>`;
+    inner.appendChild(gt);
+    let gRoot=5, gMode='dor';   /* défaut : Fa dorien (ton exemple) */
+    const rootRow=document.createElement('div'); rootRow.className='selrow';
+    ['Do','Do#','Ré','Mib','Mi','Fa','Fa#','Sol','Lab','La','Sib','Si'].forEach((nm,pc)=>{ const t=document.createElement('div'); t.className='tag'+(pc===gRoot?' on':''); t.textContent=nm;
+      t.onclick=()=>{ gRoot=pc; rootRow.querySelectorAll('.tag').forEach(x=>x.classList.remove('on')); t.classList.add('on'); drawGym(); }; rootRow.appendChild(t); });
+    inner.appendChild(rootRow);
+    const modeRow=document.createElement('div'); modeRow.className='selrow';
+    MODES.forEach(M=>{ const t=document.createElement('div'); t.className='tag'+(M.id===gMode?' on':''); t.textContent=cap(M.nom);
+      t.onclick=()=>{ gMode=M.id; modeRow.querySelectorAll('.tag').forEach(x=>x.classList.remove('on')); t.classList.add('on'); drawGym(); }; modeRow.appendChild(t); });
+    inner.appendChild(modeRow);
+    const gymBox=document.createElement('div'); inner.appendChild(gymBox);
+    function drawGym(){
+      const M=MODES.find(x=>x.id===gMode), F=MODE_FICHE[gMode];
+      const parent=(gRoot-MAJ_DEG_PC[M.deg-1]+24)%12, base=60+gRoot;
+      gymBox.innerHTML='';
+      const kb2=buildKeyboard(base,base+12,(m,k)=>{ playNote(m); k.classList.add('flash'); setTimeout(()=>k.classList.remove('flash'),150); });
+      gymBox.appendChild(kb2);
+      kb2.clearSel();
+      M.p.concat([12]).forEach(p=>{ const k=kb2.keyEl(base+p); if(k)k.classList.add('hint'); });
+      const hk=kb2.keyEl(base); if(hk){ hk.classList.remove('hint'); hk.classList.add('sel'); }
+      if(F.sigOff!=null){ const sk=kb2.keyEl(base+F.sigOff); if(sk){ sk.classList.remove('hint'); sk.classList.add('sel','target'); } }
+      const card=document.createElement('div'); card.className='card';
+      card.innerHTML=`<b style="font-size:17px">${NOTE_FR[gRoot]} ${M.nom}</b>
+        <div style="margin-top:8px">
+          <div style="color:var(--acc);font-weight:800;font-size:13px">① La parente (le plus rapide)</div>
+          <p style="color:#c9cde0;font-size:14px;line-height:1.5;margin:2px 0 8px">Joue la gamme de <b>${NOTE_FR[parent]} majeur</b> (${NOTE_FR[gRoot]} en est le degré ${M.deg}), mais <b>commence, finis et appuie sur ${NOTE_FR[gRoot]}</b> : c’est ta maison.</div>
+          <div style="color:var(--acc);font-weight:800;font-size:13px">② L’altération</div>
+          <p style="color:#c9cde0;font-size:14px;line-height:1.5;margin:2px 0 8px">= <b>${NOTE_FR[gRoot]} ${F.alterBase}</b> avec ${F.alterChange}.</p>
+          <div style="color:var(--acc);font-weight:800;font-size:13px">③ Depuis ta penta</div>
+          <p style="color:#c9cde0;font-size:14px;line-height:1.5;margin:2px 0 0">Penta <b>${F.pentaType} de ${NOTE_FR[gRoot]}</b> + ${F.pentaAdd}.</p>
+        </div>`;
+      const row=document.createElement('div'); row.className='exrow'; row.style.marginTop='10px';
+      const b1=document.createElement('button'); b1.className='btn'; b1.textContent='▶ Le mode ('+NOTE_FR[gRoot]+' '+M.nom+')';
+      b1.onclick=()=>M.p.concat([12]).forEach((x,i)=>playNote(base+x,.5,.4,i*.4));
+      const b2=document.createElement('button'); b2.className='btn ghost'; b2.textContent='▶ La parente ('+NOTE_FR[parent]+' majeur)';
+      b2.onclick=()=>{ const pb=60+parent; MAJ_DEG_PC.concat([12]).forEach((x,i)=>playNote(pb+x,.5,.4,i*.4)); };
+      row.appendChild(b1); row.appendChild(b2); card.appendChild(row);
+      gymBox.appendChild(card);
+    }
+    drawGym();
+
+    /* ---- Exos au choix ---- */
+    const et=document.createElement('div'); et.className='theory';
+    et.innerHTML=`<h3 style="margin-top:22px">🎯 Exos au choix</h3><p>Pioche celui que tu veux travailler.</p>`;
+    inner.appendChild(et);
+    const mkExo=(txt,fn)=>{ const b=document.createElement('button'); b.className='btn ghost'; b.style.textAlign='left'; b.innerHTML=txt; b.onclick=fn; inner.appendChild(b); };
+    mkExo('🧠 <b>La gymnastique (quiz)</b> — « tel mode → quelle gamme majeure ? »',()=>openCustom('🧠 Gymnastique des modes',(i,c)=>runQuiz(i,{qs:genGymQs(6)},ok=>{ if(ok){award(10);toast('+10 XP');} c(); })));
+    mkExo('🎼 <b>Construis un mode</b> — joue-le depuis une note tirée au sort',()=>{ const ex=genModeScale(); openCustom('🎨 '+ex.name,(i,c)=>runScale(i,ex,ok=>{ if(ok){award(10);toast('+10 XP');} c(); })); });
+    mkExo('🎭 <b>Explorer à l’oreille</b> — les 7 modes sur le même Do',()=>{ closeOverlay(); modesExplorer(); });
     overlay.scrollTop=0;
   });
 }
@@ -3933,7 +4072,7 @@ dim7 = diminué + 6&nbsp;&nbsp;(Do–Mib–Solb–La) — tension maximale
 <li>On te dit <b>Mi phrygien</b> → gamme parente ? <i>(Do majeur — Mi est son 3e degré)</i></li>
 <li>Ta colle : <b>Fa♯ locrien</b> → ? <i>(un demi-ton au-dessus = Sol majeur)</i></li>
 </ul>
-<div class="tip">🎭 Entends tout ça : ouvre l'<button onclick="closeOverlay();modesExplorer()" style="background:var(--acc);color:#1a1200;border:none;border-radius:8px;padding:4px 10px;font-weight:800;cursor:pointer">Explorateur de modes</button> et compare-les sur le même Do.</div>`},
+<div class="tip">🎭 Entends tout ça : ouvre l'<button onclick="closeOverlay();modesExplorer()" style="background:var(--acc);color:#1a1200;border:none;border-radius:8px;padding:4px 10px;font-weight:800;cursor:pointer">Explorateur de modes</button>, ou ouvre les <button onclick="closeOverlay();modesFiches()" style="background:var(--acc);color:#1a1200;border:none;border-radius:8px;padding:4px 10px;font-weight:800;cursor:pointer">🃏 Fiches des modes</button> (résumé simple + la gymnastique « je suis en X, je veux tel mode »).</div>`},
 
 {id:'penta-blues', ic:'🎸', cat:'Gammes & modes', title:'Pentatoniques & blues', sub:'Improviser sans jamais tomber à côté',
  body:`
