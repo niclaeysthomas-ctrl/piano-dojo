@@ -277,6 +277,42 @@
   .brow .bt i{display:block;height:100%;border-radius:6px;transition:width .5s}
   .brow .bv{font-size:13px;font-weight:800;min-width:44px;text-align:right;font-variant-numeric:tabular-nums}
   .brow .bv small{color:var(--dim);font-weight:700}
+  /* ---- Grand Œuvre des gammes ---- */
+  .rankdots{display:inline-flex;gap:3px;vertical-align:middle}
+  .rankdots i{width:9px;height:9px;border-radius:50%;background:var(--bg3);border:1px solid var(--line);display:inline-block}
+  .rankdots i.f{background:var(--acc);border-color:var(--acc)}
+  .rankdots i.m{background:var(--ok);border-color:var(--ok)}
+  .gmgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0}
+  .gmcell{background:var(--bg2);border:1px solid var(--line);border-radius:14px;padding:12px 12px 11px;cursor:pointer;text-align:left;transition:border-color .2s,transform .08s}
+  .gmcell:active{transform:scale(.98)}
+  .gmcell.mstr{border-color:var(--ok);background:linear-gradient(180deg,var(--bg2),rgba(62,207,122,.06))}
+  .gmcell.next{border-color:var(--acc)}
+  .gmcell .nm{font-weight:800;font-size:17px}
+  .gmcell .ar{font-size:11.5px;color:var(--dim);margin-top:1px}
+  .gmcell .rk{margin-top:9px;display:flex;align-items:center;gap:7px}
+  .gmcell .rl{font-size:10.5px;color:var(--dim);font-weight:700}
+  .bigbar{height:13px;border-radius:7px;background:var(--bg3);overflow:hidden;border:1px solid var(--line)}
+  .bigbar>i{display:block;height:100%;background:linear-gradient(90deg,var(--acc),var(--ok));border-radius:7px;transition:width .5s}
+  .noteslots{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin:12px 0 4px}
+  .noteslots .sl{min-width:44px;height:44px;padding:0 8px;border-radius:9px;border:1.5px dashed var(--line);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;color:var(--dim)}
+  .noteslots .sl.on{border-style:solid;border-color:var(--acc);color:var(--txt);background:var(--bg3)}
+  .noteslots .sl.ton{border-style:solid;border-color:var(--acc2);color:var(--acc);background:rgba(245,184,64,.08)}
+  .noteslots .sl.err{border-color:var(--bad);color:var(--bad);animation:shake .3s}
+  @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+  .chipwrap{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin:16px 0 6px}
+  .nchip{padding:11px 12px;border-radius:11px;background:var(--bg3);border:1px solid var(--line);color:var(--txt);font-weight:800;font-size:16px;cursor:pointer;min-width:56px;text-align:center;line-height:1.15}
+  .nchip small{display:block;font-size:9.5px;color:var(--dim);font-weight:700}
+  .nchip.gone{opacity:.22;pointer-events:none}
+  .nchip:active{transform:scale(.93)}
+  .gotimer{text-align:center;font-weight:800;font-size:22px;color:var(--acc);font-variant-numeric:tabular-nums;margin:4px 0}
+  .gofiche{background:var(--bg2);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin:10px 0}
+  .gofiche .big{font-size:26px;font-weight:800;letter-spacing:1px;text-align:center}
+  .gofiche .sc{text-align:center;font-size:19px;font-weight:700;color:var(--acc);letter-spacing:.5px;margin:6px 0 2px}
+  .gofiche .tip{font-size:13px;color:var(--dim);line-height:1.5;margin-top:8px}
+  .gostat{display:flex;gap:10px;margin:4px 0 12px}
+  .gostat .b{flex:1;background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:10px;text-align:center}
+  .gostat .b .n{font-size:22px;font-weight:800;line-height:1}
+  .gostat .b .l{font-size:10.5px;color:var(--dim);margin-top:3px;text-transform:uppercase;letter-spacing:.5px}
 </style>
 </head>
 <body>
@@ -1508,6 +1544,12 @@ function renderParcours(){
 
 /* ---------------- Dojo (entraînement libre, salles à débloquer) ---------------- */
 const DRILLS=[
+  {id:'grandoeuvre', icon:'🎓', title:'LE GRAND ŒUVRE — LES 12 GAMMES', req:null,
+   desc:()=>{ const m=goMastered(), p=goProgPct();
+     return m>=12 ? `<b style="color:var(--ok)">Les 12 gammes majeures maîtrisées.</b> Reviens pour l'entretien et l'examen.`
+       : (p>0 ? `Programme de maîtrise des gammes majeures. <b style="color:var(--ok)">${m}/12</b> scellées · <b style="color:var(--acc)">${p}%</b>. Fais ta <b>séance du jour</b>.`
+              : `Connaître PARFAITEMENT tes 12 gammes majeures — par cœur, en ~2 semaines. 5 paliers par gamme, séance quotidienne adaptative. <b style="color:var(--acc)">Commence ici.</b>`); },
+   run:()=>goDash()},
   {id:'errs', icon:'🩹', title:'MES ERREURS', req:null,
    desc:()=>errCount()
      ? `<b style="color:var(--bad)">${errCount()}</b> point(s) que tu as raté(s) t'attendent. Une erreur ne sort de la liste qu'après <b>2 réussites</b> — c'est là que le progrès se fait, pas dans ce que tu sais déjà.`
@@ -4494,6 +4536,393 @@ function coordRoom(){
       t.onclick=()=>{ CoordPlayer.hands=v; hsel.querySelectorAll('.tag').forEach(x=>x.classList.remove('on')); t.classList.add('on'); if(CoordPlayer.playing) CoordPlayer.start(); }; hsel.appendChild(t); });
     slider.oninput=()=>{ CoordPlayer.bpm=+slider.value; tv.textContent=slider.value+' BPM'; if(CoordPlayer.playing) CoordPlayer.start(); };
     load(g); overlay.scrollTop=0;
+  });
+}
+
+/* ================================================================
+   LE GRAND ŒUVRE — maîtrise des 12 gammes majeures
+   Un programme progressif : chaque gamme franchit 5 paliers, on en mène
+   ~3 de front, et une gamme ne se "scelle" qu'après avoir été récitée
+   à l'aveugle sous chrono DEUX jours différents (la mémoire a besoin de
+   dormir dessus). Résultat visé : les 12 par cœur en un peu plus de 2 semaines.
+   Source de vérité : l'épellation EXACTE de chaque gamme (Solb ≠ Fa#).
+   ================================================================ */
+const GO_SCALES = {
+  0 :{root:0 ,name:'Do' , notes:['Do','Ré','Mi','Fa','Sol','La','Si'],          pcs:[0,2,4,5,7,9,11],  alt:0,type:'',  altList:[],                              tip:'La gamme de référence : que des touches blanches, aucune altération.'},
+  7 :{root:7 ,name:'Sol', notes:['Sol','La','Si','Do','Ré','Mi','Fa#'],         pcs:[7,9,11,0,2,4,6],  alt:1,type:'#', altList:['Fa#'],                         tip:'1 dièse : Fa#. Le dernier dièse tombe toujours juste sous la tonique.'},
+  5 :{root:5 ,name:'Fa' , notes:['Fa','Sol','La','Sib','Do','Ré','Mi'],         pcs:[5,7,9,10,0,2,4],  alt:1,type:'b', altList:['Sib'],                         tip:'1 bémol : Sib. Seul piège, le Si devient Sib.'},
+  2 :{root:2 ,name:'Ré' , notes:['Ré','Mi','Fa#','Sol','La','Si','Do#'],        pcs:[2,4,6,7,9,11,1],  alt:2,type:'#', altList:['Fa#','Do#'],                   tip:'2 dièses : Fa# Do#. Dernier dièse Do# = la sensible, sous Ré.'},
+  10:{root:10,name:'Sib', notes:['Sib','Do','Ré','Mib','Fa','Sol','La'],       pcs:[10,0,2,3,5,7,9],  alt:2,type:'b', altList:['Sib','Mib'],                   tip:'2 bémols : Sib Mib. Astuce bémols : l\'avant-dernier bémol nomme la tonique.'},
+  9 :{root:9 ,name:'La' , notes:['La','Si','Do#','Ré','Mi','Fa#','Sol#'],       pcs:[9,11,1,2,4,6,8],  alt:3,type:'#', altList:['Fa#','Do#','Sol#'],            tip:'3 dièses : Fa# Do# Sol#. Toujours dans l\'ordre Fa-Do-Sol.'},
+  3 :{root:3 ,name:'Mib', notes:['Mib','Fa','Sol','Lab','Sib','Do','Ré'],       pcs:[3,5,7,8,10,0,2],  alt:3,type:'b', altList:['Sib','Mib','Lab'],            tip:'3 bémols : Sib Mib Lab. Avant-dernier bémol (Mib) = la tonique.'},
+  4 :{root:4 ,name:'Mi' , notes:['Mi','Fa#','Sol#','La','Si','Do#','Ré#'],      pcs:[4,6,8,9,11,1,3],  alt:4,type:'#', altList:['Fa#','Do#','Sol#','Ré#'],     tip:'4 dièses : Fa# Do# Sol# Ré#. Seuls La et Si restent naturels.'},
+  8 :{root:8 ,name:'Lab', notes:['Lab','Sib','Do','Réb','Mib','Fa','Sol'],      pcs:[8,10,0,1,3,5,7],  alt:4,type:'b', altList:['Sib','Mib','Lab','Réb'],      tip:'4 bémols : Sib Mib Lab Réb. Avant-dernier (Lab) = la tonique.'},
+  11:{root:11,name:'Si' , notes:['Si','Do#','Ré#','Mi','Fa#','Sol#','La#'],     pcs:[11,1,3,4,6,8,10], alt:5,type:'#', altList:['Fa#','Do#','Sol#','Ré#','La#'],tip:'5 dièses : il ne reste QUE Si et Mi en naturel. Tout le reste est dièse.'},
+  1 :{root:1 ,name:'Réb', notes:['Réb','Mib','Fa','Solb','Lab','Sib','Do'],     pcs:[1,3,5,6,8,10,0],  alt:5,type:'b', altList:['Sib','Mib','Lab','Réb','Solb'],tip:'5 bémols : Sib Mib Lab Réb Solb. Avant-dernier (Réb) = la tonique.'},
+  6 :{root:6 ,name:'Fa#', notes:['Fa#','Sol#','La#','Si','Do#','Ré#','Mi#'],    pcs:[6,8,10,11,1,3,5], alt:6,type:'#', altList:['Fa#','Do#','Sol#','Ré#','La#','Mi#'],tip:'6 dièses : le sommet. Le Mi# est un vrai piège (même touche que Fa). Même son que Solb.'}
+};
+/* ordre d'apprentissage : une altération de plus à chaque fois, dièses puis bémols */
+const GO_ORDER=[0,7,5,2,10,9,3,4,8,11,1,6];
+const GO_RANKS=['Inconnue','Armure','Notes','Degrés','Par cœur','Réflexe'];
+const GO_RANKSHORT=['—','Armure','Notes','Degrés','Par cœur','Scellée ✅'];
+const GO_TARGET_S=13;            /* chrono à battre pour le palier Réflexe */
+const GO_MAXPROG=3;              /* nb de gammes menées de front */
+const NAMEPC={Do:0,'Do#':1,'Réb':1,'Ré':2,'Ré#':3,'Mib':3,'Mi':4,'Mi#':5,'Fab':4,'Fa':5,'Fa#':6,'Solb':6,'Sol':7,'Sol#':8,'Lab':8,'La':9,'La#':10,'Sib':10,'Si':11,'Si#':0,'Dob':11};
+const OTHER={'Do#':'Réb','Réb':'Do#','Ré#':'Mib','Mib':'Ré#','Fa#':'Solb','Solb':'Fa#','Sol#':'Lab','Lab':'Sol#','La#':'Sib','Sib':'La#','Mi#':'Fa','Si#':'Do','Dob':'Si','Fab':'Mi'};
+const CHROMA12=['Do','Do#/Réb','Ré','Ré#/Mib','Mi','Fa','Fa#/Solb','Sol','Sol#/Lab','La','La#/Sib','Si'];
+
+/* ---- état de maîtrise ---- */
+function gmState(){ if(!S.gammes) S.gammes={start:todayStr(), m:{}, diploma:null}; if(!S.gammes.m) S.gammes.m={}; return S.gammes; }
+function gm(root){ const g=gmState(); if(!g.m[root]) g.m[root]={lvl:0,seal:null,last:null,best:null}; return g.m[root]; }
+function goDay(){ const g=gmState(); const d=Math.floor((new Date(todayStr())-new Date(g.start))/864e5)+1; return Math.max(1,d); }
+function goMastered(){ return GO_ORDER.filter(r=>gm(r).lvl>=5).length; }
+function goProgPct(){ let s=0; GO_ORDER.forEach(r=>s+=gm(r).lvl); return Math.round(100*s/(GO_ORDER.length*5)); }
+function goInProgress(){ return GO_ORDER.filter(r=>{const l=gm(r).lvl; return l>=1&&l<=3;}); }
+/* la prochaine gamme à ouvrir : la 1re de l'ordre encore inconnue */
+function goNextRoot(){ return GO_ORDER.find(r=>gm(r).lvl===0); }
+
+/* fait monter une gamme d'un palier après un test réussi.
+   Retourne un message. Le passage 4→5 exige DEUX jours distincts (le sceau). */
+function goAward(root, secs){
+  const g=gm(root), t=todayStr(); g.last=t;
+  if(secs!=null && (g.best==null||secs<g.best)) g.best=secs;
+  if(g.lvl<4){ g.lvl++; save(); return {up:true, msg:`▲ ${GO_SCALES[root].name} majeur → palier « ${GO_RANKS[g.lvl]} »`}; }
+  if(g.lvl===4){
+    if(!g.seal){ g.seal=t; save(); return {up:false, seal:true, msg:`🔒 Sceau posé sur ${GO_SCALES[root].name}. Reviens un AUTRE jour la réciter à nouveau pour la sceller définitivement — le sommeil fait le travail.`}; }
+    if(g.seal!==t){ g.lvl=5; g.seal=null; save(); return {up:true, master:true, msg:`🏅 ${GO_SCALES[root].name} MAJEUR MAÎTRISÉE. Scellée pour de bon.`}; }
+    save(); return {up:false, msg:`Déjà scellée aujourd'hui — reviens demain pour finir le travail sur ${GO_SCALES[root].name}.`};
+  }
+  save(); return {up:false, msg:`${GO_SCALES[root].name} déjà maîtrisée — entretien fait.`};
+}
+
+/* ---- fiche d'une gamme ---- */
+function goFiche(sc){
+  const notesHTML=sc.notes.map((n,i)=>`<b style="color:${sc.altList.includes(n)?'var(--acc)':'var(--txt)'}">${n}</b>`).join(' &nbsp;·&nbsp; ');
+  const arm= sc.alt===0 ? 'Aucune altération' : `${sc.alt} ${sc.type==='#'?'dièse':'bémol'}${sc.alt>1?'s':''} : ${sc.altList.join(' ')}`;
+  return `<div class="gofiche">
+    <div class="big">${sc.name} majeur</div>
+    <div class="sc">${notesHTML}</div>
+    <div style="text-align:center;font-size:13px;color:var(--dim);margin-top:2px">Armure : <b style="color:var(--acc)">${arm}</b></div>
+    <div class="tip">💡 ${sc.tip}</div>
+    <div class="tip" style="margin-top:6px;border-top:1px solid var(--line);padding-top:8px">Ordre des dièses : <b>Fa Do Sol Ré La Mi Si</b> · des bémols : <b>Si Mi La Ré Sol Do Fa</b>. La formule est toujours <b>2-2-1-2-2-2-1</b> (ton-ton-½-ton-ton-ton-½).</div>
+  </div>`;
+}
+
+/* ---- moteur : remettre les notes dans l'ordre (production) ----
+   mode 'spell' : les vrais noms mélangés + intrus d'orthographe → on valide le NOM exact.
+   mode 'blind' : les 12 hauteurs (noms doubles) → on valide la HAUTEUR, aucune aide.
+   La tonique est pré-posée : on produit les 6 notes suivantes, dans l'ordre. */
+function goDecoys(sc){
+  const out=[];
+  sc.altList.forEach(n=>{ const o=OTHER[n]; if(o && !sc.notes.includes(o) && !out.includes(o)) out.push(o); });
+  ['Fa#','Sib','Do#','Mib','Sol#','Lab','La#','Réb'].forEach(n=>{
+    if(out.length<3 && !sc.pcs.includes(NAMEPC[n]) && !sc.notes.includes(n) && !out.includes(n)) out.push(n);
+  });
+  return out.slice(0,3);
+}
+function runOrder(el, opt, cb){
+  const sc=opt.sc, blind=opt.mode==='blind', timed=!!opt.timed;
+  const seq=sc.notes;                 /* attendu, dans l'ordre */
+  let idx=1, faults=0, t0=null, tHandle=null;
+  const consigne = blind
+    ? `À l'aveugle : les notes de <b>${sc.name} majeur</b>, dans l'ordre.`
+    : `Les 7 notes de <b>${sc.name} majeur</b> dans l'ordre — orthographe exacte.`;
+  el.innerHTML=`<div class="exhead"><div class="target" style="font-size:22px">${sc.name} majeur</div>
+    <div class="sub">${opt.sub||consigne}</div></div>
+    ${timed?'<div class="gotimer" id="gotim">0.0 s</div>':''}
+    <div class="noteslots" id="slots"></div>
+    <div class="fb" id="fb" style="min-height:20px"></div>
+    <div class="chipwrap" id="chips"></div>`;
+  const slotsEl=el.querySelector('#slots'), chipsEl=el.querySelector('#chips'), fb=el.querySelector('#fb');
+  const drawSlots=()=>{
+    slotsEl.innerHTML='';
+    for(let i=0;i<7;i++){
+      const s=document.createElement('div'); s.className='sl';
+      if(i===0){ s.classList.add('ton'); s.textContent=sc.notes[0]; }
+      else if(i<idx){ s.classList.add('on'); s.textContent=sc.notes[i]; }
+      else s.textContent='·';
+      slotsEl.appendChild(s);
+    }
+  };
+  const tick=()=>{ if(!t0) return; el.querySelector('#gotim').textContent=((Date.now()-t0)/1000).toFixed(1)+' s'; };
+  const finish=()=>{
+    if(tHandle) clearInterval(tHandle);
+    const secs = t0 ? Math.round((Date.now()-t0)/100)/10 : null;
+    tada();
+    chipsEl.innerHTML=''; fb.textContent='';
+    el.querySelector('.exhead').innerHTML=`<div class="target">✓</div>
+      <div class="sub">Gamme complète${secs!=null?` en <b>${secs}s</b>`:''}${faults?` · ${faults} reprise(s)`:' · sans faute'}.</div>`;
+    setTimeout(()=>cb(true, secs, faults), 700);
+  };
+  const wrong=(slotEl)=>{
+    buzz(); faults++;
+    if(slotEl){ slotEl.classList.add('err'); setTimeout(()=>slotEl.classList.remove('err'),300); }
+    idx=1; drawSlots();
+    fb.className='fb bad';
+    fb.textContent = faults>=3 && !blind ? '✗ On repart. Rappel : '+sc.notes.join(' ') : '✗ Mauvaise note — on repart de la tonique.';
+  };
+  const pick=(pc,name,chip)=>{
+    if(!t0 && timed){ t0=Date.now(); tHandle=setInterval(tick,100); }
+    const okName = blind ? (pc===sc.pcs[idx]) : (name===sc.notes[idx]);
+    if(okName){
+      idx++; drawSlots();
+      if(idx>=7){ finish(); return; }
+      fb.className='fb'; fb.textContent = blind?'':'Bien — note '+(idx+1)+'/7.';
+    } else {
+      wrong(slotsEl.children[idx]);
+    }
+  };
+  /* construit les pastilles */
+  if(blind){
+    for(let pc=0;pc<12;pc++){
+      const c=document.createElement('div'); c.className='nchip';
+      const parts=CHROMA12[pc].split('/');
+      c.innerHTML = parts.length>1 ? `${parts[0]}<small>${parts[1]}</small>` : parts[0];
+      c.onclick=()=>{ playNote(60+pc,.5); pick(pc,null,c); };
+      chipsEl.appendChild(c);
+    }
+  } else {
+    const pool=[...sc.notes.slice(1), ...goDecoys(sc)].sort(()=>Math.random()-.5);
+    pool.forEach(name=>{
+      const c=document.createElement('div'); c.className='nchip'; c.textContent=name;
+      c.onclick=()=>{ playNote(60+NAMEPC[name],.5); pick(NAMEPC[name],name,c); };
+      chipsEl.appendChild(c);
+    });
+  }
+  drawSlots();
+  fb.className='fb'; fb.textContent = timed?'Le chrono démarre à ta première note.':'Commence par la note APRÈS la tonique.';
+}
+
+/* ---- QCM : l'armure ---- */
+function goArmureQs(sc){
+  const qs=[];
+  const nums=[...new Set([sc.alt, sc.alt+1, Math.max(0,sc.alt-1), sc.alt===0?2:0])].slice(0,4).sort((a,b)=>a-b);
+  qs.push({q:`Combien d'altérations à l'armure de <b>${sc.name} majeur</b> ?`,
+    opts:nums.map(n=>n===0?'Aucune':n+(n>1?' altérations':' altération')), a:nums.indexOf(sc.alt),
+    why:`${sc.name} majeur : ${sc.alt===0?'aucune altération (que du blanc).':sc.alt+' '+(sc.type==='#'?'dièse':'bémol')+(sc.alt>1?'s':'')+' → '+sc.altList.join(' ')}.`});
+  if(sc.alt===0){
+    qs.push({q:`Do majeur contient-elle des touches noires ?`, opts:['Oui, une ou deux','Non, aucune','Oui, trois'], a:1,
+      why:'Do majeur = les 7 touches blanches, rien d\'autre. C\'est le mètre-étalon.'});
+  } else {
+    const correct=sc.altList.join(' ');
+    const d1=sc.altList.map(n=>OTHER[n]||n).join(' ');                 /* orthographe inverse : piège */
+    const other=GO_ORDER.map(r=>GO_SCALES[r]).find(x=>x.type===sc.type && x.alt===sc.alt+1) || GO_SCALES[sc.type==='#'?4:8];
+    const d2=other.altList.join(' ');
+    const opts=[...new Set([correct,d1,d2])]; while(opts.length<3) opts.push(GO_SCALES[GO_ORDER[opts.length]].altList.join(' ')||'—');
+    const sh=opts.slice(0,3).sort(()=>Math.random()-.5);
+    qs.push({q:`Quelles sont les altérations de <b>${sc.name} majeur</b> ?`, opts:sh, a:sh.indexOf(correct),
+      why:`${sc.name} majeur : ${correct}. L'ordre des ${sc.type==='#'?'dièses est Fa-Do-Sol-Ré-La-Mi-Si':'bémols est Si-Mi-La-Ré-Sol-Do-Fa'}.`});
+  }
+  return qs;
+}
+/* ---- QCM : degrés & appartenance ---- */
+function goDegQs(sc){
+  const pool=[];
+  const deg=[[4,'5e note (la dominante)'],[3,'4e note (la sous-dominante)'],[6,'7e note (la sensible)'],[2,'3e note (la médiante)']];
+  deg.forEach(([i,lab])=>{
+    const good=sc.notes[i];
+    const opts=new Set([good]);
+    while(opts.size<3){ const o=sc.notes[Math.floor(Math.random()*7)]; if(o!==good) opts.add(o); }
+    const sh=[...opts].sort(()=>Math.random()-.5);
+    pool.push({q:`Quelle est la <b>${lab}</b> de ${sc.name} majeur ?`, opts:sh, a:sh.indexOf(good),
+      why:`${sc.name} majeur : ${sc.notes.join(' ')}. La ${lab.split(' (')[0]} est ${good}.`});
+  });
+  /* note → degré */
+  const di=2+Math.floor(Math.random()*5); const gn=sc.notes[di], good=(di+1)+'e';
+  const dopts=new Set([good]); while(dopts.size<4){ const x=(2+Math.floor(Math.random()*6))+'e'; dopts.add(x); }
+  const dsh=[...dopts].sort(()=>Math.random()-.5);
+  pool.push({q:`Dans ${sc.name} majeur, <b>${gn}</b> est le combien-ième degré ?`,
+    opts:dsh, a:dsh.indexOf(good), why:`${sc.notes.join(' ')} → ${gn} est le degré ${di+1}.`});
+  /* appartenance avec piège enharmonique */
+  if(sc.altList.length){
+    const trapName=sc.altList[0]; const trap=OTHER[trapName]||trapName;   /* ex Fa# → propose Solb */
+    if(trap!==trapName) pool.push({q:`Vrai ou faux : <b>${trap}</b> appartient à ${sc.name} majeur.`,
+      opts:['Vrai','Faux'], a:1, why:`Piège d'orthographe : ${sc.name} majeur contient ${trapName}, pas ${trap} — même touche, mauvais nom. Dans une gamme, chaque lettre n'apparaît qu'une fois.`});
+  }
+  const outsider=[1,3,6,8,10].map(x=>NOTE_FR[x]).find(n=>!sc.notes.includes(n) && !sc.pcs.includes(NAMEPC[n]));
+  if(outsider){ const ins=sc.notes[1+Math.floor(Math.random()*6)], ins2=sc.notes[1+Math.floor(Math.random()*6)];
+    const sh=[...new Set([outsider,ins,ins2])].slice(0,3).sort(()=>Math.random()-.5);
+    pool.push({q:`Laquelle N'appartient PAS à ${sc.name} majeur ?`, opts:sh, a:sh.indexOf(outsider),
+      why:`${sc.name} majeur : ${sc.notes.join(' ')}. ${outsider} n'en fait pas partie.`});
+  }
+  return pool.sort(()=>Math.random()-.5).slice(0,5);
+}
+
+/* ---- test du palier courant d'une gamme, dans un conteneur donné ----
+   done(leveledUp) est appelé à la fin. */
+function goLevelTest(sc, el, done){
+  const g=gm(sc.root), lvl=g.lvl;
+  const bump=(secs)=>{ const r=goAward(sc.root, secs); toast(r.msg); if(r.master) tada(); done(!!r.up, r); };
+  const nobump=(m)=>{ if(m) toast(m); done(false); };
+
+  if(lvl===0){
+    /* découverte : on montre la fiche, puis QCM armure */
+    el.innerHTML=goFiche(sc);
+    const b=document.createElement('button'); b.className='btn'; b.textContent='J\'ai lu — teste-moi ▶';
+    b.onclick=()=>{ el.innerHTML=''; runQuiz(el,{qs:goArmureQs(sc)},()=>bump()); };
+    el.appendChild(b); return;
+  }
+  if(lvl===1){ runQuiz(el,{qs:goArmureQs(sc)},()=>bump()); return; }               /* re-confirme l'armure sans la fiche */
+  if(lvl===2){ runOrder(el,{sc,mode:'spell',sub:'Palier Notes : les 7 notes bien orthographiées, dans l\'ordre.'},
+      (ok,secs,faults)=> faults<=1 ? bump() : nobump('Presque — trop de reprises. L\'ordre des notes doit être fluide. On y revient.')); return; }
+  if(lvl===3){ runQuiz(el,{qs:goDegQs(sc)},()=>bump()); return; }
+  if(lvl===4){                                                                     /* par cœur → réflexe : aveugle chrono, propre */
+    runOrder(el,{sc,mode:'blind',timed:true,sub:`Palier Réflexe : à l'aveugle, sous ${GO_TARGET_S}s, sans faute.`},
+      (ok,secs,faults)=>{
+        if(faults===0 && secs<=GO_TARGET_S){ bump(secs); }
+        else nobump(faults? '✗ Une reprise = pas encore un réflexe. Recommence à froid.' : `✗ ${secs}s — sous la barre des ${GO_TARGET_S}s, il te faut le réflexe. Presque.`);
+      }); return;
+  }
+  if(lvl>=5){                                                                       /* entretien : un test au hasard, sans montée */
+    const pick=Math.random();
+    if(pick<0.5) runQuiz(el,{qs:goDegQs(sc)},()=>{ g.last=todayStr(); save(); done(false); });
+    else runOrder(el,{sc,mode:'blind',sub:'Entretien : récite-la à l\'aveugle pour ne pas la perdre.'},
+      (ok,secs,faults)=>{ g.last=todayStr(); save(); done(false); });
+    return;
+  }
+}
+
+/* ---- construit le programme de la séance du jour ---- */
+function goSeanceQueue(){
+  const q=[];
+  /* 1) entretien : 1 gamme déjà solide (palier ≥4) pas revue depuis le plus longtemps */
+  const known=GO_ORDER.filter(r=>gm(r).lvl>=4).sort((a,b)=>((gm(a).last||'')<(gm(b).last||'')?-1:1));
+  if(known.length) q.push(known[0]);
+  /* 2) les chantiers en cours (paliers 1-3), du plus bas au plus haut */
+  goInProgress().sort((a,b)=>gm(a).lvl-gm(b).lvl).forEach(r=>{ if(!q.includes(r)) q.push(r); });
+  /* 3) sceller les "par cœur" (palier 4) qui attendent leur 2e jour */
+  GO_ORDER.filter(r=>gm(r).lvl===4).forEach(r=>{ if(!q.includes(r)) q.push(r); });
+  /* 4) ouvrir de nouvelles gammes tant qu'on a moins de 3 chantiers actifs */
+  const activeLearning=()=>GO_ORDER.filter(r=>{const l=gm(r).lvl;return l>=1&&l<=3;}).length + q.filter(r=>gm(r).lvl===0).length;
+  for(const r of GO_ORDER){
+    if(gm(r).lvl!==0 || q.includes(r)) continue;
+    if(activeLearning()>=GO_MAXPROG) break;
+    q.push(r);
+  }
+  /* fallback : tout est maîtrisé → révision de 3 au hasard */
+  if(!q.length){ GO_ORDER.slice().sort(()=>Math.random()-.5).slice(0,3).forEach(r=>q.push(r)); }
+  return q.slice(0,8);
+}
+
+/* ---- LA SÉANCE DU JOUR ---- */
+function goSeance(){
+  const queue=goSeanceQueue();
+  openCustom('🎓 Séance du jour · Grand Œuvre',(inner,close)=>{
+    let k=0, upCount=0;
+    const step=()=>{
+      inner.querySelectorAll('.goseg').forEach(x=>x.remove());
+      if(k>=queue.length){
+        const seg=document.createElement('div'); seg.className='goseg';
+        const mastered=goMastered();
+        seg.innerHTML=`<div class="exhead"><div class="target">🎓</div>
+          <div class="sub">Séance bouclée. <b style="color:var(--ok)">${upCount}</b> palier(s) franchi(s) aujourd'hui.<br>
+          ${mastered}/12 gammes scellées · progression globale <b style="color:var(--acc)">${goProgPct()}%</b>.</div></div>
+          <div style="text-align:center;color:var(--dim);font-size:13px;line-height:1.5;margin-top:6px">
+          ${upCount>=3?'Grosse séance. C\'est exactement ce rythme qui te met les 12 dans les doigts en deux semaines.'
+            : upCount>0?'Ça monte. Reviens demain : le sommeil scelle ce que tu viens de poser.'
+            : 'Rien de neuf franchi — mais réviser sans monter, c\'est ça qui empêche d\'oublier. Demain, on pousse.'}</div>`;
+        inner.appendChild(seg);
+        dailyMark('scales'); dailyMark('drill'); award(20+upCount*5);
+        toast(`🎓 Séance · +${20+upCount*5} XP`);
+        const b=document.createElement('button'); b.className='btn'; b.textContent='Voir ma progression'; b.onclick=()=>{ close(); goDash(); }; inner.appendChild(b);
+        return;
+      }
+      const root=queue[k], sc=GO_SCALES[root], g=gm(root);
+      const seg=document.createElement('div'); seg.className='goseg';
+      const tag = g.lvl===0?'NOUVELLE':g.lvl>=5?'ENTRETIEN':g.lvl===4?'SCELLER':'PALIER '+(g.lvl+1);
+      seg.innerHTML=`<p style="text-align:center;color:var(--acc);font-size:12px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;margin:2px 0 6px">${k+1}/${queue.length} · ${sc.name} majeur · ${tag}</p>`;
+      const box=document.createElement('div'); seg.appendChild(box); inner.appendChild(seg);
+      goLevelTest(sc, box, (up)=>{ if(up) upCount++; k++; step(); });
+    };
+    step();
+  });
+}
+
+/* ---- menu d'une gamme (entraînement ciblé) ---- */
+function goMenu(root){
+  const sc=GO_SCALES[root];
+  openCustom('🎹 '+sc.name+' majeur',(inner,close)=>{
+    const g=gm(root);
+    inner.insertAdjacentHTML('beforeend', goFiche(sc));
+    inner.insertAdjacentHTML('beforeend', `<div style="text-align:center;font-size:13px;color:var(--dim);margin:2px 0 10px">Palier actuel : <b style="color:${g.lvl>=5?'var(--ok)':'var(--acc)'}">${g.lvl}/5 — ${GO_RANKSHORT[g.lvl]}</b>${g.lvl===4&&g.seal?' · <b style="color:var(--blue)">🔒 sceau posé, reviens demain</b>':''}${g.best?` · record ${g.best}s`:''}</div>`);
+    const mk=(label,fn)=>{ const b=document.createElement('button'); b.className='btn ghost'; b.textContent=label; b.onclick=fn; inner.appendChild(b); };
+    mk('▶ Faire monter d\'un palier', ()=>{ inner.innerHTML=''; const box=document.createElement('div'); inner.appendChild(box);
+      goLevelTest(sc, box, ()=>setTimeout(()=>{ close(); goMenu(root); }, 900)); });
+    mk('🎯 Réviser l\'armure', ()=>{ inner.innerHTML=''; runQuiz(inner,{qs:goArmureQs(sc)},()=>{ dailyMark('scales'); award(5); toast('+5 XP'); setTimeout(()=>{close();goMenu(root);},600); }); });
+    mk('🔢 Réviser les degrés', ()=>{ inner.innerHTML=''; runQuiz(inner,{qs:goDegQs(sc)},()=>{ dailyMark('scales'); award(5); toast('+5 XP'); setTimeout(()=>{close();goMenu(root);},600); }); });
+    mk('🙈 Réciter à l\'aveugle', ()=>{ inner.innerHTML=''; runOrder(inner,{sc,mode:'blind'},(ok,secs,f)=>{ dailyMark('scales'); award(8); toast(`+8 XP · ${f?f+' reprise(s)':'propre'}`); setTimeout(()=>{close();goMenu(root);},800); }); });
+    mk('🎹 La jouer au clavier', ()=>{ inner.innerHTML=''; runScale(inner,{root:sc.root,pattern:[0,2,4,5,7,9,11,12],name:sc.name+' majeur',sub:sc.notes.join(' ')+'. Commence dans le grave.'},()=>{ dailyMark('scales'); award(8); toast('+8 XP'); setTimeout(()=>{close();goMenu(root);},800); }); });
+  });
+}
+
+/* ---- EXAMEN DU GRAND ŒUVRE ---- */
+function goExam(){
+  const roots=GO_ORDER.slice().sort(()=>Math.random()-.5).slice(0,8);
+  openCustom('🏆 Examen du Grand Œuvre',(inner,close)=>{
+    let k=0, clean=0;
+    const step=()=>{
+      inner.querySelectorAll('.goseg').forEach(x=>x.remove());
+      if(k>=roots.length){
+        const seg=document.createElement('div'); seg.className='goseg'; const pass=clean>=7;
+        if(pass){ gmState().diploma=todayStr(); save(); award(300); }
+        seg.innerHTML=`<div class="exhead"><div class="target">${pass?'🏆':'📉'}</div>
+          <div class="sub">${clean}/8 gammes récitées sans faute.<br>${pass?'<b style="color:var(--ok)">DIPLÔME DU GRAND ŒUVRE obtenu.</b> +300 XP. Les gammes majeures sont à toi.':'Il en manque. Repasse par la séance et reviens — un diplôme qui se donne ne vaut rien.'}</div></div>`;
+        inner.appendChild(seg);
+        const b=document.createElement('button'); b.className='btn'; b.textContent='Retour'; b.onclick=()=>{ close(); goDash(); }; inner.appendChild(b);
+        return;
+      }
+      const sc=GO_SCALES[roots[k]];
+      const seg=document.createElement('div'); seg.className='goseg';
+      seg.innerHTML=`<p style="text-align:center;color:var(--acc);font-size:12px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;margin:2px 0 6px">Épreuve ${k+1}/8</p>`;
+      const box=document.createElement('div'); seg.appendChild(box); inner.appendChild(seg);
+      runOrder(box,{sc,mode:'blind',timed:true,sub:'À l\'aveugle, sans faute.'},(ok,secs,f)=>{ if(f===0) clean++; k++; step(); });
+    };
+    step();
+  });
+}
+
+/* ---- TABLEAU DE BORD du Grand Œuvre ---- */
+function goDash(){
+  gmState();
+  openCustom('🎓 Le Grand Œuvre des gammes',(inner,close)=>{
+    const mastered=goMastered(), pct=goProgPct(), day=goDay(), started=GO_ORDER.some(r=>gm(r).lvl>0);
+    const allReady = GO_ORDER.every(r=>gm(r).lvl>=4);
+    let html=`<p style="color:var(--dim);font-size:14px;margin:2px 0 12px;line-height:1.5">Connaître les 12 gammes majeures <b>par cœur</b>. Chaque gamme franchit 5 paliers ; on en mène 3 de front. Vise une séance par jour : les 12 tombent en un peu plus de 2 semaines.</p>`;
+    html+=`<div class="gostat">
+      <div class="b"><div class="n" style="color:var(--ok)">${mastered}<small style="font-size:13px;color:var(--dim)">/12</small></div><div class="l">Scellées</div></div>
+      <div class="b"><div class="n" style="color:var(--acc)">${pct}%</div><div class="l">Progression</div></div>
+      <div class="b"><div class="n">J${day}</div><div class="l">du programme</div></div></div>`;
+    html+=`<div class="bigbar" style="margin-bottom:4px"><i style="width:${pct}%"></i></div>`;
+    inner.insertAdjacentHTML('beforeend', html);
+
+    const bigBtn=document.createElement('button'); bigBtn.className='btn';
+    bigBtn.textContent = started ? '🎯 SÉANCE DU JOUR' : '🚀 Démarrer le programme';
+    bigBtn.onclick=()=>{ close(); goSeance(); };
+    inner.appendChild(bigBtn);
+
+    if(gmState().diploma){
+      inner.insertAdjacentHTML('beforeend', `<div class="gofiche" style="border-color:var(--ok);text-align:center"><b style="color:var(--ok)">🏆 Diplômé du Grand Œuvre</b><div style="font-size:12px;color:var(--dim);margin-top:3px">Obtenu le ${gmState().diploma}. Refais l'examen quand tu veux pour l'entretien.</div></div>`);
+    }
+    if(allReady){
+      const eb=document.createElement('button'); eb.className='btn'; eb.style.background='linear-gradient(90deg,var(--acc),var(--ok))';
+      eb.textContent='🏆 Passer l\'examen final'; eb.onclick=()=>{ close(); goExam(); }; inner.appendChild(eb);
+    }
+
+    const nextR=goNextRoot();
+    const grid=document.createElement('div'); grid.className='gmgrid';
+    GO_ORDER.forEach(root=>{
+      const sc=GO_SCALES[root], g=gm(root);
+      const cell=document.createElement('div'); cell.className='gmcell'+(g.lvl>=5?' mstr':(root===nextR&&g.lvl===0?' next':''));
+      let dots=''; for(let i=1;i<=5;i++) dots+=`<i class="${i<=g.lvl?(g.lvl>=5?'m':'f'):''}"></i>`;
+      const arm= sc.alt===0?'0 altération':sc.alt+(sc.type==='#'?' ♯':' ♭');
+      cell.innerHTML=`<div class="nm">${sc.name}${g.lvl>=5?' <span style="color:var(--ok)">✅</span>':''}</div>
+        <div class="ar">${arm} · ${sc.notes.length} notes</div>
+        <div class="rk"><span class="rankdots">${dots}</span><span class="rl">${g.lvl===0&&root===nextR?'à ouvrir':(g.lvl===4&&g.seal?'🔒 revenir demain':GO_RANKSHORT[g.lvl])}</span></div>`;
+      cell.onclick=()=>{ close(); goMenu(root); };
+      grid.appendChild(cell);
+    });
+    inner.appendChild(grid);
+    inner.insertAdjacentHTML('beforeend', `<p style="color:var(--dim);font-size:12px;text-align:center;line-height:1.5">Touche une gamme pour la travailler seule. Les paliers : <b>Armure → Notes → Degrés → Par cœur → Réflexe</b>. Le dernier ne se scelle qu'après un 2e jour — impossible de tricher avec le temps.</p>`);
   });
 }
 
