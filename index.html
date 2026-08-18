@@ -313,6 +313,15 @@
   .gostat .b{flex:1;background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:10px;text-align:center}
   .gostat .b .n{font-size:22px;font-weight:800;line-height:1}
   .gostat .b .l{font-size:10.5px;color:var(--dim);margin-top:3px;text-transform:uppercase;letter-spacing:.5px}
+  .gohead{font-size:12.5px;color:var(--dim);line-height:1.5;text-align:center;margin:4px 0 8px}
+  .gohrow{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--line);border-radius:9px;margin:5px 0;background:var(--bg2);cursor:pointer}
+  .gohrow:active{transform:scale(.99)}
+  .gohrow.pil{border-color:var(--acc);background:rgba(245,184,64,.06)}
+  .gohrow .rn{width:36px;font-weight:800;color:var(--acc);font-size:15px;text-align:center}
+  .gohrow .cn{flex:1;display:flex;flex-direction:column;line-height:1.2}
+  .gohrow .cn small{color:var(--dim);font-size:11px;font-weight:600}
+  .gohrow .tg{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;min-width:52px;text-align:right}
+  .gohrow .pl{font-size:15px}
 </style>
 </head>
 <body>
@@ -4621,8 +4630,9 @@ function goDecoys(sc){
   return out.slice(0,3);
 }
 function runOrder(el, opt, cb){
-  const sc=opt.sc, blind=opt.mode==='blind', timed=!!opt.timed;
-  const seq=sc.notes;                 /* attendu, dans l'ordre */
+  const sc=opt.sc, blind=opt.mode==='blind', timed=!!opt.timed, desc=opt.dir==='desc';
+  const seq = desc ? [sc.notes[0]].concat(sc.notes.slice(1).slice().reverse()) : sc.notes;   /* attendu, dans l'ordre (ou descendant) */
+  const seqPc = desc ? [sc.pcs[0]].concat(sc.pcs.slice(1).slice().reverse()) : sc.pcs;
   let idx=1, faults=0, t0=null, tHandle=null;
   const consigne = blind
     ? `À l'aveugle : les notes de <b>${sc.name} majeur</b>, dans l'ordre.`
@@ -4638,8 +4648,8 @@ function runOrder(el, opt, cb){
     slotsEl.innerHTML='';
     for(let i=0;i<7;i++){
       const s=document.createElement('div'); s.className='sl';
-      if(i===0){ s.classList.add('ton'); s.textContent=sc.notes[0]; }
-      else if(i<idx){ s.classList.add('on'); s.textContent=sc.notes[i]; }
+      if(i===0){ s.classList.add('ton'); s.textContent=seq[0]; }
+      else if(i<idx){ s.classList.add('on'); s.textContent=seq[i]; }
       else s.textContent='·';
       slotsEl.appendChild(s);
     }
@@ -4659,11 +4669,11 @@ function runOrder(el, opt, cb){
     if(slotEl){ slotEl.classList.add('err'); setTimeout(()=>slotEl.classList.remove('err'),300); }
     idx=1; drawSlots();
     fb.className='fb bad';
-    fb.textContent = faults>=3 && !blind ? '✗ On repart. Rappel : '+sc.notes.join(' ') : '✗ Mauvaise note — on repart de la tonique.';
+    fb.textContent = faults>=3 && !blind ? '✗ On repart. Rappel : '+seq.join(' ') : '✗ Mauvaise note — on repart de la tonique.';
   };
   const pick=(pc,name,chip)=>{
     if(!t0 && timed){ t0=Date.now(); tHandle=setInterval(tick,100); }
-    const okName = blind ? (pc===sc.pcs[idx]) : (name===sc.notes[idx]);
+    const okName = blind ? (pc===seqPc[idx]) : (name===seq[idx]);
     if(okName){
       idx++; drawSlots();
       if(idx>=7){ finish(); return; }
@@ -4808,10 +4818,19 @@ function goSeanceQueue(){
 function goSeance(){
   const queue=goSeanceQueue();
   openCustom('🎓 Séance du jour · Grand Œuvre',(inner,close)=>{
-    let k=0, upCount=0;
+    let k=0, upCount=0, doneBonus=false, bonusXp=0;
     const step=()=>{
       inner.querySelectorAll('.goseg').forEach(x=>x.remove());
       if(k>=queue.length){
+        if(!doneBonus){ doneBonus=true;
+          const elig=GO_ORDER.filter(r=>gm(r).lvl>=3);
+          if(elig.length){ const br=elig[Math.floor(Math.random()*elig.length)], bsc=GO_SCALES[br];
+            inner.querySelectorAll('.goseg').forEach(x=>x.remove());
+            const bseg=document.createElement('div'); bseg.className='goseg';
+            bseg.innerHTML=`<p style="text-align:center;color:var(--acc);font-size:12px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;margin:2px 0 6px">Bonus · les accords de ${bsc.name}</p>`;
+            const bbox=document.createElement('div'); bseg.appendChild(bbox); inner.appendChild(bseg);
+            runQuiz(bbox,{qs:goHarmonyQs(bsc).slice(0,3)},()=>{ bonusXp=8; step(); }); return; }
+        }
         const seg=document.createElement('div'); seg.className='goseg';
         const mastered=goMastered();
         seg.innerHTML=`<div class="exhead"><div class="target">🎓</div>
@@ -4822,8 +4841,8 @@ function goSeance(){
             : upCount>0?'Ça monte. Reviens demain : le sommeil scelle ce que tu viens de poser.'
             : 'Rien de neuf franchi — mais réviser sans monter, c\'est ça qui empêche d\'oublier. Demain, on pousse.'}</div>`;
         inner.appendChild(seg);
-        dailyMark('scales'); dailyMark('drill'); award(20+upCount*5);
-        toast(`🎓 Séance · +${20+upCount*5} XP`);
+        dailyMark('scales'); dailyMark('drill'); award(20+upCount*5+bonusXp);
+        toast(`🎓 Séance · +${20+upCount*5+bonusXp} XP`);
         const b=document.createElement('button'); b.className='btn'; b.textContent='Voir ma progression'; b.onclick=()=>{ close(); goDash(); }; inner.appendChild(b);
         return;
       }
@@ -4836,6 +4855,118 @@ function goSeance(){
     };
     step();
   });
+}
+
+/* ================================================================
+   DÉVELOPPEMENT DES EXOS — accords de la gamme, sprint des degrés,
+   récitation descendante. But : passer du « nommer les notes » au
+   « m'en servir » (les accords) et à la PRODUCTION active (pas du QCM).
+   ================================================================ */
+const GO_ROMAN=['I','ii','iii','IV','V','vi','vii°'];
+const GO_QUAL=['majeur','mineur','mineur','majeur','majeur','mineur','diminué'];
+
+/* les 7 accords diatoniques : on empile une note sur deux DANS la gamme.
+   La qualité est fixée par le degré en majeur (I maj, ii min, ... vii° dim). */
+function goChords(sc){
+  return [0,1,2,3,4,5,6].map(i=>{
+    const ix=[i,(i+2)%7,(i+4)%7];
+    return { deg:i, rn:GO_ROMAN[i], qual:GO_QUAL[i], root:sc.notes[i],
+      notes:ix.map(j=>sc.notes[j]), pcs:ix.map(j=>sc.pcs[j]), name:sc.notes[i]+' '+GO_QUAL[i] };
+  });
+}
+function triadMidis(pcs){ const m=[60+pcs[0]]; for(let k=1;k<3;k++){ let x=60+pcs[k]; while(x<=m[k-1]) x+=12; m.push(x);} return m; }
+
+function goHarmonyFiche(sc){
+  const ch=goChords(sc);
+  const rows=ch.map(c=>{
+    const pil=(c.deg===0||c.deg===3||c.deg===4), rel=(c.deg===5);
+    return `<div class="gohrow${pil?' pil':''}" onclick="playChord([${triadMidis(c.pcs).join(',')}])">
+      <span class="rn">${c.rn}</span>
+      <span class="cn"><b>${c.root} ${c.qual}</b><small>${c.notes.join(' · ')}</small></span>
+      <span class="tg">${pil?'pilier':rel?'relatif min.':''}</span><span class="pl">🔊</span></div>`;
+  }).join('');
+  return `<div class="gofiche">
+    <div class="big" style="font-size:19px">Les accords de ${sc.name} majeur</div>
+    <div class="gohead">Une note sur deux DANS la gamme → chaque degré donne un accord. Touche une ligne pour l'entendre.</div>
+    ${rows}
+    <div class="tip" style="margin-top:10px">🎹 Les <b style="color:var(--acc)">I · IV · V</b> (${ch[0].root} ${ch[3].root} ${ch[4].root}, tous majeurs) sont les <b>3 piliers</b> : avec eux tu accompagnes l'essentiel des chansons en ${sc.name}. Le <b>vi</b> (${ch[5].root} mineur) est le <b>relatif mineur</b> — même armure, couleur plus sombre.</div>
+  </div>`;
+}
+
+/* questions d'harmonie (format runQuiz) */
+function goHarmonyQs(sc){
+  const ch=goChords(sc), qs=[]; const sh=a=>a.slice().sort(()=>Math.random()-.5);
+  // 1) degré -> accord
+  { const c=ch[[0,3,4,1,5][Math.floor(Math.random()*5)]], good=c.name, set=new Set([good]);
+    set.add(c.root+' '+(c.qual==='majeur'?'mineur':'majeur'));
+    ch.forEach(x=>{ if(set.size<4 && x.deg!==c.deg) set.add(x.name); });
+    const o=sh([...set].slice(0,4));
+    qs.push({q:`Dans ${sc.name} majeur, l'accord bâti sur le degré <b>${c.rn}</b> (${c.root}) ?`, opts:o, a:o.indexOf(good),
+      why:`Degré ${c.rn} = ${c.root} → on empile ${c.notes.join('-')} = <b>${c.name}</b>. En majeur : I maj, ii min, iii min, IV maj, V maj, vi min, vii° dim.`}); }
+  // 2) relatif mineur
+  { const good=ch[5].root+' mineur', o=sh([good, ch[1].root+' mineur', ch[2].root+' mineur', ch[4].root+' majeur']);
+    qs.push({q:`Le <b>relatif mineur</b> de ${sc.name} majeur ?`, opts:o, a:o.indexOf(good),
+      why:`Il se bâtit sur le VIe degré : <b>${ch[5].root} mineur</b>. Même armure que ${sc.name} majeur.`}); }
+  // 3) lequel N'est PAS un pilier
+  { const good=ch[[1,2,5][Math.floor(Math.random()*3)]].name, o=sh([good, ch[0].name, ch[3].name, ch[4].name]);
+    qs.push({q:`Lequel N'est PAS un des 3 piliers (I-IV-V) de ${sc.name} ?`, opts:o, a:o.indexOf(good),
+      why:`Les piliers sont I-IV-V : ${ch[0].root}, ${ch[3].root}, ${ch[4].root} (tous majeurs). ${good} n'en fait pas partie.`}); }
+  // 4) build : les 3 notes
+  { const c=ch[[4,3,1,5][Math.floor(Math.random()*4)]], good=c.notes.join(' ');
+    const d1=[sc.notes[c.deg], sc.notes[(c.deg+1)%7], sc.notes[(c.deg+2)%7]].join(' ');
+    const d2=ch[(c.deg+1)%7].notes.join(' '), d3=[c.notes[0], sc.notes[(c.deg+3)%7], c.notes[2]].join(' ');
+    const o=sh([...new Set([good,d1,d2,d3])].slice(0,4));
+    qs.push({q:`Les 3 notes de l'accord de <b>${c.rn}</b> (${c.name}) en ${sc.name} ?`, opts:o, a:o.indexOf(good),
+      why:`On empile une note sur deux dans la gamme : <b>${c.notes.join(' - ')}</b>.`}); }
+  // 5) accord -> degré
+  { const c=ch[[1,2,3,4,5][Math.floor(Math.random()*5)]], good=c.rn;
+    const o=sh([...new Set([good,'I','IV','V','ii','vi'])].slice(0,4));
+    qs.push({q:`En ${sc.name} majeur, <b>${c.name}</b> est l'accord de quel degré ?`, opts:o, a:o.indexOf(good),
+      why:`${c.name} part de ${c.root}, le ${c.deg+1}ᵉ degré → <b>${c.rn}</b>.`}); }
+  return qs.sort(()=>Math.random()-.5);
+}
+
+/* vue : fiche d'accords + drill */
+function goHarmony(root){
+  const sc=GO_SCALES[root];
+  openCustom('🎼 Accords de '+sc.name+' majeur',(inner,close)=>{
+    inner.insertAdjacentHTML('beforeend', goHarmonyFiche(sc));
+    const b=document.createElement('button'); b.className='btn'; b.textContent='J\'ai regardé — teste-moi ▶';
+    b.onclick=()=>{ inner.innerHTML=''; runQuiz(inner,{qs:goHarmonyQs(sc)},()=>{ dailyMark('scales'); award(12); toast('🎼 +12 XP');
+      const bb=document.createElement('button'); bb.className='btn'; bb.textContent='Fermer'; bb.onclick=close; inner.appendChild(bb); }); };
+    inner.appendChild(b);
+  });
+}
+
+/* sprint des degrés : PRODUCTION rapide (degré→note et note→degré), chronométré */
+function goDegreeSprint(sc, el, cb){
+  const N=8; let i=0, faults=0, t0=Date.now(), tHandle=null;
+  const items=[]; for(let k=0;k<N;k++){ items.push({dir:k%2, di:1+Math.floor(Math.random()*6)}); }
+  tHandle=setInterval(()=>{ const e=el.querySelector('#sptim'); if(e) e.textContent=((Date.now()-t0)/1000).toFixed(1)+' s'; },100);
+  const miss=(fb,msg)=>{ buzz(); faults++; fb.className='fb bad'; fb.textContent=msg; };
+  const next=()=>{ i++; show(); };
+  const show=()=>{
+    if(i>=N){ clearInterval(tHandle); const secs=Math.round((Date.now()-t0)/100)/10; tada();
+      el.innerHTML=`<div class="exhead"><div class="target">✓</div><div class="sub">Sprint fini en <b>${secs}s</b> · ${faults?faults+' faute(s)':'sans faute'}.</div></div>`;
+      setTimeout(()=>cb(true, secs, faults), 700); return; }
+    const it=items[i], note=sc.notes[it.di], deg=it.di+1;
+    el.innerHTML=`<div class="exhead"><div class="sub">Sprint des degrés · ${sc.name} majeur · ${i+1}/${N}</div></div>
+      <div class="gotimer" id="sptim">0.0 s</div>
+      <div style="font-size:21px;font-weight:800;text-align:center;margin:10px 0 4px" id="spq"></div>
+      <div class="fb" id="spfb" style="min-height:18px;text-align:center"></div>
+      <div class="chipwrap" id="spchips"></div>`;
+    const q=el.querySelector('#spq'), chips=el.querySelector('#spchips'), fb=el.querySelector('#spfb');
+    if(it.dir===0){
+      q.innerHTML=`Le <b>${deg}ᵉ degré</b> ?`;
+      sc.notes.slice().sort(()=>Math.random()-.5).forEach(nm=>{ const c=document.createElement('div'); c.className='nchip'; c.textContent=nm;
+        c.onclick=()=>{ playNote(60+NAMEPC[nm],.5); nm===note ? next() : miss(fb,`✗ le ${deg}ᵉ degré = ${note}`); }; chips.appendChild(c); });
+    } else {
+      q.innerHTML=`<b>${note}</b> = quel degré ?`;
+      [1,2,3,4,5,6,7].forEach(n=>{ const c=document.createElement('div'); c.className='nchip'; c.textContent=n;
+        c.onclick=()=>{ n===deg ? (playNote(60+NAMEPC[note],.5), next()) : miss(fb,`✗ ${note} = ${deg}ᵉ degré`); }; chips.appendChild(c); });
+    }
+  };
+  show();
 }
 
 /* ---- menu d'une gamme (entraînement ciblé) ---- */
@@ -4852,6 +4983,9 @@ function goMenu(root){
     mk('🔢 Réviser les degrés', ()=>{ inner.innerHTML=''; runQuiz(inner,{qs:goDegQs(sc)},()=>{ dailyMark('scales'); award(5); toast('+5 XP'); setTimeout(()=>{close();goMenu(root);},600); }); });
     mk('🙈 Réciter à l\'aveugle', ()=>{ inner.innerHTML=''; runOrder(inner,{sc,mode:'blind'},(ok,secs,f)=>{ dailyMark('scales'); award(8); toast(`+8 XP · ${f?f+' reprise(s)':'propre'}`); setTimeout(()=>{close();goMenu(root);},800); }); });
     mk('🎹 La jouer au clavier', ()=>{ inner.innerHTML=''; runScale(inner,{root:sc.root,pattern:[0,2,4,5,7,9,11,12],name:sc.name+' majeur',sub:sc.notes.join(' ')+'. Commence dans le grave.'},()=>{ dailyMark('scales'); award(8); toast('+8 XP'); setTimeout(()=>{close();goMenu(root);},800); }); });
+    mk('🎼 Les accords de la gamme', ()=>{ close(); goHarmony(root); });
+    mk('⚡ Sprint des degrés (chrono)', ()=>{ inner.innerHTML=''; goDegreeSprint(sc, inner, ()=>{ dailyMark('scales'); award(10); toast('⚡ +10 XP'); setTimeout(()=>{close();goMenu(root);},900); }); });
+    mk('🔽 Réciter en descendant', ()=>{ inner.innerHTML=''; runOrder(inner,{sc,mode:'blind',dir:'desc',sub:'À l\'aveugle, en DESCENDANT (du haut vers la tonique).'},(ok,secs,f)=>{ dailyMark('scales'); award(8); toast(`+8 XP · ${f?f+' reprise(s)':'propre'}`); setTimeout(()=>{close();goMenu(root);},800); }); });
   });
 }
 
@@ -4922,7 +5056,7 @@ function goDash(){
       grid.appendChild(cell);
     });
     inner.appendChild(grid);
-    inner.insertAdjacentHTML('beforeend', `<p style="color:var(--dim);font-size:12px;text-align:center;line-height:1.5">Touche une gamme pour la travailler seule. Les paliers : <b>Armure → Notes → Degrés → Par cœur → Réflexe</b>. Le dernier ne se scelle qu'après un 2e jour — impossible de tricher avec le temps.</p>`);
+    inner.insertAdjacentHTML('beforeend', `<p style="color:var(--dim);font-size:12px;text-align:center;line-height:1.5">Touche une gamme pour la travailler seule. Les paliers : <b>Armure → Notes → Degrés → Par cœur → Réflexe</b>. Le dernier ne se scelle qu'après un 2e jour — impossible de tricher avec le temps. <br>Dans chaque gamme : <b>les accords de la gamme</b> (I-IV-V + relatif mineur), le <b>sprint des degrés</b> chronométré et la <b>récitation descendante</b>.</p>`);
   });
 }
 
