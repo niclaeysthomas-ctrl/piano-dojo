@@ -4415,6 +4415,45 @@ function theoryLibrary(){
 /* ================================================================
    ENRICHISSEMENTS — cercle des quintes · trophées · lexique
    ================================================================ */
+/* drill génératif du cycle des quintes (réponses calculées) */
+function genCircleQs(n){
+  /* noms JUSTES par position de cercle (orthographe exacte, pas d'enharmonie approximative) */
+  const MAJ={0:'Do',7:'Sol',2:'Ré',9:'La',4:'Mi',11:'Si',6:'Fa#',1:'Réb',8:'Lab',3:'Mib',10:'Sib',5:'Fa'};
+  const MIN={0:'La',7:'Mi',2:'Si',9:'Fa#',4:'Do#',11:'Sol#',6:'Ré#',1:'Sib',8:'Fa',3:'Do',10:'Sol',5:'Ré'};
+  const qs=[], pcs=Object.keys(KEYSIG).map(Number);
+  const pick=()=>pcs[Math.floor(Math.random()*pcs.length)];
+  const others=(good,fn)=>{ const st=new Set(); let g=0; while(st.size<3&&g++<60){ const v=fn(); if(v!==good) st.add(v); } return [...st]; };
+  const mk=(q,good,oth,why)=>{ const o=[good,...oth].slice(0,4).sort(()=>Math.random()-.5); return {q,opts:o,a:o.indexOf(good),why}; };
+  let guard=0;
+  while(qs.length<n && guard++<300){
+    const pc=pick(), sig=KEYSIG[pc], nb=sig[0], sgn=sig[1], t=Math.floor(Math.random()*5);
+    if(t===0){ const good=MIN[pc]+' mineur';
+      qs.push(mk(`Relative mineure de <b>${MAJ[pc]} majeur</b> ?`, good, others(good,()=>MIN[pick()]+' mineur'),
+        `On descend d'une tierce mineure (3 demi-tons) — ou on prend le 6ᵉ degré : ${MAJ[pc]} → <b>${MIN[pc]} mineur</b> (même armure).`));
+    } else if(t===1){ const good=MAJ[pc];
+      qs.push(mk(`<b>${MIN[pc]} mineur</b> est la relative de quelle majeure ?`, good, others(good,()=>MAJ[pick()]),
+        `On remonte d'une tierce mineure : ${MIN[pc]} mineur → <b>${MAJ[pc]} majeur</b>.`));
+    } else if(t===2){ const good=nb?(nb+' '+(sgn==='#'?'dièse':'bémol')+(nb>1?'s':'')):'aucune';
+      qs.push(mk(`Combien d'altérations à l'armure de <b>${MAJ[pc]} majeur</b> ?`, good,
+        others(good,()=>{const k=pick(),g=KEYSIG[k]; return g[0]?(g[0]+' '+(g[1]==='#'?'dièse':'bémol')+(g[0]>1?'s':'')):'aucune';}),
+        `${MAJ[pc]} majeur : ${sigTxt(pc)}.`));
+    } else if(t===3){ if(!nb){ guard--; continue; } const good=MAJ[pc];
+      qs.push(mk(`Quelle tonalité majeure a <b>${sigTxt(pc).split(' (')[0]}</b> ?`, good, others(good,()=>MAJ[pick()]),
+        `${sigTxt(pc)} → <b>${MAJ[pc]} majeur</b>.`));
+    } else { const up=Math.random()<.5, good=MAJ[(pc+(up?7:5))%12];
+      qs.push(mk(`Sur le cercle, le voisin de <b>${MAJ[pc]}</b> ${up?'à DROITE (une quinte au-dessus)':'à GAUCHE (une quarte au-dessus)'} ?`, good, others(good,()=>MAJ[pick()]),
+        `${up?'Une quinte au-dessus':'Un cran à gauche (quarte au-dessus)'} de ${MAJ[pc]} = <b>${good}</b>. À droite on gagne un dièse, à gauche un bémol.`));
+    }
+  }
+  return qs;
+}
+function circleDrill(){
+  openCustom('🎯 Cycle des quintes — entraînement',(inner,close)=>{
+    runQuiz(inner,{qs:genCircleQs(8)},()=>{ dailyMark('drill'); award(12); toast('🎡 +12 XP');
+      const b=document.createElement('button'); b.className='btn'; b.textContent='↻ Encore'; b.onclick=()=>circleDrill(); inner.appendChild(b);
+      const b2=document.createElement('button'); b2.className='btn ghost'; b2.textContent='Fermer'; b2.onclick=close; inner.appendChild(b2); });
+  });
+}
 function circleOfFifths(){
   const COF=[{pc:0,acc:'—'},{pc:7,acc:'1♯'},{pc:2,acc:'2♯'},{pc:9,acc:'3♯'},{pc:4,acc:'4♯'},{pc:11,acc:'5♯'},
     {pc:6,acc:'6♯ / 6♭'},{pc:1,acc:'5♭'},{pc:8,acc:'4♭'},{pc:3,acc:'3♭'},{pc:10,acc:'2♭'},{pc:5,acc:'1♭'}];
@@ -4466,6 +4505,24 @@ function circleOfFifths(){
 <li><b>Improviser / composer</b> : si tu es perdu, va piocher chez les <b>voisins</b> — ça sonnera toujours.</li>
 </ul>
 <div class="tip">Le réflexe à installer : quand tu vois un accord, pense à ses <b>deux voisins</b> sur le cercle. 90 % du temps, l'accord suivant d'une chanson est juste à côté.</div>`;
+    const mn=document.createElement('div'); mn.className='theory'; mn.innerHTML=`
+<h3>🧠 Mnémotechniques</h3>
+<ul>
+<li><b>Ordre des dièses</b> : Fa · Do · Sol · Ré · La · Mi · Si — ce sont des <b>quintes qui montent</b> (le cercle vers la droite). Chaque tonalité à dièses ajoute le suivant.</li>
+<li><b>Ordre des bémols</b> : Si · Mi · La · Ré · Sol · Do · Fa — c'est <b>l'ordre des dièses à l'envers</b>.</li>
+<li><b>Lire une armure de dièses</b> : le <b>dernier dièse est la sensible</b> → monte d'un demi-ton = la tonique. (dernier dièse Fa♯ → <b>Sol</b>.)</li>
+<li><b>Lire une armure de bémols</b> : l'<b>avant-dernier bémol EST la tonique</b>. (Si♭ Mi♭ → <b>Mi♭</b>.) À retenir à part : 1 bémol = <b>Fa</b>.</li>
+<li><b>Relative mineure</b> : descends de <b>3 demi-tons</b> (une tierce mineure), ou prends le <b>6ᵉ degré</b>. Do → <b>La</b> mineur, Sol → <b>Mi</b> mineur.</li>
+</ul>`;
+    inner.appendChild(mn);
+    const mi=document.createElement('div'); mi.className='theory'; mi.innerHTML=`
+<h3>🌑 C'est quoi une gamme mineure ?</h3>
+<p>Une majeure sonne <b>gaie</b> à cause de sa <b>tierce majeure</b> (3ᵉ note à 2 tons de la tonique). Une <b>mineure</b> sonne <b>sombre</b> parce que sa 3ᵉ note est un demi-ton plus bas — la <b>tierce mineure</b>. C'est LA différence de base.</p>
+<p>La mineure <b>naturelle</b> abaisse aussi les 6ᵉ et 7ᵉ. Sa formule : <b>Ton-½-Ton-Ton-½-Ton-Ton</b>.</p>
+<div class="tip">Le raccourci qui change tout : la mineure naturelle, ce sont <b>les mêmes notes qu'une majeure</b> — sa relative — mais en partant du <b>6ᵉ degré</b>. <b>La mineur</b> = les touches blanches (comme Do majeur), maison sur La. Donc <b>connaître tes 12 majeures te donne les 12 mineures gratuitement</b> : même armure, tu déplaces juste le « chez-soi ».</div>
+<p style="color:var(--dim);font-size:12.5px;margin-top:6px">(Il existe 2 variantes — mineure <b>harmonique</b> et <b>mélodique</b> — qui remontent la 7ᵉ/6ᵉ pour la cadence. La naturelle d'abord ; le reste viendra.)</p>`;
+    inner.appendChild(mi);
+    const db=document.createElement('button'); db.className='btn'; db.textContent='🎯 Apprendre en s\'entraînant (drill du cycle)'; db.onclick=()=>circleDrill(); inner.appendChild(db);
     overlay.scrollTop=0;
   });
 }
@@ -4524,6 +4581,7 @@ const LEXIQUE=[
   {t:'ii–V–I',d:`La cadence reine du jazz.`,c:`L'enchaînement le plus fréquent des standards : le ii prépare, le V tend, le I résout. Apprends à le repérer dans toutes les tonalités et tu lis 80 % du répertoire jazz.`,ex:`En Do : Ré m7 – Sol7 – Do maj7.`},
   {t:'Degré',d:`La position d'un accord dans la gamme (I, ii, V…).`,c:`On numérote les accords par leur PLACE dans la gamme plutôt que par leur nom. Avantage énorme : une progression écrite en degrés marche dans TOUTES les tonalités. Majuscule = accord majeur, minuscule = mineur.`,ex:`I-IV-V : en Do = Do-Fa-Sol ; en Ré = Ré-Sol-La. Même formule.`},
   {t:'Gamme',d:`Une échelle de notes ordonnées.`,c:`7 notes définies par un MOTIF d'intervalles. La majeure = Ton-Ton-½-Ton-Ton-Ton-½. Transpose ce motif sur n'importe quelle note et tu obtiens les 12 gammes majeures — c'est le même patron déplacé.`,ex:`Do majeur = que des touches blanches (le motif tombe pile).`},
+  {t:'Gamme mineure',d:`Une échelle à couleur sombre : sa 3ᵉ note (la tierce) est mineure.`,c:`Ce qui fait « mineur », c'est la tierce abaissée d'un demi-ton par rapport au majeur (+ 6ᵉ et 7ᵉ abaissées pour la mineure naturelle). Le raccourci : la mineure naturelle = les mêmes notes qu'une majeure (sa relative), mais on part de son 6ᵉ degré. Connaître tes majeures te donne les mineures gratuitement.`,ex:`La mineur = les touches blanches (comme Do majeur), maison sur La. Formule : Ton-½-Ton-Ton-½-Ton-Ton.`},
   {t:'Mode',d:`Mêmes notes qu'une gamme, autre note « maison ».`,c:`Prends les 7 notes d'une gamme majeure ; si tu décides qu'une AUTRE que la 1re est le point de repos, tu obtiens un mode. Mêmes touches, centre de gravité différent → couleur différente. C'est l'idée entière — le reste n'est que des noms.`,ex:`Touches blanches à partir de Ré = Ré dorien (mineur avec 6e majeure, le son de « So What »).`},
   {t:'Pentatonique',d:`Gamme de 5 notes, refuge de l'impro.`,c:`On retire de la gamme les 2 notes qui « accrochent » le plus → il ne reste que du solide. Résultat : presque impossible de sonner faux, d'où son statut d'échelle-refuge pour improviser.`,ex:`Penta majeure de Do : Do-Ré-Mi-Sol-La.`},
   {t:'Armure',d:`Les dièses/bémols annoncés à la clé, valables tout le morceau.`,c:`C'est un raccourci d'écriture : au lieu de remettre un ♯ devant chaque Fa d'un morceau en Sol, on l'annonce UNE fois au début. Donc l'armure = la carte d'identité de la tonalité. Deux astuces de lecture : pour les DIÈSES, le dernier dièse est la sensible → la tonique est juste au-dessus. Pour les BÉMOLS, l'avant-dernier bémol EST la tonique.`,ex:`1 dièse (Fa♯) → Sol majeur. 2 bémols (Si♭, Mi♭) → Mi♭ majeur.`},
