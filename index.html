@@ -1675,8 +1675,11 @@ const DRILLS=[
   {id:'scale', icon:'🪜', title:'Gammes', req:'m6l1',
    desc:()=>'Gamme majeure (ou pentatonique) depuis une fondamentale tirée au sort.',
    run:()=>dojoScale()},
+  {id:'voix', icon:'🎤', title:'Chanter pour entendre', req:null,
+   desc:()=>{ const s=earStat('voix'); return 'Le parcours d\'oreille par la VOIX : bourdon, chante les couleurs (majeur/mineur) et les intervalles, puis reconnais — armé par ta voix. Tu chantes déjà juste : on branche ton oreille sur les mots. 5 min/jour, le plus rentable contre ton point faible.'+(s.best?` Reconnaissance record : <b style="color:var(--acc)">${s.best}%</b>.`:''); },
+   run:()=>dojoVoix()},
   {id:'ear', icon:'👂', title:'Majeur ou mineur ?', req:null,
-   desc:()=>{ const s=earStat('mm'); return 'Une note tirée au hasard : compare son majeur à son mineur, ressens la bascule, puis teste-toi. L\'unique exercice d\'oreille — fais-le court et quotidien.'+(s.best?` Record : <b style="color:var(--acc)">${s.best}%</b>.`:''); },
+   desc:()=>{ const s=earStat('mm'); return 'Une note tirée au hasard : compare son majeur à son mineur, ressens la bascule, puis teste-toi. L\'exercice d\'oreille express — fais-le court et quotidien.'+(s.best?` Record : <b style="color:var(--acc)">${s.best}%</b>.`:''); },
    run:()=>dojoEar()},
 ];
 const lessonById=id=>ALL_LESSONS.find(l=>l.id===id);
@@ -1751,6 +1754,90 @@ function earPush(id,pct){
   S.earStats[id]=st;
 }
 const EAR_ROOTS=[55,57,59,60,62,64,65,67]; /* Sol3, La3, Si3, Do4, Ré4, Mi4, Fa4, Sol4 : que des blanches */
+function dojoVoix(){
+  const ROOT=EAR_ROOTS[Math.floor(Math.random()*EAR_ROOTS.length)];
+  const rn=NOTE_FR[ROOT%12];
+  const drone=(dur)=>{ dur=dur||4.5; playNote(ROOT-12,dur,.20); playNote(ROOT,dur,.16); };
+  const play=(semis,when,dur)=>{ playNote(ROOT+semis,dur||1.7,.42,when||0); };
+  openCustom('🎤 Chanter pour entendre · '+rn,(inner,close)=>{
+    const box=document.createElement('div'); inner.appendChild(box);
+    let step=0, sung=0, total=0;
+    const next=()=>{ step++; go(); };
+    function singStep(o){
+      total++;
+      box.innerHTML=`<div class="exhead"><div class="target" style="font-size:20px">🎤 ${o.title}</div></div>`;
+      const p=document.createElement('div'); p.style.cssText='color:#c9cde0;font-size:14px;line-height:1.55;margin:6px 0 12px'; p.innerHTML=o.cue; box.appendChild(p);
+      const kb=buildKeyboard(ROOT,ROOT+12,(m,k)=>{ playNote(m); k.classList.add('flash'); setTimeout(()=>k.classList.remove('flash'),150); }); box.appendChild(kb);
+      const showFund=()=>{ kb.clearSel(); const r=kb.keyEl(ROOT); if(r) r.classList.add('hint'); }; showFund();
+      const r1=document.createElement('div'); r1.className='exrow'; box.appendChild(r1);
+      const bf=document.createElement('button'); bf.className='btn ghost'; bf.textContent='▶ La fondamentale ('+rn+')'; bf.onclick=()=>{ drone(3); showFund(); }; r1.appendChild(bf);
+      const fb=document.createElement('div'); fb.className='fb'; fb.style.minHeight='22px'; fb.style.margin='10px 0'; box.appendChild(fb);
+      if(o.ref){ const t=document.createElement('div'); t.className='tip'; t.innerHTML='🎵 Repère : '+o.ref; box.appendChild(t); }
+      const rate=document.createElement('div'); rate.style.cssText='display:none;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:10px';
+      const verify=document.createElement('button'); verify.className='btn'; verify.textContent='🔊 Vérifier (joue la note visée)';
+      verify.onclick=()=>{
+        drone(2.2); setTimeout(()=>play(o.semis,0,1.8),650);
+        kb.clearSel(); const r=kb.keyEl(ROOT); if(r)r.classList.add('hint'); const tk=kb.keyEl(ROOT+o.semis); if(tk)tk.classList.add('sel','target');
+        fb.className='fb'; fb.innerHTML='Compare à ce que tu viens de chanter'+(o.colorHint?' — <b>'+o.colorHint+'</b>':'')+'. Tu étais où ?';
+        rate.style.display='grid'; verify.textContent='🔁 Réécouter';
+      };
+      box.appendChild(verify); box.appendChild(rate);
+      const mk=(lab,val,col)=>{ const b=document.createElement('button'); b.className='btn ghost'; b.style.borderColor=col; b.style.color=col; b.textContent=lab; b.onclick=()=>{ if(val) sung++; next(); }; return b; };
+      rate.appendChild(mk('À côté',0,'var(--bad)')); rate.appendChild(mk('Presque',0,'var(--acc)')); rate.appendChild(mk('Juste ✓',1,'var(--ok)'));
+    }
+    function intro(){
+      box.innerHTML=`<div class="exhead"><div class="target" style="font-size:22px">🎤 Chanter pour entendre</div></div>`;
+      const p=document.createElement('div'); p.style.cssText='color:#c9cde0;font-size:14.5px;line-height:1.6';
+      p.innerHTML=`Tu chantes juste — donc <b style="color:var(--txt)">ton oreille marche déjà</b>. Ici on la branche sur les couleurs : tu <b>chantes d'abord</b>, tu <b>vérifies après</b>. C'est l'ordre qui compte — tu produis de ta tête avant d'entendre la réponse.<br><br>Personne ne t'écoute, aucune note sur ta voix. Juste toi et ton oreille. 5 minutes.`;
+      box.appendChild(p);
+      const b=document.createElement('button'); b.className='btn'; b.textContent='Commencer →'; b.onclick=next; box.appendChild(b);
+    }
+    function droneTonic(){
+      box.innerHTML=`<div class="exhead"><div class="target" style="font-size:20px">🏠 Le bourdon · ${rn}</div></div>`;
+      const p=document.createElement('div'); p.style.cssText='color:#c9cde0;font-size:14px;line-height:1.55;margin:6px 0 12px';
+      p.innerHTML=`Écoute ce <b>${rn}</b> tenu, puis <b>chante-le</b> et tiens-le avec lui. Sens le repos, le « chez-soi ». C'est ton point zéro : toute couleur se mesure par rapport à lui.`; box.appendChild(p);
+      const b1=document.createElement('button'); b1.className='btn'; b1.textContent='▶ Le bourdon'; b1.onclick=()=>drone(5); box.appendChild(b1);
+      const b2=document.createElement('button'); b2.className='btn ok'; b2.style.marginTop='8px'; b2.textContent='Je le tiens → suivant'; b2.onclick=next; box.appendChild(b2);
+    }
+    const singM3=()=>singStep({title:'Chante la note BRILLANTE', semis:4, colorHint:'brillant, ça sourit', cue:`Sur le bourdon <b>${rn}</b>, chante la <b style="color:var(--acc)">tierce majeure</b> — la note qui « sourit ». Monte doucement depuis la fondamentale jusqu'à ce que ça sonne <b>lumineux</b>.`, ref:`la 3ᵉ note de « <b>Oh, when the saints</b> » (Oh→<b>when</b>).`});
+    const singm3=()=>singStep({title:'Chante la note SOMBRE', semis:3, colorHint:'sombre, ça se referme', cue:`Même fondamentale <b>${rn}</b>. Chante la <b style="color:var(--purple)">tierce mineure</b> — un demi-ton plus bas que la brillante : la note qui « se referme », mélancolique.`, ref:`le début de « <b>Greensleeves</b> » (le soupir triste).`});
+    const singP5=()=>singStep({title:'Chante la QUINTE', semis:7, cue:`Chante la <b>quinte</b> au-dessus de <b>${rn}</b> : l'intervalle le plus stable, solide, ouvert.`, ref:`« <b>Ah vous dirai-je maman</b> » / Twinkle (Do Do → <b>Sol</b> Sol).`});
+    const singOct=()=>singStep({title:"Chante l'OCTAVE", semis:12, cue:`Chante le même <b>${rn}</b> mais tout en haut — l'octave. La « même note », en plus aigu.`, ref:`« <b>Some-where</b> over the rainbow ».`});
+    function recognise(){
+      let i=0, score=0, cur=null, ans=false; const N=6;
+      const sound=(q,when,dur)=>{ when=when||0; dur=dur||2; playNote(ROOT,dur,.3,when); playNote(ROOT+(q==='maj'?4:3),dur,.42,when); };
+      const rndr=()=>{
+        box.innerHTML=`<div class="exhead"><div class="target">👂 ${i+1}/${N}</div><div class="sub">Tu viens de les CHANTER. Brillant (majeur) ou sombre (mineur) ?</div></div>
+          <div class="exrow"><button class="btn ghost" id="rep">🔊 Réécouter</button></div>`;
+        const fb=document.createElement('div'); fb.className='fb'; box.appendChild(fb);
+        const btns=document.createElement('div'); btns.className='earbtns'; box.appendChild(btns);
+        const bmaj=document.createElement('button'); bmaj.className='btn'; bmaj.textContent='☀️ Majeur';
+        const bmin=document.createElement('button'); bmin.className='btn'; bmin.style.background='var(--purple)'; bmin.style.color='#fff'; bmin.textContent='🌑 Mineur';
+        btns.appendChild(bmaj); btns.appendChild(bmin);
+        cur=Math.random()<.5?'maj':'min'; ans=false; box.querySelector('#rep').onclick=()=>sound(cur); setTimeout(()=>sound(cur),350);
+        const answer=g=>{ if(ans)return; ans=true; bmaj.style.pointerEvents='none'; bmin.style.pointerEvents='none';
+          if(g===cur){ score++; tada(); fb.className='fb ok'; fb.textContent='✓ '+(cur==='maj'?'majeur':'mineur'); }
+          else { buzz(); fb.className='fb bad'; fb.innerHTML='C\'était <b>'+(cur==='maj'?'majeur':'mineur')+'</b>. Chante les deux, tu sentiras la bascule :'; sound('maj',0,1.4); setTimeout(()=>sound('min',0,1.6),1600); }
+          setTimeout(()=>{ i++; if(i<N) rndr(); else finish(); }, g===cur?1050:3400);
+        };
+        bmaj.onclick=()=>answer('maj'); bmin.onclick=()=>answer('min');
+      };
+      const finish=()=>{
+        const pct=Math.round(score/N*100); earPush('voix',pct); if(score>(S.earBest||0)) S.earBest=score; dailyMark('ear'); award(15); save(); chime();
+        const st=earStat('voix');
+        const msg=score>=5?'Voilà ton oreille au travail. Elle était là — tu l\'as juste branchée sur les mots.':score>=3?'Ça monte, et c\'est en CHANTANT que ça a bougé, pas en devinant. Reviens 5 min demain.':'Normal de partir de loin sur ce muscle-là — mais pas sur ton oreille, elle marche (tu chantes juste). La production quotidienne paie vite.';
+        box.innerHTML=`<div class="exhead"><div class="target">🎤 ${score}/${N}</div><div class="sub" style="line-height:1.55">${msg}</div></div>
+          <p style="color:var(--dim);font-size:12px;text-align:center;margin:6px 0">Cette séance : ${sung}/${total} intervalles chantés « juste » · reconnaissance record ${st.best}%</p>`;
+        const b1=document.createElement('button'); b1.className='btn'; b1.textContent='↻ Recommencer (autre note)'; b1.onclick=()=>dojoVoix(); box.appendChild(b1);
+        const b2=document.createElement('button'); b2.className='btn ghost'; b2.textContent='Terminer'; b2.onclick=close; box.appendChild(b2);
+      };
+      rndr();
+    }
+    const STEPS=[intro, droneTonic, singM3, singm3, singP5, singOct, recognise];
+    function go(){ if(step<STEPS.length) STEPS[step](); }
+    go();
+  });
+}
 function dojoEar(){
   const ROOT=EAR_ROOTS[Math.floor(Math.random()*EAR_ROOTS.length)];
   const LO=ROOT, HI=ROOT+12, rn=NOTE_FR[ROOT%12];
