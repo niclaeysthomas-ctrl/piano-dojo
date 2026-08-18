@@ -303,6 +303,7 @@
   .nchip{padding:11px 12px;border-radius:11px;background:var(--bg3);border:1px solid var(--line);color:var(--txt);font-weight:800;font-size:16px;cursor:pointer;min-width:56px;text-align:center;line-height:1.15}
   .nchip small{display:block;font-size:9.5px;color:var(--dim);font-weight:700}
   .nchip.gone{opacity:.22;pointer-events:none}
+  .nchip.sel{border-color:var(--acc);background:rgba(245,184,64,.12);color:var(--acc)}
   .nchip:active{transform:scale(.93)}
   .gotimer{text-align:center;font-weight:800;font-size:22px;color:var(--acc);font-variant-numeric:tabular-nums;margin:4px 0}
   .gofiche{background:var(--bg2);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin:10px 0}
@@ -4969,6 +4970,72 @@ function goDegreeSprint(sc, el, cb){
   show();
 }
 
+/* ================================================================
+   MODE FARM — répéter en boucle, sans friction. Le volume grave la
+   compétence. On enchaîne le MÊME exo, rep après rep, avec série,
+   précision et chrono. Rotation des gammes possible (interleaving).
+   ================================================================ */
+function farmQuiz(el, q, cb){
+  el.innerHTML=`<div class="exhead"><div style="font-size:19px;font-weight:700;line-height:1.4;margin:6px 0 12px">${q.q}</div></div>`;
+  q.opts.forEach((o,oi)=>{ const b=document.createElement('button'); b.className='quizopt'; b.textContent=o;
+    b.onclick=()=>{ el.querySelectorAll('.quizopt').forEach(x=>x.style.pointerEvents='none');
+      const ok=oi===q.a; if(ok){ b.classList.add('right'); tada(); } else { b.classList.add('wrong'); buzz(); el.querySelectorAll('.quizopt')[q.a].classList.add('right'); }
+      const w=document.createElement('div'); w.className='quizwhy'; w.innerHTML= ok?'<b style="color:var(--ok)">✓ Juste.</b>':`<div style="font-weight:800;color:var(--bad);margin-bottom:4px">✗ ${q.opts[q.a]}</div><div style="line-height:1.5">${q.why}</div>`;
+      el.appendChild(w);
+      setTimeout(()=>cb(ok), ok?450:1500); };
+    el.appendChild(b); });
+}
+const FARM_EXOS=[{k:'sprint',lab:'⚡ Sprint degrés'},{k:'blind',lab:'🙈 Aveugle chrono'},{k:'spell',lab:'🔤 Épellation'},{k:'chords',lab:'🎼 Accords'}];
+function goFarm(fixedRoot){
+  openCustom('♾️ Mode farm', (inner, close)=>{
+    let exo='sprint', scope=(fixedRoot!=null?'fixed':'progress');
+    const setup=()=>{
+      inner.innerHTML=`<p style="color:var(--dim);font-size:13px;line-height:1.5;margin:2px 0 10px">Répète en boucle, sans t'arrêter — c'est le volume qui grave.${fixedRoot!=null?' Gamme : <b style="color:var(--acc)">'+GO_SCALES[fixedRoot].name+' majeur</b>.':''} Choisis l'exo et lance.</p>`;
+      const ew=document.createElement('div'); ew.className='chipwrap'; inner.appendChild(ew);
+      FARM_EXOS.forEach(e=>{ const c=document.createElement('div'); c.className='nchip'+(e.k===exo?' sel':''); c.style.minWidth='auto'; c.style.fontSize='14px'; c.textContent=e.lab; c.onclick=()=>{ exo=e.k; setup(); }; ew.appendChild(c); });
+      if(fixedRoot==null){
+        const sw=document.createElement('div'); sw.className='chipwrap'; sw.style.marginTop='2px';
+        [['progress','Gammes en cours'],['all','Les 12 (aléatoire)']].forEach(([v,l])=>{ const c=document.createElement('div'); c.className='nchip'+(v===scope?' sel':''); c.style.minWidth='auto'; c.style.fontSize='13px'; c.textContent=l; c.onclick=()=>{ scope=v; setup(); }; sw.appendChild(c); });
+        inner.appendChild(sw);
+      }
+      const go=document.createElement('button'); go.className='btn'; go.textContent='▶ Lancer le farm'; go.onclick=run; inner.appendChild(go);
+    };
+    const run=()=>{
+      let reps=0, clean=0, streak=0, best=0, t0=Date.now(), bag=[];
+      const nextRoot=()=>{
+        if(fixedRoot!=null) return fixedRoot;
+        if(!bag.length){ const src=(scope==='progress'&&goInProgress().length)?goInProgress():GO_ORDER; bag=src.slice().sort(()=>Math.random()-.5); }
+        return bag.pop();
+      };
+      inner.innerHTML=`<div class="gostat">
+        <div class="b"><div class="n" id="freps">0</div><div class="l">reps</div></div>
+        <div class="b"><div class="n" id="fstreak" style="color:var(--ok)">0</div><div class="l">série</div></div>
+        <div class="b"><div class="n" id="facc">—</div><div class="l">précision</div></div></div>
+        <div id="farea"></div>
+        <button class="btn ghost" id="fstop" style="margin-top:10px">■ Stop &amp; bilan</button>`;
+      const area=inner.querySelector('#farea');
+      const upd=()=>{ inner.querySelector('#freps').textContent=reps; inner.querySelector('#fstreak').innerHTML=streak+(best>0?` <small style="font-size:11px;color:var(--dim)">rec ${best}</small>`:''); inner.querySelector('#facc').textContent=reps?Math.round(100*clean/reps)+'%':'—'; };
+      const done=(ok)=>{ reps++; if(ok){ clean++; streak++; if(streak>best) best=streak; } else streak=0; upd(); step(); };
+      const step=()=>{ const root=nextRoot(), sc=GO_SCALES[root];
+        if(exo==='sprint') goDegreeSprint(sc, area, (o,secs,ff)=>done(ff===0));
+        else if(exo==='blind') runOrder(area,{sc,mode:'blind',timed:true,sub:`${sc.name} majeur — à l'aveugle, chrono.`},(o,secs,ff)=>done(ff===0));
+        else if(exo==='spell') runOrder(area,{sc,mode:'spell',sub:`${sc.name} majeur — orthographe exacte.`},(o,secs,ff)=>done(ff===0));
+        else farmQuiz(area, goHarmonyQs(sc)[0], ok=>done(ok));
+      };
+      inner.querySelector('#fstop').onclick=()=>{
+        const secs=Math.round((Date.now()-t0)/1000), xp=Math.min(80, reps*3);
+        dailyMark('scales'); dailyMark('drill'); if(xp) award(xp);
+        inner.innerHTML=`<div class="exhead"><div class="target">${reps}</div><div class="sub">reps en ${Math.floor(secs/60)}min ${secs%60}s · ${reps?Math.round(100*clean/reps):0}% sans faute · meilleure série ${best}</div></div>
+          <p style="text-align:center;color:var(--dim);font-size:13px;line-height:1.5;margin:8px 0">${reps>=20?'Ça, c\'est du travail. C\'est exactement comme ça qu\'on grave une compétence — pas le talent, le volume.':reps>=8?'Bon volume. Reviens-y : la régularité fait le reste.':'Court — le farm ne paie que quand les reps s\'empilent. Reviens-y plus longtemps.'}<br><b style="color:var(--acc)">+${xp} XP</b></p>`;
+        const b=document.createElement('button'); b.className='btn'; b.textContent='Encore'; b.onclick=setup; inner.appendChild(b);
+        const b2=document.createElement('button'); b2.className='btn ghost'; b2.textContent='Fermer'; b2.onclick=close; inner.appendChild(b2);
+      };
+      upd(); step();
+    };
+    setup();
+  });
+}
+
 /* ---- menu d'une gamme (entraînement ciblé) ---- */
 function goMenu(root){
   const sc=GO_SCALES[root];
@@ -4984,6 +5051,7 @@ function goMenu(root){
     mk('🙈 Réciter à l\'aveugle', ()=>{ inner.innerHTML=''; runOrder(inner,{sc,mode:'blind'},(ok,secs,f)=>{ dailyMark('scales'); award(8); toast(`+8 XP · ${f?f+' reprise(s)':'propre'}`); setTimeout(()=>{close();goMenu(root);},800); }); });
     mk('🎹 La jouer au clavier', ()=>{ inner.innerHTML=''; runScale(inner,{root:sc.root,pattern:[0,2,4,5,7,9,11,12],name:sc.name+' majeur',sub:sc.notes.join(' ')+'. Commence dans le grave.'},()=>{ dailyMark('scales'); award(8); toast('+8 XP'); setTimeout(()=>{close();goMenu(root);},800); }); });
     mk('🎼 Les accords de la gamme', ()=>{ close(); goHarmony(root); });
+    mk('♾️ Farmer cette gamme', ()=>{ close(); goFarm(root); });
     mk('⚡ Sprint des degrés (chrono)', ()=>{ inner.innerHTML=''; goDegreeSprint(sc, inner, ()=>{ dailyMark('scales'); award(10); toast('⚡ +10 XP'); setTimeout(()=>{close();goMenu(root);},900); }); });
     mk('🔽 Réciter en descendant', ()=>{ inner.innerHTML=''; runOrder(inner,{sc,mode:'blind',dir:'desc',sub:'À l\'aveugle, en DESCENDANT (du haut vers la tonique).'},(ok,secs,f)=>{ dailyMark('scales'); award(8); toast(`+8 XP · ${f?f+' reprise(s)':'propre'}`); setTimeout(()=>{close();goMenu(root);},800); }); });
   });
@@ -5033,6 +5101,7 @@ function goDash(){
     bigBtn.textContent = started ? '🎯 SÉANCE DU JOUR' : '🚀 Démarrer le programme';
     bigBtn.onclick=()=>{ close(); goSeance(); };
     inner.appendChild(bigBtn);
+    const farmBtn=document.createElement('button'); farmBtn.className='btn ghost'; farmBtn.textContent='♾️ Mode farm — répétition libre'; farmBtn.onclick=()=>{ close(); goFarm(); }; inner.appendChild(farmBtn);
 
     if(gmState().diploma){
       inner.insertAdjacentHTML('beforeend', `<div class="gofiche" style="border-color:var(--ok);text-align:center"><b style="color:var(--ok)">🏆 Diplômé du Grand Œuvre</b><div style="font-size:12px;color:var(--dim);margin-top:3px">Obtenu le ${gmState().diploma}. Refais l'examen quand tu veux pour l'entretien.</div></div>`);
