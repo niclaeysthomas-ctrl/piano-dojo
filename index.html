@@ -594,6 +594,62 @@ function errReportView(){
   });
 }
 
+/* ---------- RAPPORT DE PROGRESSION : à copier et envoyer à Claude ---------- */
+function buildProgressReport(){
+  const L=[];
+  let lvName=LEVELS[0][1]; for(const kv of LEVELS){ if((S.xp||0)>=kv[0]) lvName=kv[1]; }
+  L.push('PROGRESSION — PIANO DOJO ('+USER+')');
+  L.push('Généré le '+todayStr());
+  L.push('Niveau : '+lvName+' · '+(S.xp||0)+' XP · série actuelle '+(S.streak||0)+' jour(s)');
+  L.push('');
+  L.push('=== LE GRAND ŒUVRE — 12 gammes majeures ===');
+  const started = (typeof GO_ORDER!=='undefined') && GO_ORDER.some(r=>gm(r).lvl>0);
+  if(typeof GO_ORDER==='undefined'){ L.push('(module gammes indisponible)'); }
+  else if(!started){ L.push('Programme pas encore commencé.'); }
+  else {
+    L.push('Jour J'+goDay()+' · '+goMastered()+'/12 scellées · progression globale '+goProgPct()+'%'+((S.gammes&&S.gammes.diploma)?' · DIPLÔMÉ le '+S.gammes.diploma:''));
+    L.push('Paliers : 0=inconnue · 1=armure · 2=notes · 3=degrés · 4=par cœur · 5=scellée');
+    GO_ORDER.forEach(r=>{ const sc=GO_SCALES[r], m=gm(r);
+      const arm=sc.alt===0?'0 alt':sc.alt+sc.type;
+      L.push('  '+(sc.name+'     ').slice(0,5)+'('+arm+')  palier '+m.lvl+'/5 '+GO_RANKSHORT[m.lvl]
+        +(m.seal?'  [sceau pose, attend 2e jour]':'')
+        +(m.best?'  record aveugle '+m.best+'s':'')
+        +(m.last?'  · vu '+m.last:''));
+    });
+  }
+  L.push('');
+  L.push('=== LEÇONS & THÉORIE ===');
+  const done=Object.keys(S.done||{});
+  L.push('Leçons/exos validés : '+done.length+(done.length?'  ['+done.slice(0,50).join(', ')+(done.length>50?', …':'')+']':''));
+  if(S.bilan) L.push('Dernier bilan global : '+S.bilan.global+'/100 ('+S.bilan.date+')');
+  L.push('Oreille — meilleure série : '+(S.earBest||0));
+  const nSongs=Object.keys(S.songs||{}).length; if(nSongs) L.push('Morceaux touchés : '+nSongs);
+  L.push('');
+  const er=(typeof buildErrReport==='function')?buildErrReport():{empty:true};
+  if(!er.empty){ L.push('=== ERREURS RÉCURRENTES ==='); er.text.split('\n').slice(2).forEach(x=>L.push(x)); }
+  else L.push('=== ERREURS === (journal vide)');
+  L.push('');
+  L.push('--- DONNÉES BRUTES (pour analyse fine, ne pas éditer) ---');
+  L.push(JSON.stringify({xp:S.xp,streak:S.streak,lastDay:S.lastDay,gammes:S.gammes,done:S.done,best:S.best,earBest:S.earBest,earStats:S.earStats,noteStats:S.noteStats,rhythmStats:S.rhythmStats,defi:S.defi,bilan:S.bilan,songs:S.songs,intensity:S.intensity}));
+  return {text:L.join('\n'), json:JSON.stringify(S)};
+}
+function progressReportView(){
+  openCustom('📊 Ma progression',(inner)=>{
+    const r=buildProgressReport();
+    const intro=document.createElement('p'); intro.style.cssText='color:var(--dim);font-size:13px;line-height:1.5;margin-bottom:10px';
+    intro.innerHTML='Copie ce résumé et colle-le à Claude : il commentera ta progression (surtout les gammes) et te dira où appuyer.';
+    inner.appendChild(intro);
+    const pre=document.createElement('div');
+    pre.style.cssText='white-space:pre-wrap;font-family:ui-monospace,Menlo,monospace;font-size:12px;background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:12px;color:#c9cde0;overflow:auto;line-height:1.5;margin-bottom:12px;max-height:320px';
+    pre.textContent=r.text; inner.appendChild(pre);
+    const b1=document.createElement('button'); b1.className='btn'; b1.textContent='📋 Copier ma progression (pour Claude)'; b1.onclick=()=>errCopy(r.text,'Progression'); inner.appendChild(b1);
+    const b2=document.createElement('button'); b2.className='btn ghost'; b2.textContent='🧾 Copier TOUT (sauvegarde JSON)'; b2.onclick=()=>errCopy(r.json,'Sauvegarde JSON'); inner.appendChild(b2);
+    const b3=document.createElement('button'); b3.className='btn ghost'; b3.textContent='⬇️ Télécharger .txt';
+    b3.onclick=()=>{ try{ const blob=new Blob([r.text],{type:'text/plain'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='progression-piano-'+todayStr()+'.txt'; document.body.appendChild(a); a.click(); document.body.removeChild(a); setTimeout(()=>URL.revokeObjectURL(a.href),2000);}catch(e){ toast('Téléchargement indispo — utilise Copier'); } };
+    inner.appendChild(b3);
+  });
+}
+
 /* ---------------- audio ---------------- */
 let AC=null;
 function ac(){
@@ -2570,6 +2626,12 @@ function renderOutils(){
   <div class="week">${days.map(d=>`<div class="col${d.xp?'':' z'}"><div class="bar" style="height:${Math.max(3,Math.round(d.xp/mx*100))}%"></div><small>${d.lbl}</small></div>`).join('')}</div>
   <div style="text-align:center;font-size:11px;color:var(--dim);margin-top:6px">XP des 7 derniers jours — la régularité se voit ici.</div>`;
   main.appendChild(c4);
+
+  const cProg=document.createElement('div'); cProg.className='card';
+  cProg.innerHTML=`<b style="font-size:16px">📊 Ma progression</b>
+    <p style="color:var(--dim);font-size:13px;margin:4px 0 0;line-height:1.5">Un résumé de ta progression (gammes, leçons, oreille…) à <b style="color:var(--txt)">copier et coller à Claude</b> pour qu'il la commente.</p>`;
+  const pb=document.createElement('button'); pb.className='btn ghost'; pb.textContent='📊 Voir & copier ma progression';
+  pb.onclick=()=>progressReportView(); cProg.appendChild(pb); main.appendChild(cProg);
 
   const cErr=document.createElement('div'); cErr.className='card';
   const nLog=Object.keys(S.errLog||{}).length;
@@ -5102,6 +5164,7 @@ function goDash(){
     bigBtn.onclick=()=>{ close(); goSeance(); };
     inner.appendChild(bigBtn);
     const farmBtn=document.createElement('button'); farmBtn.className='btn ghost'; farmBtn.textContent='♾️ Mode farm — répétition libre'; farmBtn.onclick=()=>{ close(); goFarm(); }; inner.appendChild(farmBtn);
+    const expBtn=document.createElement('button'); expBtn.className='btn ghost'; expBtn.textContent='📊 Copier ma progression → Claude'; expBtn.onclick=()=>{ close(); progressReportView(); }; inner.appendChild(expBtn);
 
     if(gmState().diploma){
       inner.insertAdjacentHTML('beforeend', `<div class="gofiche" style="border-color:var(--ok);text-align:center"><b style="color:var(--ok)">🏆 Diplômé du Grand Œuvre</b><div style="font-size:12px;color:var(--dim);margin-top:3px">Obtenu le ${gmState().diploma}. Refais l'examen quand tu veux pour l'entretien.</div></div>`);
