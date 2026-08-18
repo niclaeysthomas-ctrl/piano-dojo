@@ -4421,49 +4421,101 @@ function trophyView(){
 }
 
 const LEXIQUE=[
-  ['Intervalle','La distance entre deux notes, comptée en demi-tons. La brique de base de tout.'],
-  ['Demi-ton','Le plus petit écart : deux touches voisines (ex. Mi→Fa).'],
-  ['Ton','Deux demi-tons (ex. Do→Ré).'],
-  ['Tierce','L\'intervalle qui décide majeur (brillante) ou mineur (sombre).'],
-  ['Quinte','Intervalle très stable (7 demi-tons) : le pilier d\'un accord.'],
-  ['Triade','Un accord de 3 notes : fondamentale, tierce, quinte.'],
-  ['Fondamentale','La note qui donne son nom à l\'accord (le « Do » d\'un Do majeur).'],
-  ['Renversement','Le même accord avec une autre note en bas (ex. C/E).'],
-  ['Septième (7e)','Une 4e note ajoutée à la triade → le son « adulte », jazz.'],
-  ['Tonique (I)','L\'accord « maison », le repos, la tonalité de référence.'],
-  ['Dominante (V)','L\'accord tendu qui « appelle » le retour à la tonique.'],
-  ['Sous-dominante (IV)','L\'accord du mouvement, qui éloigne de la maison.'],
-  ['Cadence','Une ponctuation harmonique (ex. V→I = point final).'],
-  ['ii–V–I','La cadence reine du jazz (ex. Dm7–G7–Cmaj7).'],
-  ['Degré','La position d\'un accord dans la gamme, en chiffres romains (I, ii, V…).'],
-  ['Gamme','Une échelle de notes ordonnées (majeure : Ton-Ton-½-Ton-Ton-Ton-½).'],
-  ['Mode','Les mêmes notes qu\'une gamme, mais une autre note comme « maison ».'],
-  ['Pentatonique','Gamme de 5 notes : très dure à faire sonner faux, idéale pour improviser.'],
-  ['Armure','Le nombre de dièses ou bémols d\'une tonalité.'],
-  ['Relative mineure','La tonalité mineure aux mêmes notes (Do maj ↔ La min).'],
-  ['Enharmonie','Deux noms pour la même touche (Do# = Réb).'],
-  ['Voicing','La façon de répartir les notes d\'un accord sur le clavier.'],
-  ['Sus2 / Sus4','Accord « suspendu » : la tierce cède la place à la 2de ou la 4te.'],
-  ['Triton','Intervalle instable (6 demi-tons), moteur de la tension.'],
-  ['Syncope','Un accent joué à contretemps → le groove.'],
-  ['Swing','Croches inégales, balancées (jazz, blues).'],
-  ['Turnaround','Petit enchaînement qui ramène au début d\'une grille.'],
-  ['Bourdon (drone)','Une note tenue en fond, comme repère pour l\'oreille.'],
+  {t:'Intervalle',d:`La distance entre deux notes, comptée en demi-tons.`,c:`Tout en musique se mesure en écarts, pas en notes absolues : c'est l'intervalle qui porte l'émotion, et il reste le même où qu'on le joue. Compte toujours en demi-tons, c'est la règle unique.`,ex:`Do→Sol = 7 demi-tons = une quinte, partout sur le clavier.`},
+  {t:'Demi-ton',d:`Le plus petit écart : deux touches voisines.`,c:`L'unité de base : d'une touche à la touche IMMÉDIATEMENT voisine (noire ou blanche). Tous les autres intervalles se comptent en demi-tons.`,ex:`Mi→Fa et Si→Do sont des demi-tons (aucune noire entre eux).`},
+  {t:'Ton',d:`Deux demi-tons.`,c:`Un ton = on saute une touche. La gamme majeure est une suite PRÉCISE de tons et demi-tons — c'est ce motif qui fait qu'elle sonne « majeur ».`,ex:`Do→Ré (on enjambe le Do♯).`},
+  {t:'Tierce',d:`L'intervalle qui décide majeur ou mineur.`,c:`La tierce donne la COULEUR de l'accord : majeure (4 demi-tons) = brillant, mineure (3 demi-tons) = sombre. Baisse juste cette note d'un demi-ton et l'accord bascule majeur→mineur. Tout le reste ne fait que décorer.`,ex:`Do-Mi = tierce majeure ; Do-Mi♭ = tierce mineure.`},
+  {t:'Quinte',d:`Intervalle très stable (7 demi-tons).`,c:`Après l'octave, le son que l'oreille accepte le plus facilement comme socle. C'est le squelette de l'accord (fondamentale + quinte) et l'axe autour duquel tourne le cycle des quintes.`,ex:`Do-Sol.`},
+  {t:'Triade',d:`Un accord de 3 notes : fondamentale, tierce, quinte.`,c:`Le plus petit vrai accord : on empile deux tierces. La tierce décide majeur/mineur, la quinte stabilise. Les 4 triades de base : majeure, mineure, diminuée, augmentée.`,ex:`Do-Mi-Sol = Do majeur.`},
+  {t:'Fondamentale',d:`La note qui donne son nom à l'accord.`,c:`La note de référence sur laquelle l'accord est bâti. Attention : ce n'est pas forcément la note la plus grave jouée — si une autre est en bas, c'est un renversement, mais la fondamentale ne change pas.`,ex:`Dans Do/Mi, la fondamentale reste Do même si Mi est au grave.`},
+  {t:'Renversement',d:`Le même accord avec une autre note en bas.`,c:`Mêmes notes, autre note au grave. Ça ne change pas l'accord, seulement sa couleur et la façon dont il se lie au suivant. Les pros s'en servent pour enchaîner les accords en bougeant les doigts le moins possible.`,ex:`Do-Mi-Sol → Mi-Sol-Do (noté Do/Mi).`},
+  {t:'Septième (7e)',d:`Une 4e note ajoutée à la triade.`,c:`On empile une tierce de plus au-dessus de la quinte. Elle enrichit l'accord et, sur la dominante, crée la tension qui appelle la résolution. C'est la porte d'entrée du son jazz.`,ex:`Sol-Si-Ré-Fa = Sol7.`},
+  {t:'Tonique (I)',d:`L'accord « maison », le repos.`,c:`Le centre de gravité d'un morceau : la note/l'accord où tout se pose. Définir une tonalité, c'est juste décider « quelle note est la maison ».`,ex:`En Do majeur, la tonique est Do.`},
+  {t:'Dominante (V)',d:`L'accord tendu qui « appelle » la tonique.`,c:`Bâti sur le 5e degré, il contient le triton et « tire » vers la tonique. Le mouvement V→I est le moteur de presque toute la musique tonale : c'est l'aimant.`,ex:`En Do : Sol7 → Do.`},
+  {t:'Sous-dominante (IV)',d:`L'accord qui éloigne de la maison.`,c:`Le 4e degré : il crée un mouvement doux qui s'écarte de la tonique, souvent juste avant la dominante. C'est le « IV » qui ouvre tant de refrains.`,ex:`En Do : Fa. La suite I-IV-V = Do-Fa-Sol.`},
+  {t:'Cadence',d:`Une ponctuation harmonique.`,c:`Un enchaînement d'accords qui pose une virgule ou un point. La plus forte est la cadence parfaite V→I (point final) ; il y en a d'autres (IV→I « amen », V→vi « déceptive »).`,ex:`Sol7→Do = point final.`},
+  {t:'ii–V–I',d:`La cadence reine du jazz.`,c:`L'enchaînement le plus fréquent des standards : le ii prépare, le V tend, le I résout. Apprends à le repérer dans toutes les tonalités et tu lis 80 % du répertoire jazz.`,ex:`En Do : Ré m7 – Sol7 – Do maj7.`},
+  {t:'Degré',d:`La position d'un accord dans la gamme (I, ii, V…).`,c:`On numérote les accords par leur PLACE dans la gamme plutôt que par leur nom. Avantage énorme : une progression écrite en degrés marche dans TOUTES les tonalités. Majuscule = accord majeur, minuscule = mineur.`,ex:`I-IV-V : en Do = Do-Fa-Sol ; en Ré = Ré-Sol-La. Même formule.`},
+  {t:'Gamme',d:`Une échelle de notes ordonnées.`,c:`7 notes définies par un MOTIF d'intervalles. La majeure = Ton-Ton-½-Ton-Ton-Ton-½. Transpose ce motif sur n'importe quelle note et tu obtiens les 12 gammes majeures — c'est le même patron déplacé.`,ex:`Do majeur = que des touches blanches (le motif tombe pile).`},
+  {t:'Mode',d:`Mêmes notes qu'une gamme, autre note « maison ».`,c:`Prends les 7 notes d'une gamme majeure ; si tu décides qu'une AUTRE que la 1re est le point de repos, tu obtiens un mode. Mêmes touches, centre de gravité différent → couleur différente. C'est l'idée entière — le reste n'est que des noms.`,ex:`Touches blanches à partir de Ré = Ré dorien (mineur avec 6e majeure, le son de « So What »).`},
+  {t:'Pentatonique',d:`Gamme de 5 notes, refuge de l'impro.`,c:`On retire de la gamme les 2 notes qui « accrochent » le plus → il ne reste que du solide. Résultat : presque impossible de sonner faux, d'où son statut d'échelle-refuge pour improviser.`,ex:`Penta majeure de Do : Do-Ré-Mi-Sol-La.`},
+  {t:'Armure',d:`Les dièses/bémols annoncés à la clé, valables tout le morceau.`,c:`C'est un raccourci d'écriture : au lieu de remettre un ♯ devant chaque Fa d'un morceau en Sol, on l'annonce UNE fois au début. Donc l'armure = la carte d'identité de la tonalité. Deux astuces de lecture : pour les DIÈSES, le dernier dièse est la sensible → la tonique est juste au-dessus. Pour les BÉMOLS, l'avant-dernier bémol EST la tonique.`,ex:`1 dièse (Fa♯) → Sol majeur. 2 bémols (Si♭, Mi♭) → Mi♭ majeur.`},
+  {t:'Cycle des quintes',d:`La carte de toutes les tonalités, rangées de quinte en quinte.`,c:`Pars de Do (0 altération). Monte d'une quinte → Sol : +1 dièse. Encore une quinte → Ré : +2 dièses. Chaque pas d'une quinte vers la droite AJOUTE un dièse ; vers la gauche (= une quarte à droite), un bémol. Le cycle EST l'ordre des armures — et il pose côte à côte les accords voisins (I-IV-V sont adjacents) et les relatives mineures. Comprendre ça, c'est débloquer l'armure d'un coup.`,ex:`Do→Sol→Ré→La… (+1♯ à chaque pas). Do→Fa→Si♭→Mi♭… (+1♭ à chaque pas).`},
+  {t:'Relative mineure',d:`La tonalité mineure aux mêmes notes.`,c:`Chaque majeure partage son armure avec une mineure située une tierce mineure plus bas (son 6e degré). Mêmes touches, autre maison → l'une claire, l'autre sombre.`,ex:`Do majeur ↔ La mineur (0 altération pour les deux).`},
+  {t:'Enharmonie',d:`Deux noms pour la même touche.`,c:`Une même touche a deux noms selon le contexte (Do♯ = Ré♭). On choisit le nom pour que chaque LETTRE n'apparaisse qu'une seule fois dans la gamme — c'est ça qui décide ♯ ou ♭.`,ex:`En Ré♭ majeur on écrit Sol♭, jamais Fa♯.`},
+  {t:'Sensible',d:`Le 7e degré, un demi-ton sous la tonique.`,c:`À un demi-ton sous la maison, elle « aspire » vers elle : c'est elle qui crée l'envie de résolution, le petit pas final qui fait « ça y est, on est rentré ».`,ex:`En Do : Si → Do.`},
+  {t:'Voicing',d:`La façon de répartir les notes d'un accord.`,c:`Mêmes notes, mais disposées autrement : ordre, octaves, notes doublées ou omises. Le voicing fait toute la différence entre un accord d'amateur (plaqué à la main droite) et un son pro.`,ex:`Shell voicing = seulement fondamentale + 3e + 7e.`},
+  {t:'Sus2 / Sus4',d:`Accord « suspendu », sans tierce.`,c:`On remplace la tierce (celle qui dit majeur ou mineur) par la 2de ou la 4te. Résultat : un accord ni gai ni triste, en suspens, qui « demande » à se résoudre sur la tierce.`,ex:`Do sus4 (Do-Fa-Sol) se résout sur Do majeur (Do-Mi-Sol).`},
+  {t:'Triton',d:`Intervalle instable (6 demi-tons).`,c:`Trois tons, pile la moitié de l'octave : l'intervalle le plus instable, le cœur de l'accord de dominante 7. Presque toute la tension tonale vient de lui — et de son besoin de se résoudre.`,ex:`Fa-Si dans Sol7 → se résout Mi-Do.`},
+  {t:'Résolution / Tension',d:`Le couple moteur de la musique.`,c:`On crée une tension (dissonance, triton, dominante) puis on la RÉSOUT sur le repos (la tonique). Sans tension, pas d'émotion ; sans résolution, pas de soulagement. Toute l'harmonie tonale est ce va-et-vient.`,ex:`Sol7 (tension) → Do (résolution).`},
+  {t:'Octave',d:`La même note, plus aiguë ou plus grave (12 demi-tons).`,c:`L'intervalle si consonant que l'oreille l'entend comme « la même note ». C'est pour ça qu'il n'y a que 12 hauteurs : passé l'octave, tout se répète.`,ex:`Do3 → Do4.`},
+  {t:'Syncope',d:`Un accent joué à contretemps.`,c:`Placer l'accent LÀ où l'oreille ne l'attend pas (sur un temps faible, entre deux temps) : c'est le déséquilibre volontaire qui crée le groove.`,ex:`Accentuer le « et » entre deux temps.`},
+  {t:'Swing',d:`Croches inégales, balancées.`,c:`Jouer les croches non pas égales mais inégales (la 1re plus longue que la 2de) : c'est le balancement caractéristique du jazz et du blues.`,ex:`« doo-ba doo-ba » au lieu de « da-da da-da ».`},
+  {t:'Turnaround',d:`Petit enchaînement qui ramène au début.`,c:`Les 1 ou 2 dernières mesures d'une grille qui relancent le tour, souvent via un ii-V. Le tapis roulant qui te ramène au premier accord pour repartir.`,ex:`En Do : Do - La7 - Ré m7 - Sol7 → retour à Do.`},
+  {t:'Bourdon (drone)',d:`Une note tenue en fond, repère pour l'oreille.`,c:`Une note (souvent la tonique) maintenue en continu : elle sert de point de référence et de lit harmonique. Outil génial pour ENTENDRE la couleur d'une gamme ou d'un mode — justement ton angle mort.`,ex:`Tenir un Do grave en jouant Do majeur par-dessus.`},
 ];
+/* ---------- LEXIQUE EN MODE ANKI (révision espacée façon Leitner) ---------- */
+const LEX_STEPS=[0,1,3,7,16,40];
+function lexState(){ if(!S.lex) S.lex={}; return S.lex; }
+function lexDueList(){ const L=lexState(), t=todayStr(); return LEXIQUE.filter(x=>{ const s=L[x.t]; return s&&s.seen&&(s.due||'0000')<=t; }); }
+function lexNewList(){ const L=lexState(); return LEXIQUE.filter(x=>!(L[x.t]&&L[x.t].seen)); }
+function lexSched(t,rate){ const L=lexState(); let s=L[t]||{box:0,seen:false};
+  if(rate==='again') s.box=0; else if(rate==='good') s.box=Math.min(s.box+1,LEX_STEPS.length-1); else s.box=Math.min(s.box+2,LEX_STEPS.length-1);
+  s.seen=true; const d=new Date(); d.setDate(d.getDate()+(rate==='again'?0:LEX_STEPS[s.box])); s.due=d.toISOString().slice(0,10); s.last=todayStr(); L[t]=s; save(); }
+function lexProgress(){ const L=lexState(); let seen=0,mat=0; LEXIQUE.forEach(x=>{ const s=L[x.t]; if(s&&s.seen){ seen++; if(s.box>=3) mat++; } }); return {seen,mat,total:LEXIQUE.length}; }
+function lexReview(){
+  const due=lexDueList(), fresh=lexNewList().slice(0,10), queue=due.concat(fresh);
+  if(!queue.length){ toast('🃏 Lexique à jour — rien à réviser aujourd\'hui'); return; }
+  openCustom('🃏 Lexique — révision',(inner,close)=>{
+    let i=0, good=0;
+    const finish=()=>{ const xp=Math.min(40, queue.length*2); dailyMark('drill'); award(xp); const pg=lexProgress();
+      inner.innerHTML=`<div class="exhead"><div class="target">🃏</div><div class="sub">${queue.length} cartes revues · ${good} sues du premier coup · +${xp} XP</div></div>
+        <p style="text-align:center;color:var(--dim);font-size:13px;margin-top:8px">Lexique ancré : <b style="color:var(--ok)">${pg.mat}</b>/${pg.total} · vus ${pg.seen}/${pg.total}. Reviens demain — l'espacement fait le travail.</p>`;
+      const b=document.createElement('button'); b.className='btn'; b.textContent='Terminer'; b.onclick=close; inner.appendChild(b); };
+    const card=()=>{
+      const x=queue[i];
+      inner.innerHTML=`<div style="text-align:center;color:var(--dim);font-size:12px;margin-bottom:8px">${i+1}/${queue.length}${due.length?' · '+due.length+' dues':''}${fresh.length?' · '+fresh.length+' nouvelles':''}</div>`;
+      const c=document.createElement('div'); c.style.cssText='background:linear-gradient(160deg,var(--bg3),var(--bg2));border:1px solid var(--line);border-radius:18px;padding:24px 18px;min-height:150px;display:flex;flex-direction:column;justify-content:center';
+      c.innerHTML=`<div style="font-size:26px;font-weight:800;color:var(--acc);text-align:center">${x.t}</div><div style="color:var(--dim);font-size:13px;margin-top:14px;text-align:center">De quoi s'agit-il ? Retourne pour vérifier.</div>`;
+      inner.appendChild(c);
+      const rev=document.createElement('button'); rev.className='btn'; rev.textContent='Retourner ▼';
+      rev.onclick=()=>{
+        c.innerHTML=`<div style="font-size:21px;font-weight:800;color:var(--acc);margin-bottom:8px">${x.t}</div>
+          <div style="color:var(--txt);font-size:15px;font-weight:600;line-height:1.5">${x.d}</div>
+          ${x.c?`<div style="color:#c9cde0;font-size:13.5px;line-height:1.6;margin-top:12px">${x.c}</div>`:''}
+          ${x.ex?`<div style="color:var(--dim);font-size:13px;font-style:italic;margin-top:10px">Ex : ${x.ex}</div>`:''}`;
+        rev.remove();
+        const row=document.createElement('div'); row.style.cssText='display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:12px';
+        const mk=(lab,rate,col)=>{ const b=document.createElement('button'); b.className='btn ghost'; b.style.borderColor=col; b.style.color=col; b.textContent=lab;
+          b.onclick=()=>{ lexSched(x.t,rate); if(rate!=='again') good++; i++; (i<queue.length)?card():finish(); }; return b; };
+        row.appendChild(mk('À revoir','again','var(--bad)')); row.appendChild(mk('Bien','good','var(--acc)')); row.appendChild(mk('Facile','easy','var(--ok)'));
+        inner.appendChild(row);
+      };
+      inner.appendChild(rev);
+    };
+    card();
+  });
+}
 function lexiconView(){
   openCustom('📖 Lexique',(inner)=>{
     const p=document.createElement('p'); p.style.cssText='color:var(--dim);font-size:14px;margin-bottom:8px';
-    p.textContent='Les mots de la musique, en une phrase. Filtre pour trouver vite.';
+    p.innerHTML='Les mots de la musique — avec le <b style="color:var(--txt)">concept derrière</b>. Révise-les en cartes, ou parcours-les.';
     inner.appendChild(p);
+    const pg=lexProgress();
+    const rb=document.createElement('button'); rb.className='btn'; rb.textContent='🃏 Réviser en Anki'+(pg.seen<pg.total?' ('+(pg.total-pg.seen)+' à découvrir)':' · '+lexDueList().length+' dues');
+    rb.onclick=()=>{ closeOverlay(); lexReview(); }; inner.appendChild(rb);
+    const bt=document.createElement('div'); bt.style.cssText='color:var(--dim);font-size:12px;text-align:center;margin:6px 0 12px;text-transform:uppercase;letter-spacing:.5px'; bt.textContent='— ou parcourir —'; inner.appendChild(bt);
     const inp=document.createElement('input'); inp.placeholder='Chercher un terme…';
     inp.style.cssText='width:100%;padding:11px 14px;border-radius:12px;background:var(--bg2);border:1px solid var(--line);color:var(--txt);font-size:15px;margin-bottom:10px';
     inner.appendChild(inp);
     const list=document.createElement('div'); inner.appendChild(list);
     const draw=f=>{ f=(f||'').toLowerCase(); list.innerHTML='';
-      const rows=LEXIQUE.filter(([t,d])=>!f||t.toLowerCase().includes(f)||d.toLowerCase().includes(f));
+      const rows=LEXIQUE.filter(x=>{ const blob=(x.t+' '+x.d+' '+(x.c||'')).toLowerCase(); return !f||blob.includes(f); });
       if(!rows.length){ list.innerHTML='<p style="color:var(--dim);font-size:13px">Rien trouvé.</p>'; return; }
-      rows.forEach(([t,d])=>{ const r=document.createElement('div'); r.style.cssText='padding:10px 2px;border-bottom:1px solid var(--line)';
-        r.innerHTML=`<b style="color:var(--acc);font-size:14px">${t}</b><div style="color:#c9cde0;font-size:13px;line-height:1.5;margin-top:2px">${d}</div>`;
+      rows.forEach(x=>{ const r=document.createElement('div'); r.style.cssText='padding:11px 2px;border-bottom:1px solid var(--line)';
+        r.innerHTML=`<b style="color:var(--acc);font-size:15px">${x.t}</b><div style="color:var(--txt);font-size:13.5px;line-height:1.5;margin-top:2px;font-weight:600">${x.d}</div>`
+          +(x.c?`<div style="color:#c9cde0;font-size:12.5px;line-height:1.55;margin-top:4px">${x.c}</div>`:'')
+          +(x.ex?`<div style="color:var(--dim);font-size:12px;font-style:italic;margin-top:4px">Ex : ${x.ex}</div>`:'');
         list.appendChild(r); });
     };
     inp.oninput=()=>draw(inp.value); draw('');
