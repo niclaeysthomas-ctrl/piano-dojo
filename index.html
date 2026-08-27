@@ -368,6 +368,26 @@ const CHORD_TYPES = {
   m9:   {iv:[0,3,7,10,14], suf:'m9',   nom:'mineur 9'},
   dom11:{iv:[0,7,10,14,17],suf:'11',   nom:'11 (dominante, sans la tierce)'},
   d7b9: {iv:[0,4,7,10,13], suf:'7♭9',  nom:'7 altéré (♭9)'},
+  /* sixtes & ajouts : les couleurs douces, sans passer par la 7e */
+  six:  {iv:[0,4,7,9],       suf:'6',      nom:'sixte (majeur + 6te)'},
+  m6:   {iv:[0,3,7,9],       suf:'m6',     nom:'mineur 6 (mineur + 6te MAJEURE)'},
+  add9: {iv:[0,4,7,14],      suf:'add9',   nom:'add9 (majeur + 9e, sans 7e)'},
+  six9: {iv:[0,4,9,14],      suf:'6/9',    nom:'6/9 (la tonique douce du jazz)'},
+  /* onzièmes & treizièmes : on empile au-delà de la 9e */
+  m11:  {iv:[0,3,7,10,17],   suf:'m11',    nom:'mineur 11 (la 11 sonne juste sur un mineur)'},
+  dom13:{iv:[0,4,10,14,21],  suf:'13',     nom:'13 (dominante : 3-7-9-13, sans 5 ni 11)'},
+  maj13:{iv:[0,4,11,14,21],  suf:'maj13',  nom:'majeur 13 (1-3-7-9-13)'},
+  m13:  {iv:[0,3,10,14,21],  suf:'m13',    nom:'mineur 13 (la 13 = 6te majeure)'},
+  /* couleurs jazz emblématiques */
+  maj7s11:{iv:[0,4,11,18],   suf:'maj7♯11',nom:'majeur 7 ♯11 (le son lydien, « musique de film »)'},
+  d7s9: {iv:[0,4,10,15],     suf:'7♯9',    nom:'7♯9 (l\'accord « Hendrix »)'},
+  /* briques du vocabulaire — le reste des accords de base, réutilisables partout.
+     Pour en ajouter un plus tard : une ligne ici + le ranger dans une CHORD_FAMILIES. */
+  mMaj7:{iv:[0,3,7,11],      suf:'mMaj7',  nom:'mineur ∆7 (mineur + 7e MAJEURE, le son « James Bond »)'},
+  d9sus4:{iv:[0,5,7,10,14],  suf:'9sus4',  nom:'9sus4 (le sus jazz/gospel, souvent avant un V)'},
+  madd9:{iv:[0,3,7,14],      suf:'m(add9)',nom:'mineur add9 (doux, mélancolique, sans 7e)'},
+  d7b5: {iv:[0,4,6,10],      suf:'7♭5',    nom:'7♭5 (dominante altérée, quinte abaissée)'},
+  d7s5: {iv:[0,4,8,10],      suf:'7♯5',    nom:'7♯5 / 7aug (dominante augmentée)'},
 };
 const chordName = (root,t,bass=null) =>
   NOTE[root] + CHORD_TYPES[t].suf + (bass!=null ? '/'+NOTE[bass] : '');
@@ -1462,7 +1482,7 @@ const DAILY_DRILLS=[
   {req:'m2l2', ic:'🎲', txt:'Joue une progression tirée au sort', fn:()=>dojoProg()},
   {req:'m6l1', ic:'🪜', txt:'Gammes depuis une fondamentale au hasard', fn:()=>dojoScale()},
   {req:null, ic:'🧠', txt:'Quiz : formats & grilles', fn:()=>dojoTheoryQuiz()},
-  {req:'m5l1', ic:'🎨', txt:'Accords colorés (sus, dim, 9, 11)', fn:()=>chordLabRoom()},
+  {req:'m5l1', ic:'🎨', txt:'Accords colorés (sus, dim, 9 · 11 · 13, ♯11…)', fn:()=>chordLabRoom()},
 ];
 const INTENSITIES=[['normal','Normal'],['intense','Intense'],['forge','Forge'],['marathon','Marathon']];
 function curIntensity(){ return S.intensity||'intense'; }
@@ -1631,8 +1651,11 @@ const DRILLS=[
    desc:()=>'Blues, ii–V–I, anatole, AABA, modes, dominantes secondaires… Les formats et progressions que tout musicien doit connaître par cœur.',
    run:()=>dojoTheoryQuiz()},
   {id:'colab', icon:'🎨', title:'Accords colorés', req:'m5l1',
-   desc:()=>'Au-delà de maj/min/7 : sus2/sus4, dim, m7♭5, dim7, et les extensions 9 & 11. Le vocabulaire du son jazz — à construire au clavier.',
+   desc:()=>'Au-delà de maj/min/7 : sus, dim, m7♭5, dim7, sixtes, 9 · 11 · 13, ♯11, 7♯9, mMaj7, 9sus4… tout le vocabulaire du son jazz, à construire au clavier.',
    run:()=>chordLabRoom()},
+  {id:'astuces', icon:'💡', title:'Astuces — accords riches', req:'m5l1',
+   desc:()=>'Comment jouer les 9 · 11 · 13 sans t\'arracher les doigts : quoi jeter, séparer les mains, les recettes prêtes à poser, les voicings en quartes et le ii–V–I rootless. Claviers écoutables.',
+   run:()=>voicingTips()},
   {id:'modes', icon:'🎭', title:'Explorer les modes', req:null,
    desc:()=>'Tu ne comprends rien aux modes ? Écoute-les côte à côte sur le même Do, vois la note qui change. Du plus lumineux au plus sombre — par l\'oreille, pas par les mots.',
    run:()=>modesExplorer()},
@@ -2047,14 +2070,22 @@ function dojoTheoryQuiz(){
 const CHORD_FAMILIES=[
   {id:'sus', t:'Suspendus · sus2 / sus4', ex:[9,'sus2',9,'sus4'],
    types:['sus2','sus4'], d:'Ni majeur ni mineur : la tierce cède la place à la 2de (sus2) ou la 4te (sus4). Le son « en suspens », qui attend de résoudre.'},
+  {id:'sixadd', t:'Sixtes & ajouts · 6 / m6 / add9 / 6-9', ex:[0,'six',0,'six9'],
+   types:['six','m6','add9','six9'], d:'Des couleurs douces sans passer par la 7e : la 6te ajoutée, le add9 (la pop en est pleine) et le 6/9 — la tonique la plus soyeuse du jazz.'},
   {id:'dark', t:'Diminués & augmentés', ex:[0,'dim',0,'aug'],
    types:['dim','aug','m7b5','dim7'], d:'Les couleurs tendues : le diminué (3+3), l\'augmenté (4+4), le demi-diminué m7♭5 (le ii des tonalités mineures) et le dim7 — piliers du jazz.'},
-  {id:'ext', t:'Extensions · 9 et 11', ex:[0,'dom9',0,'maj9'],
-   types:['dom9','maj9','m9','dom11'], d:'On empile au-delà de la 7e : la 9e, la 11e. Le son riche, adulte, moderne. (Le 11 se joue sans la tierce.)'},
-  {id:'alt', t:'Tension altérée · 7♭9', ex:[7,'dom7',7,'d7b9'],
-   types:['dom7','d7b9'], d:'La dominante qui gratte encore plus : la 7♭9. Compare-la à la 7 simple, sens la différence de tension.'},
+  {id:'ext', t:'Extensions · 9 et 11', ex:[0,'dom9',2,'m11'],
+   types:['dom9','maj9','m9','dom11','m11'], d:'On empile au-delà de la 7e : la 9e, la 11e. Le son riche, adulte, moderne. (Le 11 des dominantes se joue sans la tierce ; sur un mineur, la 11 sonne juste.)'},
+  {id:'thirteen', t:'Treizièmes · 13 / maj13 / m13', ex:[7,'dom13',0,'maj13'],
+   types:['dom13','maj13','m13'], d:'Le sommet de l\'empilement : la 13e (une 6te montée d\'un étage). On garde 3-7-9-13 et on jette le reste — vois l\'onglet 💡 Astuces pour les doigter sans douleur.'},
+  {id:'jazzcol', t:'Couleurs jazz · maj7♯11 / 7♯9', ex:[0,'maj7s11',4,'d7s9'],
+   types:['maj7s11','d7s9'], d:'Le maj7♯11 (son lydien, « musique de film ») et le 7♯9 — l\'accord « Hendrix », tierce majeure et mineure à la fois.'},
+  {id:'alt', t:'Tension altérée · 7♭9 / 7♭5 / 7♯5', ex:[7,'dom7',7,'d7b9'],
+   types:['dom7','d7b9','d7b5','d7s5'], d:'La dominante qui gratte : 7♭9, mais aussi 7♭5 et 7♯5 (quinte altérée). Compare-les à la 7 simple, sens la tension monter.'},
+  {id:'vocab', t:'Le reste du vocabulaire · mMaj7 / 9sus4 / m(add9)', ex:[9,'mMaj7',7,'d9sus4'],
+   types:['mMaj7','d9sus4','madd9','six','m6'], d:'Les briques qui manquaient pour tout dire : le mineur ∆7 (« James Bond »), le 9sus4 (gospel/jazz), le m(add9), plus les 6tes. De quoi construire n\'importe quelle grille par la suite.'},
   {id:'all', t:'Tout mélangé', ex:[2,'m9',5,'dim7'],
-   types:['sus2','sus4','m7b5','dim7','dom9','maj9','m9'], d:'Le grand mélange, toutes tonalités. Le vrai test de maîtrise du clavier coloré.'},
+   types:['sus2','sus4','m7b5','dim7','dom9','maj9','m9','six','six9','add9','m11','dom13','maj7s11','d7s9','mMaj7','d9sus4','d7b5'], d:'Le grand mélange, toutes tonalités. Le vrai test de maîtrise du clavier coloré.'},
 ];
 function chordLabRoom(){
   const R12=[0,1,2,3,4,5,6,7,8,9,10,11];
@@ -2062,6 +2093,8 @@ function chordLabRoom(){
     const menu=document.createElement('div');
     menu.innerHTML=`<p style="color:var(--dim);font-size:14px;margin-bottom:8px">Au-delà de maj/min/7 : les accords qui font le son jazz, soul et moderne. On les <b style="color:var(--txt)">construit</b> sur le clavier — l'app valide les notes, dans n'importe quel renversement.</p>`;
     inner.appendChild(menu);
+    const tipb=document.createElement('button'); tipb.className='btn ghost'; tipb.textContent='💡 Astuces : comment jouer les 9 / 11 / 13 facilement';
+    tipb.onclick=()=>{ closeOverlay(); voicingTips(); }; menu.appendChild(tipb);
     CHORD_FAMILIES.forEach(F=>{
       const c=document.createElement('div'); c.className='card';
       c.innerHTML=`<b style="font-size:15px">${F.t}</b>
@@ -2076,6 +2109,153 @@ function chordLabRoom(){
         overlay.scrollTop=0; };
       c.appendChild(b); menu.appendChild(c);
     });
+    overlay.scrollTop=0;
+  });
+}
+
+/* ================================================================
+   ASTUCES — jouer les accords riches (9 / 11 / 13) sans douleur.
+   Comment DÉGRAISSER un accord monstre à 6-7 notes en 2 poignées.
+   Bleu = main gauche (l'ancre), ambre = main droite (la couleur).
+   ================================================================ */
+const VOICE_TIPS=[
+  {ic:'🧮', t:'Le décodeur : 9 = 2, 11 = 4, 13 = 6',
+   html:`<p>Pas de panique avec les grands chiffres. Au-delà de 7, on continue de compter la gamme <b>en montant</b> : la 8 c'est l'octave, donc <b>9 = la 2de</b>, <b>11 = la 4te</b>, <b>13 = la 6te</b> — la même note, juste montée d'un étage.</p>
+   <div class="cheat" style="margin-top:6px">
+     <div class="row"><b>9e</b> = la 2de · un ton au-dessus de la fondamentale</div>
+     <div class="row"><b>11e</b> = la 4te</div>
+     <div class="row"><b>13e</b> = la 6te</div>
+   </div>
+   <p style="margin-top:8px">« C13 » ne veut pas dire 13 notes. Ça veut dire : un C7 + la couleur de la 13e (le La). Tout le reste est <b>optionnel</b>.</p>`},
+
+  {ic:'✂️', t:'La règle d\'or : garde 3 &amp; 7, jette la quinte',
+   html:`<p>Chaque note a un rôle. Apprends à trier — c'est 90 % du travail :</p>
+   <div class="cheat" style="margin-top:6px">
+     <div class="row">🎯 <b>La 3e et la 7e</b> : l'ADN. Elles disent majeur/mineur et la couleur de 7e. <b>On les garde toujours.</b></div>
+     <div class="row">🎨 <b>L'extension</b> (9, 11 ou 13) : la couleur voulue. Une ou deux, <b>pas les trois</b>.</div>
+     <div class="row">🗑 <b>La quinte</b> : elle ne dit rien. <b>Jette-la</b> presque toujours.</div>
+     <div class="row">🤝 <b>La fondamentale</b> : la main gauche la tient. La droite peut l'oublier.</div>
+   </div>
+   <p style="margin-top:8px">Pour un <b>C13</b> : au lieu d'empiler 7 notes, tu poses <b>C + B♭</b> à gauche et <b>E – A – D</b> à droite. Cinq notes, deux poignées, ça respire.</p>`,
+   demo:{lh:[48,58], rh:[64,69,74], notes:'🔵 C · B♭ &nbsp; 🟡 E · A · D &nbsp;=&nbsp; <b>C13</b>'}},
+
+  {ic:'🖐️', t:'Deux mains, deux métiers',
+   html:`<p>Le secret qui rend ces accords <b>faciles</b> : ne jamais entasser plus de 3 notes dans une main.</p>
+   <div class="cheat" style="margin-top:6px">
+     <div class="row">🔵 <b>Main gauche = l'ancre</b> : la fondamentale seule, en octave, ou fondamentale + 7e (le « shell »).</div>
+     <div class="row">🟡 <b>Main droite = la couleur</b> : la 3e, la 7e et l'extension.</div>
+   </div>
+   <p style="margin-top:8px">Chaque main a 2 ou 3 doigts posés. Un Cmaj9 « impressionnant » = <b>C</b> à gauche, <b>E – G – B – D</b> à droite.</p>`,
+   demo:{lh:[48], rh:[64,67,71,74], notes:'🔵 C &nbsp; 🟡 E · G · B · D &nbsp;=&nbsp; <b>Cmaj9</b>'}},
+
+  {ic:'⚠️', t:'La 11 qui grince (le piège classique)',
+   html:`<p>Pose une 11e (la quarte) juste au-dessus d'une <b>tierce majeure</b> et ça frotte méchamment — le clash à un demi-ton. Trois sorties de secours :</p>
+   <div class="cheat" style="margin-top:6px">
+     <div class="row">1️⃣ <b>Vire la tierce</b> → l'accord « 11 » suspendu (C11 = C–G–B♭–D–F). Ouvert, planant. <i>C'est ce que fait l'app pour les 11 de dominante.</i></div>
+     <div class="row">2️⃣ <b>Monte-la d'un demi-ton → ♯11</b> → le son lydien, brillant. Zéro frottement.</div>
+     <div class="row">3️⃣ <b>Sur un accord mineur</b> : aucun souci, la tierce est mineure, la 11 sonne juste (Dm11 = superbe).</div>
+   </div>`,
+   demo:{lh:[48], rh:[64,66,71], notes:'🔵 C &nbsp; 🟡 E · F♯ · B &nbsp;=&nbsp; <b>Cmaj7♯11</b> (lydien)'}},
+
+  {ic:'🎩', t:'Recettes prêtes à poser',
+   html:`<p>Des accords riches qui tombent bien sous les doigts et sonnent <b>tout de suite</b>. Fondamentale à gauche, la grappe à droite. Écoute :</p>`,
+   recipes:[
+     {name:'C6/9', notes:'C – E – A – D · la tonique la plus douce, mieux que maj7', lh:[48], rh:[64,69,74]},
+     {name:'Cadd9', notes:'C – E – G – D · partout dans la pop et le folk', lh:[48], rh:[64,67,74]},
+     {name:'G13', notes:'G · F – B – E · garde 7 + 3, pose la 13e par-dessus', lh:[55], rh:[65,71,76]},
+     {name:'E7♯9', notes:'E · G♯ – D – G · l\'accord « Hendrix », les deux tierces à la fois', lh:[52], rh:[56,62,67]},
+   ]},
+
+  {ic:'🏛️', t:'Le truc des pros : empile des quartes',
+   html:`<p>Au lieu d'empiler des tierces (l'accord « normal »), empile des <b>quartes</b> : saute 5 touches à chaque fois. Le son devient ouvert, moderne, modal — le voicing culte de « <b>So What</b> » (Miles Davis / Bill Evans).</p>
+   <p style="margin-top:6px">Énorme avantage : la <b>forme ne change jamais</b>. Tu la glisses telle quelle le long du clavier pour changer d'accord. Ici un <b>Dm11</b> en quartes : D – G – C – F, coiffé d'un La.</p>`,
+   demo:{lh:[50], rh:[55,60,65,69], notes:'🔵 D &nbsp; 🟡 G · C · F · A &nbsp;=&nbsp; <b>Dm11</b> (« So What »)'}},
+
+  {ic:'🔗', t:'Rootless &amp; voice leading : le ii–V–I qui bouge à peine',
+   html:`<p>Le graal. La basse tenant la fondamentale, la main droite l'oublie et garde seulement <b>3 – 5 – 7 – 9</b>. D'un accord à l'autre, les doigts bougent d'un cheveu : c'est ça, le <b>voice leading</b>. Un ii–V–I en Do, main droite seule — touche chaque accord, puis enchaîne :</p>`,
+   seq:[
+     {label:'Dm9',   lh:[50], rh:[65,69,72,76], notes:'F – A – C – E (3·5·♭7·9)'},
+     {label:'G13',   lh:[55], rh:[65,69,71,76], notes:'F – A – B – E (♭7·9·3·13)'},
+     {label:'Cmaj9', lh:[48], rh:[64,67,71,74], notes:'E – G – B – D (3·5·7·9)'},
+   ],
+   note:'Regarde : entre Dm9 et G13, seul le Do descend d\'un demi-ton (→ Si). Presque rien ne bouge, et pourtant tout change de couleur. C\'est pour ça que les pianistes de jazz ont l\'air de ne rien faire.'},
+
+  {ic:'🧠', t:'À retenir',
+   html:`<div class="cheat">
+     <div class="row">9 = 2 · 11 = 4 · 13 = 6 (même note, une octave plus haut)</div>
+     <div class="row">Garde <b>3 + 7</b>. Jette la <b>quinte</b>. Une extension à la fois.</div>
+     <div class="row">Gauche = fondamentale / shell · Droite = 3 · 7 · extension</div>
+     <div class="row">La 11 sur un majeur → passe en <b>♯11</b> (ou vire la tierce)</div>
+     <div class="row">Tonique douce → <b>6/9</b> · dominante juteuse → <b>13</b> · rock → <b>7♯9</b></div>
+     <div class="row">Bloqué ? Empile des <b>quartes</b> et glisse la forme.</div>
+   </div>`},
+];
+/* clavier de démonstration : main gauche en bleu (hint), main droite en ambre (sel) */
+function tipKb(host, lh, rh){
+  const all=[...lh,...rh];
+  const lo=Math.min(...all)-(Math.min(...all)%12);
+  let hi=Math.max(...all)+2; if(hi-lo<12) hi=lo+12;
+  const kb=buildKeyboard(lo,hi,(m,k)=>{ playNote(m); k.classList.add('flash'); setTimeout(()=>k.classList.remove('flash'),160); });
+  host.appendChild(kb);
+  lh.forEach(m=>{ const k=kb.keyEl(m); if(k) k.classList.add('hint'); });
+  rh.forEach(m=>{ const k=kb.keyEl(m); if(k) k.classList.add('sel'); });
+  return kb;
+}
+function voicingTips(){
+  openCustom('💡 Astuces — accords riches',(inner)=>{
+    const intro=document.createElement('div'); intro.className='theory';
+    intro.innerHTML=`<p>Un accord de 9e, 11e ou 13e a l'air d'un monstre à 6 ou 7 notes. En vrai, <b>personne ne les joue toutes</b>. Voici comment poser ces couleurs avec <b>3 doigts par main</b>, sans douleur et sans fausse note.</p>
+      <div class="tip">Sur les claviers : <b style="color:#8db8f5">bleu = main gauche</b> (l'ancre), <b style="color:var(--acc)">ambre = main droite</b> (la couleur). Touche une touche pour l'entendre.</div>`;
+    inner.appendChild(intro);
+    VOICE_TIPS.forEach(T=>{
+      const c=document.createElement('div'); c.className='card';
+      c.innerHTML=`<b style="font-size:16px">${T.ic} ${T.t}</b><div class="theory" style="margin-top:6px">${T.html}</div>`;
+      /* fiche à un seul voicing illustré */
+      if(T.demo){
+        const box=document.createElement('div'); tipKb(box,T.demo.lh,T.demo.rh); c.appendChild(box);
+        const nt=document.createElement('div'); nt.style.cssText='text-align:center;color:#c9cde0;font-size:14px;margin:2px 0 8px'; nt.innerHTML=T.demo.notes; c.appendChild(nt);
+        const lb=document.createElement('button'); lb.className='btn ghost'; lb.textContent='🔊 Écouter';
+        lb.onclick=()=>playChord([...T.demo.lh,...T.demo.rh],1.9); c.appendChild(lb);
+      }
+      /* fiche « recettes » : une ligne écoutable par accord */
+      if(T.recipes){
+        const tbl=document.createElement('div'); tbl.className='cheat'; tbl.style.marginTop='8px';
+        T.recipes.forEach(r=>{
+          const row=document.createElement('div'); row.className='row';
+          row.style.cssText='padding:8px 0;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:10px';
+          const tx=document.createElement('span'); tx.innerHTML=`<b>${r.name}</b> · <span style="color:var(--dim);font-size:13px">${r.notes}</span>`;
+          const pb=document.createElement('button'); pb.className='btn small ghost'; pb.textContent='🔊'; pb.style.flex='0 0 auto';
+          pb.onclick=()=>playChord([...r.lh,...r.rh],1.7);
+          row.appendChild(tx); row.appendChild(pb); tbl.appendChild(row);
+        });
+        c.appendChild(tbl);
+      }
+      /* fiche « enchaînement » : un clavier, un bouton par accord + tout enchaîner */
+      if(T.seq){
+        const box=document.createElement('div'); c.appendChild(box);
+        const all=T.seq.flatMap(ch=>[...ch.lh,...ch.rh]);
+        const lo=Math.min(...all)-(Math.min(...all)%12); let hi=Math.max(...all)+2; if(hi-lo<12) hi=lo+12;
+        const kb=buildKeyboard(lo,hi,(m,k)=>{ playNote(m); k.classList.add('flash'); setTimeout(()=>k.classList.remove('flash'),160); });
+        box.appendChild(kb);
+        const nt=document.createElement('div'); nt.style.cssText='text-align:center;color:#c9cde0;font-size:14px;margin:2px 0 8px'; c.appendChild(nt);
+        const light=ch=>{ kb.clearSel();
+          ch.lh.forEach(m=>{ const k=kb.keyEl(m); if(k) k.classList.add('hint'); });
+          ch.rh.forEach(m=>{ const k=kb.keyEl(m); if(k) k.classList.add('sel'); });
+          nt.innerHTML=`<b style="color:var(--acc)">${ch.label}</b> — ${ch.notes}`; };
+        const row=document.createElement('div'); row.className='selrow';
+        T.seq.forEach(ch=>{ const t=document.createElement('div'); t.className='tag'; t.textContent=ch.label;
+          t.onclick=()=>{ row.querySelectorAll('.tag').forEach(x=>x.classList.remove('on')); t.classList.add('on'); light(ch); playChord([...ch.lh,...ch.rh],1.6); }; row.appendChild(t); });
+        c.appendChild(row);
+        const chain=document.createElement('button'); chain.className='btn ghost'; chain.textContent='▶ Enchaîner les trois';
+        chain.onclick=()=>{ const tags=row.querySelectorAll('.tag'); T.seq.forEach((ch,idx)=>setTimeout(()=>{ tags.forEach(x=>x.classList.remove('on')); if(tags[idx])tags[idx].classList.add('on'); light(ch); playChord([...ch.lh,...ch.rh],1.4); }, idx*1300)); };
+        c.appendChild(chain);
+        if(T.note){ const nb=document.createElement('div'); nb.className='tip'; nb.style.cssText='background:#1a2438;border-left:3px solid var(--blue);padding:10px 12px;border-radius:0 10px 10px 0;margin-top:12px;font-size:13px;line-height:1.5;color:#c9cde0'; nb.innerHTML=T.note; c.appendChild(nb); }
+        row.children[0].classList.add('on'); light(T.seq[0]);
+      }
+      inner.appendChild(c);
+    });
+    const go=document.createElement('button'); go.className='btn'; go.textContent='⚔️ Aller les construire (Accords colorés)';
+    go.onclick=()=>{ closeOverlay(); chordLabRoom(); }; inner.appendChild(go);
     overlay.scrollTop=0;
   });
 }
@@ -2660,6 +2840,12 @@ function renderOutils(){
   c1.appendChild(kb); main.appendChild(c1);
   c1.querySelector('#lbltog').onclick=()=>{ S.labels=!S.labels; save(); renderOutils(); };
 
+  const cAst=document.createElement('div'); cAst.className='card'; cAst.style.borderColor='var(--acc)';
+  cAst.innerHTML=`<b style="font-size:16px">💡 Astuces — accords riches</b>
+    <p style="color:var(--dim);font-size:13px;margin:4px 0 0;line-height:1.5">9e, 11e, 13e sans t'arracher les doigts : quoi jeter, comment séparer les mains, les recettes prêtes à poser, les voicings en quartes et le ii–V–I rootless. Claviers écoutables.</p>`;
+  const astb=document.createElement('button'); astb.className='btn ghost'; astb.textContent='💡 Ouvrir les astuces';
+  astb.onclick=()=>voicingTips(); cAst.appendChild(astb); main.appendChild(cAst);
+
   const cM=document.createElement('div'); cM.className='card'; cM.style.borderColor='var(--blue)';
   cM.innerHTML=`<b style="font-size:16px">🎹 Piano connecté (MIDI)</b>
     <p style="color:var(--dim);font-size:13px;margin:4px 0 0">Branche ton piano numérique en USB : l'app <b>entend directement</b> ce que tu joues et identifie l'accord, sans micro et sans erreur. Chrome/Edge sur ordinateur uniquement.</p>`;
@@ -2678,6 +2864,8 @@ function renderOutils(){
     <div class="row"><b>maj7</b> : majeur + 7e à 1 demi-ton sous l'octave (C–E–G–B)</div>
     <div class="row"><b>7</b> : majeur + 7e à 2 demi-tons sous l'octave (C–E–G–Bb)</div>
     <div class="row"><b>m7</b> : mineur + 7e à 2 demi-tons sous l'octave (C–Eb–G–Bb)</div>
+    <div class="row"><b>Extensions</b> : 9 = la 2 · 11 = la 4 · 13 = la 6 (montées d'une octave)</div>
+    <div class="row"><b>Accord riche jouable</b> : garde 3 &amp; 7, jette la quinte → voir 💡 Astuces</div>
     <div class="row"><b>Gamme majeure</b> : 2-2-1-2-2-2-1</div>
     <div class="row"><b>Ordre des dièses</b> : Fa Do Sol Ré La Mi Si — <b>bémols</b> : l'inverse</div>
     <div class="row"><b>Armures #</b> : Sol 1 · Ré 2 · La 3 · Mi 4 · Si 5 · Fa# 6</div>
@@ -2930,9 +3118,12 @@ function runChord(el,ex,cb){
       fails++; failedItems.add(i);
       if(fails===1 && !ex.noLog) errAdd('chord', it);
       buzz(); kb.kbd.classList.add('shake'); setTimeout(()=>kb.kbd.classList.remove('shake'),400);
-      if(fails===1) fb.textContent= it.msg1 || (it.bass!=null
-        ? '✗ Vérifie les notes ET la basse (note la plus grave = '+NOTE[it.bass]+').'
-        : '✗ Recompte : '+(CHORD_TYPES[it.t].iv.length>3?'4 notes.':'majeur = 4+3, mineur = 3+4.'));
+      if(fails===1){
+        const nN=[...new Set((it.iv||CHORD_TYPES[it.t].iv).map(x=>(it.root+x)%12))].length;
+        fb.textContent= it.msg1 || (it.bass!=null
+          ? '✗ Vérifie les notes ET la basse (note la plus grave = '+NOTE[it.bass]+').'
+          : '✗ Recompte : '+(nN>3? nN+' notes distinctes.':'majeur = 4+3, mineur = 3+4.'));
+      }
       else if(fails===2) fb.textContent='✗ Les notes : '+(it.notesTxt||chordNotes(it.root,it.t));
       else {
         fb.textContent='Regarde les touches bleues, joue-les, et retiens le geste.';
