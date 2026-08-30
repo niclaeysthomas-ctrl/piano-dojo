@@ -315,6 +315,9 @@
   .gmcell:active{transform:scale(.98)}
   .gmcell.mstr{border-color:var(--ok);background:linear-gradient(180deg,var(--bg2),rgba(62,207,122,.06))}
   .gmcell.next{border-color:var(--acc)}
+  /* une gamme scellée dont l'entretien est échu : elle se ternit visuellement */
+  .gmcell.due{border-color:var(--acc2,#f5b840);border-style:dashed;background:linear-gradient(180deg,var(--bg2),rgba(245,184,64,.07))}
+  .gmcell.due .nm{color:var(--acc)}
   .gmcell .nm{font-weight:800;font-size:17px}
   .gmcell .ar{font-size:11.5px;color:var(--dim);margin-top:1px}
   .gmcell .rk{margin-top:9px;display:flex;align-items:center;gap:7px}
@@ -1687,6 +1690,14 @@ const DRILLS=[
   {id:'regles', icon:'🧩', title:'Comprendre les accords · 6 & 11', req:'m5l1',
    desc:()=>'Les deux familles où le nom ment : pourquoi <b>m6 = tierce mineure + sixte MAJEURE</b>, pourquoi 6 et 13 sont la même note, pourquoi la 11e se construit autrement sur une dominante, un mineur et un majeur. Comparaisons écoutables.',
    run:()=>chordRules()},
+  {id:'flash12', icon:'⚡', title:'Le Flash des 12 gammes', req:null,
+   desc:()=>{ const d=(typeof goDueList==='function')?goDueList().length:0;
+     return '12 questions, <b>gammes mélangées</b>, dans les deux sens (« Mi majeur, combien d\'altérations ? » autant que « 4 dièses, c\'est quelle gamme ? »). L\'exercice d\'entretien : court, quotidien, et il révèle les vrais trous.'
+     +(d?` <b style="color:var(--acc)">${d} gamme(s) à revoir en ce moment.</b>`:''); },
+   run:()=>goFlash()},
+  {id:'boussole', icon:'🧭', title:'La Boussole des armures', req:null,
+   desc:()=>'Arrêter de retenir 12 listes : <b>une seule liste</b> (Fa-Do-Sol-Ré-La-Mi-Si) et <b>deux raccourcis</b> (dernier dièse = sensible · avant-dernier bémol = tonique). 4 niveaux, jusqu\'à l\'aller-retour chronométré.',
+   run:()=>goCompass()},
   {id:'modes', icon:'🎭', title:'Explorer les modes', req:null,
    desc:()=>'Tu ne comprends rien aux modes ? Écoute-les côte à côte sur le même Do, vois la note qui change. Du plus lumineux au plus sombre — par l\'oreille, pas par les mots.',
    run:()=>modesExplorer()},
@@ -5349,7 +5360,16 @@ const OTHER={'Do#':'Réb','Réb':'Do#','Ré#':'Mib','Mib':'Ré#','Fa#':'Solb','S
 const CHROMA12=['Do','Do#/Réb','Ré','Ré#/Mib','Mi','Fa','Fa#/Solb','Sol','Sol#/Lab','La','La#/Sib','Si'];
 
 /* ---- état de maîtrise ---- */
-function gmState(){ if(!S.gammes) S.gammes={start:todayStr(), m:{}, diploma:null}; if(!S.gammes.m) S.gammes.m={}; return S.gammes; }
+function gmState(){ if(!S.gammes) S.gammes={start:todayStr(), m:{}, diploma:null}; if(!S.gammes.m) S.gammes.m={};
+  if(!S.gammes.stats) S.gammes.stats={};
+  /* migration unique : les gammes scellées AVANT l'ajout de la révision espacée
+     n'ont pas de date d'entretien — on les étale sur les 4 prochains jours
+     plutôt que de toutes les faire tomber le même jour. */
+  if(!S.gammes.mig){ S.gammes.mig=1;
+    Object.keys(S.gammes.m).forEach(k=>{ const x=S.gammes.m[k];
+      if(x.lvl>=5 && !x.due){ x.step=0; x.due=goAddDays(todayStr(), Math.max(0,GO_ORDER.indexOf(+k))%4); } });
+    save(); }
+  return S.gammes; }
 function gm(root){ const g=gmState(); if(!g.m[root]) g.m[root]={lvl:0,seal:null,last:null,best:null}; return g.m[root]; }
 function goDay(){ const g=gmState(); const d=Math.floor((new Date(todayStr())-new Date(g.start))/864e5)+1; return Math.max(1,d); }
 function goMastered(){ return GO_ORDER.filter(r=>gm(r).lvl>=5).length; }
@@ -5366,7 +5386,8 @@ function goAward(root, secs){
   if(g.lvl<4){ g.lvl++; save(); return {up:true, msg:`▲ ${GO_SCALES[root].name} majeur → palier « ${GO_RANKS[g.lvl]} »`}; }
   if(g.lvl===4){
     if(!g.seal){ g.seal=t; save(); return {up:false, seal:true, msg:`🔒 Sceau posé sur ${GO_SCALES[root].name}. Reviens un AUTRE jour la réciter à nouveau pour la sceller définitivement — le sommeil fait le travail.`}; }
-    if(g.seal!==t){ g.lvl=5; g.seal=null; save(); return {up:true, master:true, msg:`🏅 ${GO_SCALES[root].name} MAJEUR MAÎTRISÉE. Scellée pour de bon.`}; }
+    if(g.seal!==t){ g.lvl=5; g.seal=null; g.step=0; g.due=goAddDays(t,GO_INTERVALS[0]); save();
+      return {up:true, master:true, msg:`🏅 ${GO_SCALES[root].name} MAJEUR MAÎTRISÉE. Premier entretien demain — puis de plus en plus espacé.`}; }
     save(); return {up:false, msg:`Déjà scellée aujourd'hui — reviens demain pour finir le travail sur ${GO_SCALES[root].name}.`};
   }
   save(); return {up:false, msg:`${GO_SCALES[root].name} déjà maîtrisée — entretien fait.`};
@@ -5530,8 +5551,8 @@ function goDegQs(sc){
    done(leveledUp) est appelé à la fin. */
 function goLevelTest(sc, el, done){
   const g=gm(sc.root), lvl=g.lvl;
-  const bump=(secs)=>{ const r=goAward(sc.root, secs); toast(r.msg); if(r.master) tada(); done(!!r.up, r); };
-  const nobump=(m)=>{ if(m) toast(m); done(false); };
+  const bump=(secs)=>{ goStat(sc.root,true); const r=goAward(sc.root, secs); toast(r.msg); if(r.master) tada(); done(!!r.up, r); };
+  const nobump=(m)=>{ goStat(sc.root,false); if(m) toast(m); done(false); };
 
   if(lvl===0){
     /* découverte : on montre la fiche, puis QCM armure */
@@ -5551,11 +5572,21 @@ function goLevelTest(sc, el, done){
         else nobump(faults? '✗ Une reprise = pas encore un réflexe. Recommence à froid.' : `✗ ${secs}s — sous la barre des ${GO_TARGET_S}s, il te faut le réflexe. Presque.`);
       }); return;
   }
-  if(lvl>=5){                                                                       /* entretien : un test au hasard, sans montée */
+  if(lvl>=5){
+    /* ENTRETIEN — il compte pour de vrai : réussi, l'intervalle s'allonge ;
+       raté, la gamme REDESCEND au palier « Par cœur ». Sans ça, l'app croyait
+       qu'il savait des gammes qu'il avait oubliées. */
+    const fin=(pass)=>{
+      goStat(sc.root, pass);
+      if(pass){ const d=goSchedPass(sc.root); toast(`✓ ${sc.name} tient. Prochain entretien dans ${d} jour${d>1?'s':''}.`); }
+      else { goSchedFail(sc.root); buzz();
+        toast(`⚠️ ${sc.name} a lâché → elle redescend au palier « Par cœur ». C'est exactement ce qu'on veut attraper.`); }
+      done(false);
+    };
     const pick=Math.random();
-    if(pick<0.5) runQuiz(el,{qs:goDegQs(sc)},()=>{ g.last=todayStr(); save(); done(false); });
+    if(pick<0.5) runQuiz(el,{qs:goDegQs(sc), scored:true},(_,score)=>fin(score>=4));
     else runOrder(el,{sc,mode:'blind',sub:'Entretien : récite-la à l\'aveugle pour ne pas la perdre.'},
-      (ok,secs,faults)=>{ g.last=todayStr(); save(); done(false); });
+      (ok,secs,faults)=>fin(faults===0));
     return;
   }
 }
@@ -5563,9 +5594,12 @@ function goLevelTest(sc, el, done){
 /* ---- construit le programme de la séance du jour ---- */
 function goSeanceQueue(){
   const q=[];
+  /* 0) PRIORITÉ ABSOLUE : les gammes scellées dont l'entretien est échu.
+     C'est elles qui décrochent en silence — elles passent avant tout le reste. */
+  goDueList().slice(0,3).forEach(r=>{ if(!q.includes(r)) q.push(r); });
   /* 1) entretien : 1 gamme déjà solide (palier ≥4) pas revue depuis le plus longtemps */
   const known=GO_ORDER.filter(r=>gm(r).lvl>=4).sort((a,b)=>((gm(a).last||'')<(gm(b).last||'')?-1:1));
-  if(known.length) q.push(known[0]);
+  if(known.length && !q.includes(known[0])) q.push(known[0]);
   /* 2) les chantiers en cours (paliers 1-3), du plus bas au plus haut */
   goInProgress().sort((a,b)=>gm(a).lvl-gm(b).lvl).forEach(r=>{ if(!q.includes(r)) q.push(r); });
   /* 3) sceller les "par cœur" (palier 4) qui attendent leur 2e jour */
@@ -5592,6 +5626,15 @@ function goSeance(){
       if(k>=queue.length){
         if(!doneBonus){ doneBonus=true;
           const elig=GO_ORDER.filter(r=>gm(r).lvl>=3);
+          /* un flash interleavé une fois sur deux : c'est le mélange entre gammes
+             qui grave, pas la répétition en bloc de la séance elle-même. */
+          if(elig.length>=3 && Math.random()<.5){
+            inner.querySelectorAll('.goseg').forEach(x=>x.remove());
+            const bseg=document.createElement('div'); bseg.className='goseg';
+            bseg.innerHTML=`<p style="text-align:center;color:var(--acc);font-size:12px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;margin:2px 0 6px">Bonus · flash mélangé</p>`;
+            const bbox=document.createElement('div'); bseg.appendChild(bbox); inner.appendChild(bseg);
+            runFlash(bbox, goFlashQs(5), ()=>{ bonusXp=8; step(); }); return;
+          }
           if(elig.length){ const br=elig[Math.floor(Math.random()*elig.length)], bsc=GO_SCALES[br];
             inner.querySelectorAll('.goseg').forEach(x=>x.remove());
             const bseg=document.createElement('div'); bseg.className='goseg';
@@ -5804,6 +5847,420 @@ function goFarm(fixedRoot){
 }
 
 /* ---- menu d'une gamme (entraînement ciblé) ---- */
+/* ================================================================
+   GAMMES · CE QUI FAIT QUE ÇA RESTE
+   Trois trous du Grand Œuvre, traités ici :
+   1. RIEN NE SE TERNISSAIT. Une gamme « scellée » ne revenait plus
+      vraiment, et rater son entretien ne coûtait rien → l'app croyait
+      qu'il savait des gammes qu'il avait oubliées. Ajout d'une
+      RÉVISION ESPACÉE (1-3-7-16-35-60 j) qui fait REDESCENDRE la gamme
+      d'un palier quand l'entretien est raté.
+   2. TOUT ÉTAIT EN BLOC ET À SENS UNIQUE. On travaillait Do, puis Sol,
+      puis Fa, toujours « gamme → notes ». Le bloc donne l'impression
+      de savoir et ne grave rien. Ajout du FLASH DES 12 : questions
+      MÉLANGÉES entre gammes, et dans les DEUX sens (armure → gamme
+      autant que gamme → armure).
+   3. ON MÉMORISAIT 12 LISTES AU LIEU D'APPRENDRE 1 RÈGLE. Ajout de
+      LA BOUSSOLE : l'ordre des altérations + les deux raccourcis qui
+      permettent de RETROUVER n'importe quelle armure en 3 secondes.
+      Une règle ne s'oublie pas comme une liste.
+   ================================================================ */
+const GO_INTERVALS=[1,3,7,16,35,60];   /* jours entre deux entretiens, après scellage */
+const goAddDays=(d,n)=>{ const x=new Date(d+'T12:00:00'); x.setDate(x.getDate()+n); return x.toISOString().slice(0,10); };
+const goDaysLate=root=>{ const g=gm(root); return g.due? Math.round((new Date(todayStr()+'T12:00:00')-new Date(g.due+'T12:00:00'))/864e5) : 0; };
+
+function goStats(){ const g=gmState(); if(!g.stats) g.stats={}; return g.stats; }
+/* une gamme est « à revoir » quand sa date d'entretien est passée */
+function goIsDue(root){ const g=gm(root); return g.lvl>=5 && g.due && g.due<=todayStr(); }
+function goDueList(){ return GO_ORDER.filter(goIsDue).sort((a,b)=> gm(a).due<gm(b).due?-1:1); }
+function goSchedSeal(root){ const g=gm(root); g.step=0; g.due=goAddDays(todayStr(),GO_INTERVALS[0]); save(); }
+function goSchedPass(root){ const g=gm(root); g.step=Math.min((g.step||0)+1,GO_INTERVALS.length-1);
+  g.due=goAddDays(todayStr(),GO_INTERVALS[g.step]); g.last=todayStr(); save(); return GO_INTERVALS[g.step]; }
+/* l'entretien raté fait REDESCENDRE : c'est tout l'intérêt du système */
+function goSchedFail(root){ const g=gm(root); g.lapses=(g.lapses||0)+1; g.lvl=4; g.step=0; g.due=null; g.seal=null; g.last=todayStr(); save(); }
+/* mémoire des points faibles, par gamme */
+function goStat(root, ok){ const st=goStats(); if(!st[root]) st[root]={s:0,m:0}; st[root].s++; if(!ok) st[root].m++; save(); }
+function goWeak(n){ const st=goStats();
+  return GO_ORDER.filter(r=>st[r] && st[r].s>=3 && st[r].m>0)
+    .sort((a,b)=>(st[b].m/st[b].s)-(st[a].m/st[a].s)).slice(0,n||3); }
+function goMissPct(root){ const s=goStats()[root]; return s&&s.s? Math.round(100*s.m/s.s) : null; }
+
+/* ---------------- LE FLASH DES 12 ----------------
+   12 questions, gammes MÉLANGÉES, les deux sens. C'est l'exercice
+   d'entretien : court, quotidien, et il révèle les vrais trous. */
+const goShuf=a=>a.slice().sort(()=>Math.random()-.5);
+const goOtherScales=(sc,n)=>goShuf(GO_ORDER.filter(r=>r!==sc.root)).slice(0,n).map(r=>GO_SCALES[r]);
+const goAltTxt=sc=> sc.alt===0?'aucune altération':`${sc.alt} ${sc.type==='#'?'dièse':'bémol'}${sc.alt>1?'s':''}`;
+
+const GO_FLASH_GENS=[
+  /* gamme → nombre d'altérations */
+  sc=>{ const good=sc.alt===0?'Aucune':sc.alt+(sc.alt>1?' altérations':' altération');
+    const set=new Set([good]); [sc.alt+1,Math.max(0,sc.alt-1),(sc.alt+2)%7,(sc.alt+3)%7].forEach(n=>{
+      if(set.size<4) set.add(n===0?'Aucune':n+(n>1?' altérations':' altération')); });
+    const o=goShuf([...set]);
+    return {q:`<b>${sc.name} majeur</b> — combien d'altérations à l'armure ?`, opts:o, a:o.indexOf(good), root:sc.root,
+      why:`${sc.name} majeur : ${goAltTxt(sc)}${sc.altList.length?' → '+sc.altList.join(' '):''}.`}; },
+
+  /* ↔ SENS INVERSE : nombre + type → quelle gamme */
+  sc=>{ if(sc.alt===0) return null;
+    const good=sc.name; const o=goShuf([good,...goOtherScales(sc,3).map(x=>x.name)]);
+    return {q:`Quelle gamme majeure a <b>${sc.alt} ${sc.type==='#'?'dièse':'bémol'}${sc.alt>1?'s':''}</b> à l'armure ?`,
+      opts:o, a:o.indexOf(good), root:sc.root,
+      why:`${sc.alt} ${sc.type==='#'?'dièse':'bémol'}${sc.alt>1?'s':''} → <b>${sc.name} majeur</b> (${sc.altList.join(' ')}).`}; },
+
+  /* ↔ SENS INVERSE : l'armure écrite → quelle gamme */
+  sc=>{ if(sc.alt===0) return null;
+    const good=sc.name; const o=goShuf([good,...goOtherScales(sc,3).map(x=>x.name)]);
+    return {q:`Armure : <b>${sc.altList.join(' ')}</b>. Quelle gamme majeure ?`, opts:o, a:o.indexOf(good), root:sc.root,
+      why:`${sc.altList.join(' ')} → <b>${sc.name} majeur</b>. ${sc.type==='#'?'Raccourci : le dernier dièse ('+sc.altList[sc.altList.length-1]+') est la sensible → la tonique est juste au-dessus.':(sc.alt>=2?'Raccourci : l\'avant-dernier bémol EST la tonique.':'1 bémol = Fa majeur, à retenir à part.')}`}; },
+
+  /* gamme → les altérations */
+  sc=>{ if(sc.alt===0) return null;
+    const good=sc.altList.join(' ');
+    const set=new Set([good, sc.altList.map(n=>OTHER[n]||n).join(' ')]);
+    goOtherScales(sc,3).forEach(x=>{ if(set.size<4 && x.altList.length) set.add(x.altList.join(' ')); });
+    const o=goShuf([...set].slice(0,4));
+    return {q:`Les altérations de <b>${sc.name} majeur</b> ?`, opts:o, a:o.indexOf(good), root:sc.root,
+      why:`${sc.name} : ${good}. L'ordre est toujours ${sc.type==='#'?'Fa-Do-Sol-Ré-La-Mi-Si':'Si-Mi-La-Ré-Sol-Do-Fa'} — on en prend les ${sc.alt} premiers.`}; },
+
+  /* degré → note */
+  sc=>{ const i=1+Math.floor(Math.random()*6), good=sc.notes[i];
+    const o=goShuf([...new Set([good,...goShuf(sc.notes).filter(n=>n!==good).slice(0,3)])]);
+    return {q:`La <b>${i+1}ᵉ note</b> de ${sc.name} majeur ?`, opts:o, a:o.indexOf(good), root:sc.root,
+      why:`${sc.notes.join(' ')} → la ${i+1}ᵉ est <b>${good}</b>.`}; },
+
+  /* note → degré */
+  sc=>{ const i=1+Math.floor(Math.random()*6), good=(i+1)+'ᵉ';
+    const set=new Set([good]); while(set.size<4) set.add((2+Math.floor(Math.random()*6))+'ᵉ');
+    const o=goShuf([...set]);
+    return {q:`Dans ${sc.name} majeur, <b>${sc.notes[i]}</b> est le combien-ième degré ?`, opts:o, a:o.indexOf(good), root:sc.root,
+      why:`${sc.notes.join(' ')} → ${sc.notes[i]} est le <b>${i+1}ᵉ</b>.`}; },
+
+  /* appartenance — avec le piège d'orthographe */
+  sc=>{ const inIt=Math.random()<.5;
+    let n;
+    if(inIt) n=sc.notes[1+Math.floor(Math.random()*6)];
+    else { const c=sc.altList.map(x=>OTHER[x]).filter(x=>x && !sc.notes.includes(x));
+      n = c.length? c[Math.floor(Math.random()*c.length)]
+        : ['Fa#','Sib','Do#','Mib','Sol#','Lab','La#','Réb'].filter(x=>!sc.notes.includes(x) && !sc.pcs.includes(NAMEPC[x]))[0];
+      if(!n) return null; }
+    const good=inIt?'Vrai':'Faux'; const o=['Vrai','Faux'];
+    return {q:`Vrai ou faux : <b>${n}</b> appartient à ${sc.name} majeur.`, opts:o, a:o.indexOf(good), root:sc.root,
+      why:(()=>{ const twin=sc.notes.find(x=>NAMEPC[x]===NAMEPC[n] && x!==n);
+        return `${sc.name} majeur : ${sc.notes.join(' ')}. `+(inIt? `${n} en fait bien partie.`
+          : twin? `Piège d'orthographe : la gamme contient <b>${twin}</b>, pas ${n} — <b>même touche, mauvais nom</b>. Dans une gamme, chaque lettre ne sort qu'une fois et une seule.`
+                : `${n} n'en fait pas partie.`); })()}; },
+
+  /* relatif mineur */
+  sc=>{ const good=sc.notes[5]+' mineur';
+    const set=new Set([good]); [1,2,4,3].forEach(i=>{ if(set.size<4) set.add(sc.notes[i]+' mineur'); });
+    const o=goShuf([...set]);
+    return {q:`Le <b>relatif mineur</b> de ${sc.name} majeur ?`, opts:o, a:o.indexOf(good), root:sc.root,
+      why:`Il se bâtit sur le 6ᵉ degré : <b>${good}</b>. Même armure (${goAltTxt(sc)}), couleur plus sombre.`}; },
+
+  /* LE RACCOURCI appliqué : dernier dièse / avant-dernier bémol → la tonique */
+  sc=>{ if(sc.alt===0) return null;
+    const good=sc.name; const o=goShuf([good,...goOtherScales(sc,3).map(x=>x.name)]);
+    const last=sc.altList[sc.altList.length-1];
+    if(sc.type==='#') return {q:`Le <b>dernier dièse</b> de l'armure est <b>${last}</b>. Quelle gamme majeure ?`,
+      opts:o, a:o.indexOf(good), root:sc.root,
+      why:`Le dernier dièse est la <b>sensible</b> : la tonique est un demi-ton au-dessus. ${last} + ½ ton = <b>${sc.name}</b>.`};
+    if(sc.alt===1) return {q:`Un seul bémol à l'armure (<b>Sib</b>). Quelle gamme majeure ?`, opts:o, a:o.indexOf(good), root:sc.root,
+      why:`Le raccourci « avant-dernier bémol » ne marche pas à 1 bémol : <b>Fa majeur</b> est le cas à retenir par cœur.`};
+    return {q:`L'<b>avant-dernier bémol</b> de l'armure est <b>${sc.altList[sc.altList.length-2]}</b>. Quelle gamme majeure ?`,
+      opts:o, a:o.indexOf(good), root:sc.root,
+      why:`Avec les bémols, l'<b>avant-dernier bémol EST la tonique</b>. ${sc.altList[sc.altList.length-2]} → <b>${sc.name} majeur</b>.`}; },
+];
+
+function goFlashQs(n){
+  const weak=goWeak(3);
+  const qs=[]; let guard=0;
+  while(qs.length<n && guard++<400){
+    /* ~40 % des questions tirées sur les gammes les plus ratées */
+    let root;
+    if(weak.length && Math.random()<.4) root=weak[Math.floor(Math.random()*weak.length)];
+    else { const pool=GO_ORDER.filter(r=>gm(r).lvl>=1); root=(pool.length?pool:GO_ORDER)[Math.floor(Math.random()*(pool.length||GO_ORDER.length))]; }
+    const gen=GO_FLASH_GENS[Math.floor(Math.random()*GO_FLASH_GENS.length)];
+    const q=gen(GO_SCALES[root]);
+    if(q && !qs.some(x=>x.q===q.q)) qs.push(q);
+  }
+  return qs;
+}
+/* runner « flash » : rythme rapide, correction seulement sur erreur */
+function runFlash(el, qs, cb){
+  let i=0, good=0; const t0=Date.now(); const missed=[];
+  const step=()=>{
+    if(i>=qs.length){ const secs=Math.round((Date.now()-t0)/100)/10; cb(good, qs.length, secs, missed); return; }
+    const q=qs[i];
+    el.innerHTML=`<div style="text-align:center;color:var(--dim);font-size:12px;font-weight:800;letter-spacing:1px">${i+1} / ${qs.length}</div>`;
+    const box=document.createElement('div'); el.appendChild(box);
+    farmQuiz(box, q, ok=>{ goStat(q.root, ok); if(ok) good++; else missed.push(q); i++; step(); });
+  };
+  step();
+}
+function goFlash(){
+  openCustom('⚡ Le Flash des 12',(inner,close)=>{
+    const started=GO_ORDER.some(r=>gm(r).lvl>0);
+    const intro=document.createElement('div'); intro.className='theory';
+    intro.innerHTML=`<p><b>12 questions, gammes mélangées, dans les deux sens.</b> C'est volontairement inconfortable : sauter d'une gamme à l'autre à chaque question, c'est ce qui grave — travailler une gamme en bloc donne l'impression de savoir et ne laisse rien le lendemain.</p>
+      <p style="margin-top:6px">On te demandera autant « <i>Mi majeur, combien d'altérations ?</i> » que « <i>4 dièses, c'est quelle gamme ?</i> ». La mémoire a besoin de <b>plusieurs portes d'entrée</b> : une seule, et elle se referme.</p>
+      ${started?'':'<div class="tip">Tu n\'as pas encore ouvert de gamme dans le Grand Œuvre — le Flash va piocher dans les 12. Commence plutôt par la <b>Séance du jour</b>, puis reviens ici pour l\'entretien.</div>'}`;
+    inner.appendChild(intro);
+    const w=goWeak(3);
+    if(w.length){ const wd=document.createElement('div'); wd.className='tip';
+      wd.style.cssText='background:#2a1d1d;border-left:3px solid var(--bad);padding:10px 12px;border-radius:0 10px 10px 0;margin-top:10px;font-size:13px;line-height:1.5;color:#e8cfcf';
+      wd.innerHTML=`🎯 <b>Tes trous en ce moment</b> : ${w.map(r=>`${GO_SCALES[r].name} <span style="color:var(--bad)">(${goMissPct(r)}% de ratés)</span>`).join(' · ')}. Le Flash va te les servir plus souvent que les autres.`;
+      inner.appendChild(wd); }
+    const b=document.createElement('button'); b.className='btn'; b.textContent='⚡ Lancer le flash (12 questions)';
+    b.onclick=()=>{
+      inner.innerHTML=''; const box=document.createElement('div'); inner.appendChild(box);
+      runFlash(box, goFlashQs(12), (good,total,secs,missed)=>{
+        const pct=Math.round(100*good/total);
+        box.innerHTML=`<div class="exhead"><div class="target">${good}/${total}</div>
+          <div class="sub">${secs}s · ${pct}%${pct===100?' — sans faute.':''}</div></div>`;
+        const msg=document.createElement('div'); msg.style.cssText='text-align:center;color:var(--dim);font-size:13px;line-height:1.5;margin:8px 0';
+        msg.innerHTML = pct===100 ? 'Rien à redire. Refais-le demain : c\'est la <b>répétition espacée</b> qui transforme ça en réflexe, pas la performance d\'aujourd\'hui.'
+          : pct>=75 ? 'Solide. Les erreurs ci-dessous sont exactement ce sur quoi il faut revenir demain.'
+          : 'C\'est bas — et c\'est une information, pas un verdict. Les gammes ratées vont revenir plus souvent, automatiquement.';
+        box.appendChild(msg);
+        if(missed.length){
+          const rec=document.createElement('div'); rec.className='cheat'; rec.style.cssText='margin-top:6px;text-align:left';
+          rec.innerHTML='<div style="font-size:11px;font-weight:800;letter-spacing:1px;color:var(--acc);margin-bottom:6px">📇 CE QUI A LÂCHÉ</div>'
+            + missed.map(q=>`<div class="row">${q.q}<br><span style="color:var(--dim);font-size:12.5px">${q.why}</span></div>`).join('');
+          box.appendChild(rec);
+        }
+        dailyMark('scales'); dailyMark('drill'); const xp=8+Math.round(good*1.2); award(xp);
+        toast(`⚡ Flash · +${xp} XP`); if(pct===100) chime();
+        const again=document.createElement('button'); again.className='btn ghost'; again.textContent='↻ Encore 12';
+        again.onclick=()=>{ closeOverlay(); goFlash(); }; box.appendChild(again);
+        const bb=document.createElement('button'); bb.className='btn'; bb.textContent='Fermer'; bb.onclick=close; box.appendChild(bb);
+        overlay.scrollTop=0;
+      });
+    };
+    inner.appendChild(b);
+    const cb2=document.createElement('button'); cb2.className='btn ghost'; cb2.textContent='🧭 Je bloque : voir la Boussole (les raccourcis)';
+    cb2.onclick=()=>{ close(); goCompass(); }; inner.appendChild(cb2);
+  });
+}
+
+/* ---------------- LA BOUSSOLE ----------------
+   Le vrai remède au « ça ne reste pas » : arrêter de mémoriser 12 listes
+   et apprendre UNE règle + DEUX raccourcis. Une règle se recalcule ;
+   une liste s'oublie. */
+const SHARP_ORDER=['Fa#','Do#','Sol#','Ré#','La#','Mi#','Si#'];
+const FLAT_ORDER =['Sib','Mib','Lab','Réb','Solb','Dob','Fab'];
+const SHARP_KEYS=[0,7,2,9,4,11,6];   /* Do Sol Ré La Mi Si Fa# — 0 à 6 dièses */
+const FLAT_KEYS =[0,5,10,3,8,1];     /* Do Fa Sib Mib Lab Réb — 0 à 5 bémols */
+
+const COMPASS_CARDS=[
+  {ic:'🧭', t:'Le principe : une règle, pas douze listes',
+   html:`<p>Si les 12 gammes ne « restent pas », c'est rarement un problème de mémoire. C'est que tu essaies de retenir <b>12 listes indépendantes</b> — et 12 listes, ça s'oublie, forcément.</p>
+   <p style="margin-top:6px">En vrai, il n'y a <b>qu'une seule liste</b> à connaître, et deux raccourcis pour en sortir n'importe quelle gamme en trois secondes. Une fois que tu tiens ça, tu n'as plus rien à réviser : tu <b>recalcules</b>.</p>
+   <div class="cheat" style="margin-top:8px">
+     <div class="row">La formule est toujours la même : <b>2 – 2 – 1 – 2 – 2 – 2 – 1</b> (en demi-tons)</div>
+     <div class="row">Les lettres se suivent toujours : <b>chaque lettre sort une fois et une seule</b> (jamais Fa et Fa# dans la même gamme)</div>
+     <div class="row">Donc la seule question qui reste : <b>lesquelles sont altérées ?</b></div>
+   </div>`},
+
+  {ic:'1️⃣', t:'La liste unique : Fa Do Sol Ré La Mi Si',
+   html:`<p>Les dièses arrivent <b>toujours dans cet ordre</b>, jamais un autre :</p>
+   <div class="cheat" style="margin-top:6px">
+     <div class="row" style="font-size:17px;text-align:center;color:var(--acc);font-weight:800">Fa &nbsp; Do &nbsp; Sol &nbsp; Ré &nbsp; La &nbsp; Mi &nbsp; Si</div>
+   </div>
+   <p style="margin-top:8px">Ce n'est pas arbitraire : <b>chaque note est une quinte au-dessus de la précédente</b>. Fa → Do → Sol → Ré → La → Mi → Si. Si tu sais monter de quinte, tu n'as même pas la liste à apprendre : tu la fabriques.</p>
+   <p style="margin-top:8px">Et les bémols ? <b>Exactement la même liste, à l'envers</b> :</p>
+   <div class="cheat" style="margin-top:6px">
+     <div class="row" style="font-size:17px;text-align:center;color:var(--acc);font-weight:800">Si &nbsp; Mi &nbsp; La &nbsp; Ré &nbsp; Sol &nbsp; Do &nbsp; Fa</div>
+     <div class="row" style="text-align:center;font-size:12.5px;color:var(--dim)">(des quintes qui <b>descendent</b>)</div>
+   </div>
+   <p style="margin-top:8px"><b>3 dièses ?</b> Les trois premiers de la liste : Fa# Do# Sol#. <b>4 bémols ?</b> Les quatre premiers de l'autre : Sib Mib Lab Réb. Il n'y a rien d'autre à savoir.</p>`},
+
+  {ic:'2️⃣', t:'Raccourci dièses : le dernier dièse est la sensible',
+   html:`<p>Tu vois une armure avec des dièses. <b>Regarde le dernier</b> : c'est la <b>sensible</b>, la note juste sous la tonique. Monte d'un demi-ton, tu es sur la tonique.</p>
+   <div class="cheat" style="margin-top:6px">
+     <div class="row">Dernier dièse <b>Fa#</b> → +½ ton → <b>Sol majeur</b></div>
+     <div class="row">Dernier dièse <b>Do#</b> → +½ ton → <b>Ré majeur</b></div>
+     <div class="row">Dernier dièse <b>Sol#</b> → +½ ton → <b>La majeur</b></div>
+     <div class="row">Dernier dièse <b>Ré#</b> → +½ ton → <b>Mi majeur</b></div>
+   </div>
+   <p style="margin-top:8px">Et dans l'autre sens, ça marche aussi : <b>quelle est l'armure de Mi majeur ?</b> La sensible de Mi, c'est Ré#. Ré# est le 4ᵉ de la liste (Fa Do Sol Ré) → donc <b>4 dièses</b>, et ce sont Fa# Do# Sol# Ré#. Aucune liste mémorisée, que du calcul.</p>`},
+
+  {ic:'3️⃣', t:'Raccourci bémols : l\'avant-dernier bémol EST la tonique',
+   html:`<p>Encore plus simple. Avec les bémols, tu n'as même pas à bouger : <b>l'avant-dernier bémol de l'armure donne directement le nom de la gamme</b>.</p>
+   <div class="cheat" style="margin-top:6px">
+     <div class="row">Sib <b>Mib</b> Lab → <b>Mib majeur</b></div>
+     <div class="row">Sib Mib <b>Lab</b> Réb → <b>Lab majeur</b></div>
+     <div class="row">Sib Mib Lab <b>Réb</b> Solb → <b>Réb majeur</b></div>
+     <div class="row" style="color:#ffb3b3">⚠️ Exception : à <b>1 bémol</b> il n'y a pas d'avant-dernier → <b>Fa majeur</b>. Le seul cas à retenir bêtement.</div>
+   </div>
+   <p style="margin-top:8px">Résultat : sur les 12 gammes, tu n'as <b>rien</b> à mémoriser côté bémols sauf Fa majeur. Le reste se lit.</p>`},
+
+  {ic:'🎡', t:'Le tour complet, dans l\'ordre',
+   html:`<p>Chaque cran ajoute une altération. En montant de quinte on ajoute un dièse, en descendant on ajoute un bémol.</p>
+   <div class="cheat" style="margin-top:6px">
+     <div class="row"><b>Dièses</b> — Do (0) → <b>Sol</b> (1) → <b>Ré</b> (2) → <b>La</b> (3) → <b>Mi</b> (4) → <b>Si</b> (5) → <b>Fa#</b> (6)</div>
+     <div class="row"><b>Bémols</b> — Do (0) → <b>Fa</b> (1) → <b>Sib</b> (2) → <b>Mib</b> (3) → <b>Lab</b> (4) → <b>Réb</b> (5)</div>
+   </div>
+   <p style="margin-top:8px">Deux suites de six mots. Si tu peux les réciter dans les deux sens, tu tiens les 12 armures — sans jamais avoir appris une seule gamme note à note.</p>`},
+];
+
+/* --- moteur : produire une suite dans l'ordre en tapant des pastilles --- */
+function runSeqChips(el, opt, cb){
+  const seq=opt.seq, pool=goShuf(opt.pool||seq.slice());
+  let idx=0, faults=0;
+  el.innerHTML=`<div class="exhead"><div class="target" style="font-size:19px">${opt.title}</div>
+    <div class="sub">${opt.sub||''}</div></div>
+    <div class="noteslots" id="sq"></div><div class="fb" id="sf" style="min-height:20px"></div>
+    <div class="chipwrap" id="sc"></div>`;
+  const slots=el.querySelector('#sq'), fb=el.querySelector('#sf'), chips=el.querySelector('#sc');
+  const draw=()=>{ slots.innerHTML='';
+    seq.forEach((n,i)=>{ const s=document.createElement('div'); s.className='sl'+(i<idx?' on':'');
+      s.textContent=i<idx?seq[i]:'·'; slots.appendChild(s); }); };
+  const finish=()=>{ tada(); el.innerHTML=`<div class="exhead"><div class="target">✓</div>
+    <div class="sub">${faults?faults+' reprise(s).':'Sans reprise.'}</div></div>`; setTimeout(()=>cb(faults),650); };
+  pool.forEach(n=>{ const c=document.createElement('div'); c.className='nchip'; c.textContent=n;
+    c.onclick=()=>{
+      if(c.classList.contains('gone')) return;
+      if(n===seq[idx]){ c.classList.add('gone'); idx++; fb.textContent=''; fb.className='fb'; draw();
+        if(idx>=seq.length) finish(); }
+      else { faults++; buzz(); fb.className='fb bad'; fb.textContent=opt.msg? opt.msg(seq[idx]) : `✗ le suivant est ${seq[idx]}`;
+        c.animate([{transform:'scale(1)'},{transform:'scale(.9)'},{transform:'scale(1)'}],180); }
+    }; chips.appendChild(c); });
+  draw();
+}
+/* --- les 4 niveaux --- */
+function goCompassDrill(level, cb){
+  const done=f=>cb(f);
+  if(level===1){
+    const sharps=Math.random()<.5;
+    runSeqChips(document.getElementById('cpbox'), {
+      title: sharps?'L\'ordre des dièses':'L\'ordre des bémols',
+      sub: sharps?'Fa Do Sol Ré La Mi Si — des quintes qui montent. Pose-les dans l\'ordre.'
+                 :'Si Mi La Ré Sol Do Fa — la même liste à l\'envers. Pose-les dans l\'ordre.',
+      seq: sharps?SHARP_ORDER.slice():FLAT_ORDER.slice(),
+      msg:n=>`✗ le suivant est ${n} — ${sharps?'on monte de quinte à chaque fois':'on descend de quinte à chaque fois'}.`
+    }, done); return;
+  }
+  if(level===2){
+    const sharps=Math.random()<.5, n=2+Math.floor(Math.random()*(sharps?5:4));
+    const full=sharps?SHARP_ORDER:FLAT_ORDER;
+    runSeqChips(document.getElementById('cpbox'), {
+      title:`${n} ${sharps?'dièses':'bémols'} — lesquels ?`,
+      sub:'Les '+n+' premiers de la liste, dans l\'ordre. (Les intrus sont là exprès.)',
+      seq: full.slice(0,n), pool: full.slice(0,Math.min(7,n+2)),
+      msg:x=>`✗ le suivant est ${x}. Récite la liste depuis le début.`
+    }, done); return;
+  }
+  if(level===3){
+    /* le raccourci, en production : armure → tonique */
+    const N=6; let i=0, faults=0;
+    const step=()=>{
+      const box=document.getElementById('cpbox');
+      if(i>=N){ tada(); box.innerHTML=`<div class="exhead"><div class="target">✓</div><div class="sub">${faults?faults+' erreur(s).':'Sans erreur.'}</div></div>`; setTimeout(()=>done(faults),650); return; }
+      const sharps=Math.random()<.5;
+      const keys=sharps?SHARP_KEYS:FLAT_KEYS;
+      const k=1+Math.floor(Math.random()*(keys.length-1));
+      const sc=GO_SCALES[keys[k]];
+      const q = sharps
+        ? `Dernier dièse : <b style="color:var(--acc)">${sc.altList[sc.altList.length-1]}</b>`
+        : (sc.alt===1 ? `Un seul bémol : <b style="color:var(--acc)">Sib</b>`
+                      : `Avant-dernier bémol : <b style="color:var(--acc)">${sc.altList[sc.alt-2]}</b>`);
+      const opts=goShuf([sc.name, ...goShuf(GO_ORDER.filter(r=>r!==sc.root)).slice(0,3).map(r=>GO_SCALES[r].name)]);
+      box.innerHTML=`<div class="exhead"><div class="sub">Le raccourci · ${i+1}/${N}</div>
+        <div style="font-size:20px;font-weight:800;margin:10px 0 2px;text-align:center">${q}</div>
+        <div style="text-align:center;color:var(--dim);font-size:13px">→ quelle gamme majeure ?</div></div>
+        <div class="fb" id="cf" style="min-height:20px;text-align:center"></div><div class="chipwrap" id="cc"></div>`;
+      const fb=box.querySelector('#cf'), cc=box.querySelector('#cc');
+      opts.forEach(nm=>{ const c=document.createElement('div'); c.className='nchip'; c.textContent=nm;
+        c.onclick=()=>{ if(nm===sc.name){ i++; step(); }
+          else { faults++; buzz(); fb.className='fb bad';
+            fb.innerHTML = sharps ? `✗ ${sc.altList[sc.altList.length-1]} est la <b>sensible</b> : monte d'un demi-ton → ${sc.name}.`
+              : (sc.alt===1?`✗ 1 bémol = <b>Fa majeur</b>, l'exception à retenir.`
+                          :`✗ l'avant-dernier bémol <b>EST</b> la tonique → ${sc.name}.`); } };
+        cc.appendChild(c); });
+    };
+    step(); return;
+  }
+  /* niveau 4 : aller-retour chronométré */
+  const N=10; let i=0, faults=0; const t0=Date.now();
+  const step=()=>{
+    const box=document.getElementById('cpbox');
+    if(i>=N){ const secs=Math.round((Date.now()-t0)/100)/10; tada();
+      box.innerHTML=`<div class="exhead"><div class="target">${secs}s</div><div class="sub">${faults?faults+' erreur(s).':'Sans erreur.'} ${secs<=45&&!faults?'C\'est un réflexe, plus un calcul.':''}</div></div>`;
+      setTimeout(()=>done(faults,secs),750); return; }
+    const dir=i%2===0;                       /* alterne les deux sens : c'est le but */
+    const sharps=Math.random()<.5, keys=sharps?SHARP_KEYS:FLAT_KEYS;
+    const k=Math.floor(Math.random()*keys.length), sc=GO_SCALES[keys[k]];
+    const box2=box;
+    const label=n=>n===0?'Aucune':n+(n>1?(sharps?' dièses':' bémols'):(sharps?' dièse':' bémol'));
+    let qhtml, opts, good, why;
+    if(dir){ qhtml=`<b>${sc.name} majeur</b><div style="color:var(--dim);font-size:13px;font-weight:600;margin-top:4px">combien d'altérations ?</div>`;
+      good=label(sc.alt);
+      const set=new Set([good]); [0,1,2,3,4,5,6].forEach(n=>{ if(set.size<4 && n!==sc.alt) set.add(label(n)); });
+      opts=goShuf([...set]);
+      why=`${sc.name} = ${goAltTxt(sc)}${sc.altList.length?' ('+sc.altList.join(' ')+')':''}.`;
+    } else { qhtml=`<b>${label(sc.alt)}</b><div style="color:var(--dim);font-size:13px;font-weight:600;margin-top:4px">quelle gamme majeure ?</div>`;
+      good=sc.name;
+      opts=goShuf([good, ...goShuf(keys.filter(r=>r!==sc.root)).slice(0,3).map(r=>GO_SCALES[r].name)]);
+      why=`${label(sc.alt)} → ${sc.name} majeur.`;
+    }
+    box2.innerHTML=`<div class="exhead"><div class="sub">Aller-retour · ${i+1}/${N}</div>
+      <div style="font-size:22px;font-weight:800;margin:10px 0 2px;text-align:center">${qhtml}</div></div>
+      <div class="gotimer" id="cptim">0.0 s</div>
+      <div class="fb" id="cf" style="min-height:20px;text-align:center"></div><div class="chipwrap" id="cc"></div>`;
+    const fb=box2.querySelector('#cf'), cc=box2.querySelector('#cc');
+    opts.forEach(nm=>{ const c=document.createElement('div'); c.className='nchip'; c.textContent=nm;
+      c.onclick=()=>{ if(nm===good){ i++; step(); } else { faults++; buzz(); fb.className='fb bad'; fb.innerHTML='✗ '+why; } };
+      cc.appendChild(c); });
+    const tim=box2.querySelector('#cptim');
+    const h=setInterval(()=>{ if(!document.body.contains(tim)){ clearInterval(h); return; } tim.textContent=((Date.now()-t0)/1000).toFixed(1)+' s'; },100);
+  };
+  step();
+}
+const COMPASS_LEVELS=[
+  {n:1, t:'L\'ordre', d:'Reconstitue Fa-Do-Sol-Ré-La-Mi-Si (ou son inverse pour les bémols). La brique de base.'},
+  {n:2, t:'n → lesquelles', d:'« 4 dièses : lesquels ? » Tu prends les n premiers de la liste. Avec des intrus.'},
+  {n:3, t:'Le raccourci', d:'Dernier dièse → tonique · avant-dernier bémol → tonique. Le geste qui remplace la mémoire.'},
+  {n:4, t:'Aller-retour chrono', d:'Gamme → nb d\'altérations ET nb → gamme, alternés, au chrono. Le test du réflexe.'},
+];
+function goCompass(){
+  openCustom('🧭 La Boussole des armures',(inner,close)=>{
+    const intro=document.createElement('div'); intro.className='theory';
+    intro.innerHTML=`<p>Si les gammes ne restent pas, ce n'est presque jamais un problème de mémoire : c'est que tu essaies de retenir <b>12 listes</b>. Ici on remplace les 12 listes par <b>une seule liste et deux raccourcis</b>. Une règle se recalcule ; une liste s'oublie.</p>`;
+    inner.appendChild(intro);
+    COMPASS_CARDS.forEach(T=>inner.appendChild(tipCard(T)));
+    const h=document.createElement('div'); h.className='card'; h.style.borderColor='var(--acc)';
+    h.innerHTML=`<b style="font-size:16px">⚔️ S'entraîner — 4 niveaux</b>
+      <p style="color:var(--dim);font-size:13px;margin:4px 0 2px;line-height:1.5">Dans l'ordre. Le niveau 4 est celui qui compte : il alterne les deux sens, c'est là que ça devient un réflexe.</p>`;
+    inner.appendChild(h);
+    COMPASS_LEVELS.forEach(L=>{
+      const c=document.createElement('div'); c.className='card';
+      const best=(S.best['cp'+L.n]||null);
+      c.innerHTML=`<b style="font-size:15px">Niveau ${L.n} · ${L.t}</b>
+        <p style="color:var(--dim);font-size:13px;margin:4px 0 6px;line-height:1.5">${L.d}</p>
+        ${best?`<p style="color:var(--acc);font-size:12px;font-weight:800;margin:0">Record : ${best}</p>`:''}`;
+      const b=document.createElement('button'); b.className='btn ghost'; b.textContent='Lancer';
+      b.onclick=()=>{
+        inner.innerHTML=''; const box=document.createElement('div'); box.id='cpbox'; inner.appendChild(box);
+        goCompassDrill(L.n,(faults,secs)=>{
+          if(!faults){ const xp=8+L.n*2; award(xp); dailyMark('drill'); dailyMark('scales'); toast(`🧭 +${xp} XP`);
+            if(L.n===4 && secs && (!S.best.cp4 || parseFloat(secs)<parseFloat(S.best.cp4))){ S.best.cp4=secs+'s'; save(); } }
+          const again=document.createElement('button'); again.className='btn'; again.textContent='↻ Encore';
+          again.onclick=()=>{ inner.innerHTML=''; const bx=document.createElement('div'); bx.id='cpbox'; inner.appendChild(bx); goCompassDrill(L.n,()=>{}); };
+          inner.appendChild(again);
+          const back=document.createElement('button'); back.className='btn ghost'; back.textContent='← Les niveaux';
+          back.onclick=()=>{ closeOverlay(); goCompass(); }; inner.appendChild(back);
+          overlay.scrollTop=0;
+        });
+        overlay.scrollTop=0;
+      };
+      c.appendChild(b); inner.appendChild(c);
+    });
+    const fb=document.createElement('button'); fb.className='btn'; fb.textContent='⚡ Tester sur les 12 gammes (Le Flash)';
+    fb.onclick=()=>{ close(); goFlash(); }; inner.appendChild(fb);
+  });
+}
+
 function goMenu(root){
   const sc=GO_SCALES[root];
   openCustom('🎹 '+sc.name+' majeur',(inner,close)=>{
@@ -5864,10 +6321,29 @@ function goDash(){
     html+=`<div class="bigbar" style="margin-bottom:4px"><i style="width:${pct}%"></i></div>`;
     inner.insertAdjacentHTML('beforeend', html);
 
+    const due=goDueList();
+    if(due.length){
+      inner.insertAdjacentHTML('beforeend',
+        `<div class="tip" style="background:#2a2415;border-left:3px solid var(--acc);padding:10px 12px;border-radius:0 10px 10px 0;margin:0 0 10px;font-size:13px;line-height:1.5;color:#e8ddc4">
+          ⏳ <b>${due.length} gamme${due.length>1?'s':''} à revoir</b> : ${due.map(r=>GO_SCALES[r].name).join(' · ')}.
+          Une gamme scellée revient à intervalle qui s'allonge (1 → 3 → 7 → 16 → 35 j). <b>Si l'entretien est raté, elle redescend d'un palier</b> — c'est fait exprès : c'est le seul moyen d'attraper ce qui s'efface.
+        </div>`);
+    }
     const bigBtn=document.createElement('button'); bigBtn.className='btn';
     bigBtn.textContent = started ? '🎯 SÉANCE DU JOUR' : '🚀 Démarrer le programme';
     bigBtn.onclick=()=>{ close(); goSeance(); };
     inner.appendChild(bigBtn);
+    const flBtn=document.createElement('button'); flBtn.className='btn ghost';
+    flBtn.textContent='⚡ Le Flash des 12 — 12 questions mélangées';
+    flBtn.onclick=()=>{ close(); goFlash(); }; inner.appendChild(flBtn);
+    const cpBtn=document.createElement('button'); cpBtn.className='btn ghost';
+    cpBtn.textContent='🧭 La Boussole — retrouver n\'importe quelle armure';
+    cpBtn.onclick=()=>{ close(); goCompass(); }; inner.appendChild(cpBtn);
+    const wk=goWeak(3);
+    if(wk.length) inner.insertAdjacentHTML('beforeend',
+      `<div class="tip" style="background:#2a1d1d;border-left:3px solid var(--bad);padding:10px 12px;border-radius:0 10px 10px 0;margin:10px 0 0;font-size:13px;line-height:1.5;color:#e8cfcf">
+        🎯 <b>Tes trous mesurés</b> : ${wk.map(r=>`${GO_SCALES[r].name} <span style="color:var(--bad)">${goMissPct(r)}% de ratés</span>`).join(' · ')}. Le Flash te les sert plus souvent — tu n'as rien à régler toi-même.
+      </div>`);
     const farmBtn=document.createElement('button'); farmBtn.className='btn ghost'; farmBtn.textContent='♾️ Mode farm — répétition libre'; farmBtn.onclick=()=>{ close(); goFarm(); }; inner.appendChild(farmBtn);
     const expBtn=document.createElement('button'); expBtn.className='btn ghost'; expBtn.textContent='📊 Copier ma progression → Claude'; expBtn.onclick=()=>{ close(); progressReportView(); }; inner.appendChild(expBtn);
 
@@ -5883,17 +6359,29 @@ function goDash(){
     const grid=document.createElement('div'); grid.className='gmgrid';
     GO_ORDER.forEach(root=>{
       const sc=GO_SCALES[root], g=gm(root);
-      const cell=document.createElement('div'); cell.className='gmcell'+(g.lvl>=5?' mstr':(root===nextR&&g.lvl===0?' next':''));
+      const isDue=goIsDue(root);
+      const cell=document.createElement('div'); cell.className='gmcell'+(isDue?' due':(g.lvl>=5?' mstr':(root===nextR&&g.lvl===0?' next':'')));
       let dots=''; for(let i=1;i<=5;i++) dots+=`<i class="${i<=g.lvl?(g.lvl>=5?'m':'f'):''}"></i>`;
       const arm= sc.alt===0?'0 altération':sc.alt+(sc.type==='#'?' ♯':' ♭');
-      cell.innerHTML=`<div class="nm">${sc.name}${g.lvl>=5?' <span style="color:var(--ok)">✅</span>':''}</div>
-        <div class="ar">${arm} · ${sc.notes.length} notes</div>
-        <div class="rk"><span class="rankdots">${dots}</span><span class="rl">${g.lvl===0&&root===nextR?'à ouvrir':(g.lvl===4&&g.seal?'🔒 revenir demain':GO_RANKSHORT[g.lvl])}</span></div>`;
+      const late=isDue?goDaysLate(root):0;
+      const rl = isDue ? `⏳ à revoir${late>0?' ('+late+' j de retard)':''}`
+        : (g.lvl===0&&root===nextR ? 'à ouvrir'
+        : (g.lvl===4&&g.seal ? '🔒 revenir demain'
+        : (g.lvl>=5&&g.due ? 'revue le '+g.due.slice(8)+'/'+g.due.slice(5,7) : GO_RANKSHORT[g.lvl])));
+      cell.innerHTML=`<div class="nm">${sc.name}${isDue?' <span style="color:var(--acc)">⏳</span>':(g.lvl>=5?' <span style="color:var(--ok)">✅</span>':'')}</div>
+        <div class="ar">${arm} · ${sc.notes.length} notes${gm(root).lapses?` · <span style="color:var(--bad)">${gm(root).lapses} rechute${gm(root).lapses>1?'s':''}</span>`:''}</div>
+        <div class="rk"><span class="rankdots">${dots}</span><span class="rl">${rl}</span></div>`;
       cell.onclick=()=>{ close(); goMenu(root); };
       grid.appendChild(cell);
     });
     inner.appendChild(grid);
-    inner.insertAdjacentHTML('beforeend', `<p style="color:var(--dim);font-size:12px;text-align:center;line-height:1.5">Touche une gamme pour la travailler seule. Les paliers : <b>Armure → Notes → Degrés → Par cœur → Réflexe</b>. Le dernier ne se scelle qu'après un 2e jour — impossible de tricher avec le temps. <br>Dans chaque gamme : <b>les accords de la gamme</b> (I-IV-V + relatif mineur), le <b>sprint des degrés</b> chronométré et la <b>récitation descendante</b>.</p>`);
+    inner.insertAdjacentHTML('beforeend', `<p style="color:var(--dim);font-size:12px;text-align:center;line-height:1.5">Touche une gamme pour la travailler seule. Les paliers : <b>Armure → Notes → Degrés → Par cœur → Réflexe</b>. Le dernier ne se scelle qu'après un 2e jour — impossible de tricher avec le temps. <br>Dans chaque gamme : <b>les accords de la gamme</b> (I-IV-V + relatif mineur), le <b>sprint des degrés</b> chronométré et la <b>récitation descendante</b>.</p>
+      <div class="tip" style="margin-top:4px;font-size:12.5px;line-height:1.55">
+        <b style="color:var(--acc)">Pourquoi ça reste, maintenant.</b> Trois pièces ont été ajoutées, chacune contre une raison précise d'oublier :<br>
+        · <b>Une gamme scellée revient</b> (1 → 3 → 7 → 16 → 35 j) et <b>redescend d'un palier si l'entretien est raté</b>. Avant, elle était acquise pour toujours et l'app croyait que tu savais.<br>
+        · <b>⚡ Le Flash des 12</b> mélange les gammes et pose les questions <b>dans les deux sens</b>. Travailler une gamme en bloc donne l'impression de savoir et ne laisse rien le lendemain.<br>
+        · <b>🧭 La Boussole</b> remplace 12 listes par <b>une liste et deux raccourcis</b>. Une règle se recalcule, une liste s'oublie.
+      </div>`);
   });
 }
 
