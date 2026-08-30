@@ -166,6 +166,34 @@
   .cheat{font-size:14px;line-height:1.6;color:#c9cde0}
   .cheat b{color:var(--acc)}
   .cheat .row{padding:8px 0;border-bottom:1px solid var(--line)}
+  /* tableau de synthèse des fiches (scroll horizontal sur mobile, jamais la page) */
+  .gwrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:10px -4px 0;padding:0 4px}
+  .gtab{border-collapse:collapse;width:100%;min-width:520px;font-size:13px;line-height:1.5}
+  .gtab th{text-align:left;padding:8px 10px;background:var(--bg3);color:var(--dim);font-size:11px;
+    font-weight:800;letter-spacing:.5px;text-transform:uppercase;border-bottom:1px solid var(--line);white-space:nowrap}
+  .gtab td{padding:10px;border-bottom:1px solid var(--line);vertical-align:top;color:#c9cde0}
+  .gtab tr:last-child td{border-bottom:none}
+  .gtab td.pcell{width:1%;padding:10px 6px 10px 10px}
+  .gtab td.pcell+td{font-weight:800;color:var(--txt);white-space:nowrap}
+  .gtab b{color:var(--acc)}
+  .gtab .no{color:#ff8b8b;font-weight:800}
+  .gtab .yes{color:#7fd4a2;font-weight:800}
+  .gtab .pbtn{padding:5px 10px;border-radius:14px;background:var(--bg3);border:1px solid var(--line);
+    font-size:12px;font-weight:700;cursor:pointer;color:var(--txt)}
+  /* mobile : le tableau se replie en cartes empilées (chaque cellule reprend son en-tête) */
+  @media(max-width:640px){
+    .gwrap{overflow-x:visible}
+    .gtab{min-width:0;display:block}
+    .gtab thead{display:none}
+    .gtab tbody,.gtab tr,.gtab td{display:block;width:auto}
+    .gtab tr{border:1px solid var(--line);border-radius:10px;background:var(--bg3);padding:10px 12px;margin-bottom:10px;position:relative}
+    .gtab td{border:none;padding:5px 0}
+    .gtab tr:last-child td{border:none}
+    .gtab td.pcell{position:absolute;top:8px;right:10px;padding:0;width:auto}
+    .gtab td.pcell+td{white-space:normal;font-size:15px;padding-right:44px}
+    .gtab td[data-label]:before{content:attr(data-label);display:block;font-size:10px;letter-spacing:.6px;
+      text-transform:uppercase;color:var(--dim);font-weight:800;margin-bottom:2px}
+  }
   .selrow{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
   .selrow .tag{padding:8px 14px;border-radius:20px;background:var(--bg3);border:1px solid var(--line);
     font-size:13px;font-weight:700;cursor:pointer}
@@ -2166,7 +2194,8 @@ const VOICE_TIPS=[
      <div class="row">1️⃣ <b>Vire la tierce</b> → l'accord « 11 » suspendu (C11 = C–G–B♭–D–F). Ouvert, planant. <i>C'est ce que fait l'app pour les 11 de dominante.</i></div>
      <div class="row">2️⃣ <b>Monte-la d'un demi-ton → ♯11</b> → le son lydien, brillant. Zéro frottement.</div>
      <div class="row">3️⃣ <b>Sur un accord mineur</b> : aucun souci, la tierce est mineure, la 11 sonne juste (Dm11 = superbe).</div>
-   </div>`,
+   </div>
+   <p style="margin-top:8px">Les trois cas dans un seul tableau (contexte → ce qu'on fait de la tierce), avec le <i>pourquoi</i> : c'est dans <b>🧩 Comprendre les accords · 6 &amp; 11</b>.</p>`,
    demo:{lh:[48], rh:[64,66,71], notes:'🔵 C &nbsp; 🟡 E · F♯ · B &nbsp;=&nbsp; <b>Cmaj7♯11</b> (lydien)'}},
 
   {ic:'🎩', t:'Recettes prêtes à poser',
@@ -2221,6 +2250,32 @@ function tipCard(T){
     h.innerHTML=`<b style="font-size:18px">${T.h}</b>`+(T.sub?`<p style="color:var(--dim);font-size:13px;margin:6px 0 0;line-height:1.5">${T.sub}</p>`:''); return h; }
   const c=document.createElement('div'); c.className='card';
   c.innerHTML=`<b style="font-size:16px">${T.ic} ${T.t}</b><div class="theory" style="margin-top:6px">${T.html}</div>`;
+  /* fiche « tableau de synthèse » : une ligne par cas, chacune écoutable */
+  if(T.table){
+    const w=document.createElement('div'); w.className='gwrap';
+    const tb=document.createElement('table'); tb.className='gtab';
+    /* la colonne « écouter » est en PREMIER : sur mobile le tableau scrolle
+       horizontalement, et c'est le bouton qu'on veut voir sans scroller. */
+    tb.innerHTML='<thead><tr><th></th>'+T.table.cols.map(c=>`<th>${c}</th>`).join('')+'</tr></thead>';
+    const bd=document.createElement('tbody');
+    T.table.rows.forEach(R=>{
+      const tr=document.createElement('tr');
+      const td=document.createElement('td'); td.className='pcell';
+      if(R.lh||R.rh){
+        const pb=document.createElement('button'); pb.className='pbtn'; pb.textContent='🔊';
+        pb.onclick=()=>playChord([...(R.lh||[]),...(R.rh||[])],1.7);
+        td.appendChild(pb);
+      }
+      tr.appendChild(td);
+      R.cells.forEach((c,ci)=>{ const x=document.createElement('td'); x.innerHTML=c;
+        if(ci>0) x.dataset.label=T.table.cols[ci];   /* en-tête repris sur mobile (sauf la 1re colonne, déjà titre) */
+        tr.appendChild(x); });
+      bd.appendChild(tr);
+    });
+    tb.appendChild(bd); w.appendChild(tb); c.appendChild(w);
+    if(T.table.foot){ const f=document.createElement('div'); f.className='theory';
+      f.style.cssText='margin-top:10px'; f.innerHTML=T.table.foot; c.appendChild(f); }
+  }
   /* fiche à un seul voicing illustré */
   if(T.demo){
     const box=document.createElement('div'); tipKb(box,T.demo.lh,T.demo.rh); c.appendChild(box);
@@ -2304,7 +2359,7 @@ const CHORD_RULES=[
      {label:'Cmaj7',   lh:[48], rh:[60,64,67,71], notes:'C – E – G – B · beau, mais il FLOTTE'},
      {label:'C6',      lh:[48], rh:[60,64,67,69], notes:'C – E – G – A · aussi riche, mais FINI'},
    ],
-   note:'Dans le maj7, le <b>Si</b> est collé au <b>Do</b> (un demi-ton) : ça crée une petite tension qui appelle une suite. Dans le C6, le <b>La</b> ne frotte contre rien. C\'est pour ça que les standards de jazz finissent historiquement sur un <b>6</b> et pas sur un maj7 : le 6 dit « c\'est terminé ».'},
+   note:'Pourquoi le maj7 flotte : le <b>Si</b> est la <b>sensible</b> — la note juste sous la tonique, à un demi-ton du Do. Elle <b>tire</b> vers lui, physiquement. Tant qu\'elle sonne, l\'oreille attend quelque chose. Le <b>La</b> du C6, lui, est à une tierce du Do et ne tire nulle part : il enrichit sans rien réclamer.<br><br>C\'est exactement pour ça que les standards de jazz se terminent historiquement sur un <b>6</b> (ou un 6/9) et pas sur un maj7 : le maj7 dit « …et ensuite ? », le 6 dit « c\'est terminé ». Retiens le couple : <b>une note qui frotte à un demi-ton = une note qui demande une suite</b>. C\'est la même mécanique qui explique tout le reste de cette fiche, y compris les onzièmes.'},
 
   {ic:'⚖️', t:'Piège n°1 : 6 ou 13 ? C\'est la MÊME note',
    html:`<p>La 13e, c'est la 6te montée d'un étage (13 = 6 + 7). Sur Do, la 13e c'est… <b>La</b>. La même note que la sixte. Alors pourquoi deux noms ?</p>
@@ -2318,7 +2373,7 @@ const CHORD_RULES=[
      {label:'C6',  lh:[48],    rh:[60,64,67,69], notes:'C – E – G – A · pas de 7e → accord de REPOS'},
      {label:'C13', lh:[48,58], rh:[64,69,74],    notes:'C · B♭ · E – A – D · une 7e → accord de TENSION'},
    ],
-   note:'Un accord de <b>6</b> est une <b>tonique</b> : il se pose, on peut s\'arrêter dessus. Un accord de <b>13</b> est une <b>dominante</b> : il pousse, il veut résoudre. La note La ne change rien à ça — c\'est le <b>si bémol</b> (la 7e) qui décide.'},
+   note:'Un accord de <b>6</b> est une <b>tonique</b> : il se pose, on peut s\'arrêter dessus. Un accord de <b>13</b> est une <b>dominante</b> : il pousse, il veut résoudre. La note La ne change rien à ça — c\'est le <b>si bémol</b> (la 7e) qui décide.<br><br>Regarde ce que la 7e mineure fabrique : dans C13, tu as un <b>Mi</b> et un <b>Si♭</b>. Trois tons d\'écart exactement : c\'est le <b>triton</b>, l\'intervalle le plus instable de la musique. C\'est lui, le moteur de toute dominante — il veut se résoudre (le Si♭ descend, le Mi monte). Enlève le Si♭ et il n\'y a plus de triton, plus de moteur : l\'accord se pose. Voilà pourquoi « 6 » et « 13 » ne sont pas deux noms d\'une même chose, mais <b>deux fonctions opposées</b> qui partagent une note.'},
 
   {ic:'🎭', t:'Piège n°2 : C6 et Am7, ce sont les mêmes 4 notes',
    html:`<p>C6 = C – E – G – A. Am7 = A – C – E – G. Regarde bien : <b>exactement les mêmes quatre notes</b>, rangées autrement.</p>
@@ -2342,12 +2397,24 @@ const CHORD_RULES=[
      {label:'Cm6 ✅',      lh:[48], rh:[60,63,67,69], notes:'C – E♭ – G – A · mineur, mais élégant, pas triste'},
      {label:'avec La♭ ❌', lh:[48], rh:[60,63,67,68], notes:'C – E♭ – G – A♭ · ce n\'est plus un accord de Do'},
    ],
-   note:'Le second, ce n\'est pas un « Cm♭6 » : c\'est un <b>A♭maj7 renversé</b> (A♭ – C – E♭ – G) avec un Do dans la basse. La sixte <i>mineure</i> vole l\'accord et le renomme. La sixte <b>majeure</b>, elle, laisse le Do chez lui.<br><br>D\'où vient ce La naturel : c\'est la note du <b>dorien</b> (le mineur à sixte majeure) et du mineur mélodique. Résultat : un mineur qui n\'est pas plaintif — noir, tendu, chic. Le son « James Bond », « Girl from Ipanema », film noir.'},
+   note:'Le second, ce n\'est pas un « Cm♭6 » : c\'est un <b>A♭maj7 renversé</b> (A♭ – C – E♭ – G) avec un Do dans la basse. La sixte <i>mineure</i> vole l\'accord et le renomme. La sixte <b>majeure</b>, elle, laisse le Do chez lui.<br><br><b>D\'où vient ce La naturel.</b> Prends le mineur naturel de Do : C – D – E♭ – F – G – <b>A♭</b> – B♭. Sa 6e note est un La♭ : sombre, lourde. Maintenant prends le <b>dorien</b> (le mineur du jazz, celui de « So What ») : C – D – E♭ – F – G – <b>A</b> – B♭. Une seule note change, la 6e, et elle devient <b>majeure</b>. C\'est cette note-là que le m6 met en vitrine. Tu ne joues pas « un mineur avec une note bizarre » : tu joues <b>le mineur dorien</b>, condensé en quatre notes.<br><br><b>Et la même symétrie que C6 = Am7 se reproduit :</b> Cm6 = C – E♭ – G – A, et Am7♭5 = A – C – E♭ – G. <b>Les mêmes quatre notes.</b> Encore une fois, seule la basse tranche. Si tu retiens un seul principe de toute cette fiche : au piano, un empilement de notes ne porte pas de nom tant qu\'une basse n\'a pas décidé.'},
 
   {ic:'🍯', t:'Le 6/9 : la tonique la plus douce du jazz',
    html:`<p>On empile 1 – 3 – 6 – 9 et on <b>jette la quinte</b> (elle ne raconte rien). <b>C6/9 = C – E – A – D.</b></p>
    <p style="margin-top:6px">Deux couleurs ajoutées, zéro tension, zéro 7e : c'est l'accord final préféré des pianistes. Plus moelleux qu'un maj7, plus riche qu'un 6 tout seul.</p>`,
    demo:{lh:[48], rh:[64,69,74], notes:'🔵 C &nbsp; 🟡 E · A · D &nbsp;=&nbsp; <b>C6/9</b>'}},
+
+  {ic:'📋', t:'LE tableau : la 7e décide de tout',
+   html:`<p>La note ajoutée (le <b>La</b> sur Do) est <b>la même partout</b> dans ce tableau. Ce qui change le nom, le rôle et le son, c'est <b>la présence ou non d'une septième</b>. Une seule colonne à regarder :</p>`,
+   table:{cols:['Accord','Une 7e ?','Les notes sur Do','Son métier'],
+     rows:[
+       {cells:['<b>C6</b>','<span class="no">non</span>','C – E – G – <b>A</b>','<b>Tonique.</b> Il se pose, on peut finir dessus. Vintage, chaleureux.'], lh:[48], rh:[60,64,67,69]},
+       {cells:['<b>Cm6</b>','<span class="no">non</span>','C – E♭ – G – <b>A</b><br><span style="color:var(--dim)">sixte MAJEURE</span>','<b>Tonique mineure.</b> Le son dorien : mineur mais pas plaintif. Noir, chic.'], lh:[48], rh:[60,63,67,69]},
+       {cells:['<b>C6/9</b>','<span class="no">non</span>','C – E – <b>A</b> – D<br><span style="color:var(--dim)">quinte jetée</span>','<b>Tonique très douce.</b> L\'accord final préféré des pianistes de jazz.'], lh:[48], rh:[64,69,74]},
+       {cells:['<b>C13</b>','<span class="yes">OUI (B♭)</span>','C – E – B♭ – D – <b>A</b>','<b>Dominante.</b> Il pousse, il veut résoudre. Même La, métier opposé.'], lh:[48,58], rh:[64,69,74]},
+       {cells:['<b>Am7</b>','<span class="yes">oui (G)</span>','A – C – E – G<br><span style="color:var(--dim)">= les notes de C6</span>','<b>Mineur.</b> Mêmes touches que C6 : seule la basse tranche.'], lh:[45], rh:[60,64,67,69]},
+     ],
+     foot:`<div class="cheat"><div class="row" style="border:none">Deux lectures d\'une même colonne : <b>pas de 7e → l\'accord se pose</b> (et on dit « 6 ») · <b>une 7e → l\'accord pousse</b> (et on dit « 13 »). La 6te ajoutée ne fait qu\'enrichir ; c\'est la septième qui donne une <b>direction</b>.</div></div>`}},
 
   {ic:'🧠', t:'Sixtes — à retenir',
    html:`<div class="cheat">
@@ -2357,6 +2424,8 @@ const CHORD_RULES=[
      <div class="row"><b>C6 = Am7</b> : mêmes notes, c'est la basse qui nomme</div>
      <div class="row"><b>m6 = tierce mineure + sixte MAJEURE</b> (Cm6 = C – E♭ – G – A)</div>
      <div class="row">Le <b>m</b> ne touche que la tierce ; chaque chiffre garde sa valeur par défaut</div>
+     <div class="row"><b>Cm6 = Am7♭5</b> : la même symétrie que C6 = Am7</div>
+     <div class="row">Une note qui frotte à un <b>demi-ton</b> = une note qui <b>demande une suite</b> (le Si du maj7)</div>
      <div class="row">Fin de morceau soyeuse ? <b>6/9</b></div>
    </div>`},
 
@@ -2379,6 +2448,29 @@ const CHORD_RULES=[
    ],
    note:'C\'est <b>toute</b> l\'histoire des accords de 11e. Et c\'est aussi pourquoi « Cmaj11 » n\'existe pratiquement pas, et pourquoi tu ne le trouveras jamais dans l\'app : on ne pose pas une 11 naturelle sur une tierce majeure. Il y a <b>trois sorties de secours</b> — les trois fiches suivantes.'},
 
+  {ic:'📋', t:'LE tableau : ce qu\'on fait de la tierce, selon le contexte',
+   html:`<p>Voilà la seule chose à retenir par cœur. Un accord de 11e, ce n'est pas <i>une</i> recette : c'est <b>trois recettes</b>, et c'est <b>le contexte qui choisit</b>. La question à te poser n'est jamais « c'est quoi un 11 ? » mais : <b>« sur quel type d'accord je suis ? »</b></p>`,
+   table:{cols:['Contexte','La tierce','L\'accord','Pourquoi'],
+     rows:[
+       {cells:['<b>Dominante</b><br><span style="color:var(--dim);font-weight:600">C7, G7…</span>',
+               '<span class="no">✗ on la VIRE</span>',
+               '<b>C11</b><br>C – G – B♭ – D – F',
+               'La tierce (Mi) est <b>collée</b> à la 11e (Fa). On sacrifie la tierce → l\'accord devient <b>suspendu</b>. Mêmes notes qu\'un <b>C9sus4</b>.'],
+        lh:[48], rh:[67,70,74,77]},
+       {cells:['<b>Mineur</b><br><span style="color:var(--dim);font-weight:600">Dm7, Am7…</span>',
+               '<span class="yes">✓ on la GARDE</span>',
+               '<b>Dm11</b><br>D – F – A – C – G',
+               'La tierce est <b>mineure</b> (Fa) : elle est à un <b>ton</b> de la 11e (Sol), pas à un demi-ton. Aucun frottement. Ici c\'est la <b>9e</b> qu\'on jette, pas la tierce.'],
+        lh:[50], rh:[65,69,72,79]},
+       {cells:['<b>Majeur</b><br><span style="color:var(--dim);font-weight:600">Cmaj7, Fmaj7…</span>',
+               '<span class="yes">✓ on la garde</span><br><span style="color:var(--dim);font-weight:600">c\'est la 11 qu\'on déplace</span>',
+               '<b>Cmaj7♯11</b><br>C – E – B – F♯',
+               'On refuse de perdre la tierce majeure (c\'est elle qui fait le « majeur »). On <b>monte la 11e d\'un demi-ton</b> : plus de collision, et le son <b>lydien</b>. « Cmaj11 » n\'existe pas.'],
+        lh:[48], rh:[64,66,71]},
+     ],
+     foot:`<div class="cheat"><div class="row" style="border:none">La logique cachée : <b>la tierce est la note la plus précieuse de l\'accord</b> — c\'est elle qui dit majeur ou mineur. On ne la sacrifie que sur la <b>dominante</b>, parce que c\'est le seul endroit où on <i>veut</i> ce flottement suspendu. Ailleurs, on préfère plier la 11e (majeur) ou constater qu\'il n\'y a pas de problème (mineur).</div></div>
+     <p style="margin-top:8px;color:var(--dim);font-size:13px">Les trois lignes, en détail et à construire, dans les trois fiches ci-dessous. Touche 🔊 pour entendre chacune.</p>`}},
+
   {ic:'1️⃣', t:'Sortie A — sur une DOMINANTE : on vire la tierce',
    html:`<p>Pas de Mi → pas de frottement. On garde la fondamentale, la quinte, la ♭7 et on empile 9 et 11.</p>
    <div class="cheat" style="margin-top:6px">
@@ -2390,7 +2482,9 @@ const CHORD_RULES=[
      <div class="row">On dit <b>« 11 »</b> quand on pense <i>empilement</i> (7, 9, 11…)</div>
      <div class="row">On dit <b>« 9sus4 »</b> quand on pense <i>fonction</i> (la 4te qui a remplacé la tierce et qui va résoudre)</div>
    </div>
-   <p style="margin-top:8px">Dans les <b>Accords colorés</b>, l'app te fait construire les deux (le « 11 » dans <i>Extensions</i>, le « 9sus4 » dans <i>Le reste du vocabulaire</i>). Ce n'est pas une erreur : ce sont les mêmes touches sous deux étiquettes. Tu dois savoir répondre aux deux noms.</p>`,
+   <p style="margin-top:8px">Dans les <b>Accords colorés</b>, l'app te fait construire les deux (le « 11 » dans <i>Extensions</i>, le « 9sus4 » dans <i>Le reste du vocabulaire</i>). Ce n'est pas une erreur : ce sont les mêmes touches sous deux étiquettes. Tu dois savoir répondre aux deux noms.</p>
+   <p style="margin-top:8px"><b>Pourquoi c'est la dominante qui accepte de perdre sa tierce ?</b> Parce que c'est le seul accord à qui ça <i>rend service</i>. Dans un C7, la tierce (Mi) et la ♭7 (Si♭) forment le <b>triton</b> : le moteur qui pousse à résoudre. Vire la tierce, et tu supprimes le moteur — l'accord reste en l'air, il <b>attend</b>. C'est exactement l'effet recherché : on pose le C11 pendant une mesure, l'auditeur est en apesanteur, puis la tierce <b>arrive</b> (C7) ou on va directement sur l'accord suivant. Le soulagement est fabriqué par le retour du Mi.</p>
+   <p style="margin-top:8px">Sur un accord majeur ou mineur, ce flottement n'a aucun intérêt : il n'y a rien à résoudre. D'où le tableau ci-dessus.</p>`,
    demo:{lh:[48], rh:[67,70,74,77], notes:'🔵 C &nbsp; 🟡 G · B♭ · D · F &nbsp;=&nbsp; <b>C11</b> &nbsp;=&nbsp; <b>C9sus4</b>'}},
 
   {ic:'2️⃣', t:'Sortie B — sur un MINEUR : aucun problème',
@@ -2400,7 +2494,7 @@ const CHORD_RULES=[
      <div class="row"><b>Dm11 = D – F – A – C – G</b> &nbsp;(1 · ♭3 · 5 · ♭7 · 11)</div>
    </div>`,
    demo:{lh:[50], rh:[65,69,72,79], notes:'🔵 D &nbsp; 🟡 F · A · C · G &nbsp;=&nbsp; <b>Dm11</b>'},
-   note:'<b>Pourquoi 5 notes et pas 6 ?</b> La version « complète » d\'un m11 empile 1-♭3-5-♭7-<b>9</b>-11, soit six notes (D F A C <b>E</b> G). Personne ne la joue : six notes ne tiennent pas sous les doigts, et le Mi (la 9e) frotte contre le Fa. On <b>jette la 9e</b> — c\'est le m11 que l\'app te demande de construire.<br><br><b>Ce qui a changé le 27 août :</b> avant, l\'app ne connaissait <b>qu\'un seul</b> accord de 11e — le <b>11 de dominante</b>, celui <i>sans tierce</i>. Depuis, il y a <b>aussi</b> le <b>m11</b>, qui lui <b>garde</b> sa tierce. Deux accords de 11e, deux constructions opposées, dans le même exercice « Extensions ». Ce n\'est pas toi : la règle a bien changé de forme sous tes doigts. La voilà en entier.'},
+   note:'<b>Pourquoi 5 notes et pas 6 ?</b> La version « complète » d\'un m11 empile 1-♭3-5-♭7-<b>9</b>-11, soit six notes (D F A C <b>E</b> G). Personne ne la joue : six notes ne tiennent pas sous les doigts, et le <b>Mi</b> (la 9e) est collé au <b>Fa</b> (la tierce) — encore un demi-ton, encore de la boue. C\'est le même problème qu\'ailleurs, juste déplacé d\'un cran. Et entre les deux, on garde évidemment <b>la tierce</b> (elle dit « mineur ») et on jette la <b>9e</b> (elle ne dit rien d\'indispensable). On <b>jette la 9e</b> — c\'est le m11 que l\'app te demande de construire.<br><br><b>Ce qui a changé le 27 août :</b> avant, l\'app ne connaissait <b>qu\'un seul</b> accord de 11e — le <b>11 de dominante</b>, celui <i>sans tierce</i>. Depuis, il y a <b>aussi</b> le <b>m11</b>, qui lui <b>garde</b> sa tierce. Deux accords de 11e, deux constructions opposées, dans le même exercice « Extensions ». Ce n\'est pas toi : la règle a bien changé de forme sous tes doigts. La voilà en entier.'},
 
   {ic:'3️⃣', t:'Sortie C — sur un MAJEUR : monte la 11 d\'un demi-ton',
    html:`<p>Si tu veux vraiment la couleur de la 11e sur un accord majeur, tu déplaces le problème : <b>Fa → Fa♯</b>.</p>
@@ -2417,13 +2511,15 @@ const CHORD_RULES=[
    demo:{lh:[50], rh:[55,60,65,69], notes:'🔵 D &nbsp; 🟡 G · C · F · A &nbsp;=&nbsp; <b>Dm11</b> (« So What »)'}},
 
   {ic:'🧠', t:'Onzièmes — à retenir',
-   html:`<div class="cheat">
+   html:`<p>La question n'est jamais « c'est quoi un 11 ? ». Elle est : <b>« sur quel type d'accord je suis, et donc qu'est-ce que je fais de la tierce ? »</b></p>
+   <div class="cheat" style="margin-top:8px">
      <div class="row"><b>11 = la 4te</b> montée d'un étage (9 = 2 · 11 = 4 · 13 = 6)</div>
-     <div class="row">Elle <b>grince</b> contre une tierce <b>majeure</b> (demi-ton). Tout part de là</div>
-     <div class="row"><b>Dominante</b> → on vire la tierce : C11 = C – G – B♭ – D – F <b>= C9sus4</b></div>
-     <div class="row"><b>Mineur</b> → aucun souci, on garde la tierce : Dm11 = D – F – A – C – G (9e jetée)</div>
-     <div class="row"><b>Majeur</b> → passe en <b>♯11</b> (Cmaj7♯11, son lydien). Il n'y a pas de « maj11 »</div>
-     <div class="row">Bloqué ? Empile des <b>quartes</b>.</div>
+     <div class="row">Elle <b>grince</b> contre une tierce <b>majeure</b> (demi-ton). <b>Tout</b> part de là</div>
+     <div class="row"><b>Dominante</b> → <span style="color:#ff8b8b">on VIRE la tierce</span> : C11 = C – G – B♭ – D – F <b>= C9sus4</b>. Plus de triton → l'accord flotte et attend</div>
+     <div class="row"><b>Mineur</b> → <span style="color:#7fd4a2">on GARDE la tierce</span> (elle est à un ton de la 11e) : Dm11 = D – F – A – C – G. C'est la <b>9e</b> qu'on jette</div>
+     <div class="row"><b>Majeur</b> → <span style="color:#7fd4a2">on garde la tierce</span> et on monte la 11e : <b>♯11</b> (Cmaj7♯11, son lydien). Il n'y a pas de « maj11 »</div>
+     <div class="row">La tierce est la note la plus précieuse : on ne la sacrifie que sur la <b>dominante</b>, et seulement parce que ça sert</div>
+     <div class="row">Bloqué au clavier ? Empile des <b>quartes</b>, tu tombes sur un m11 sans y penser</div>
    </div>`},
 ];
 function chordRules(){
