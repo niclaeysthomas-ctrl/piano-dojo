@@ -102,6 +102,41 @@
   .key.black.hint{background:linear-gradient(#3b6db5,#2a4d80)}
   .key.flash{background:var(--ok)!important}
 
+  /* ---------- l'arcade des gammes ---------- */
+  .arcadehud{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:6px 0 8px}
+  .arcadehud .ah{background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:9px 2px;text-align:center}
+  .arcadehud .ah b{display:block;font-size:20px;font-weight:900;line-height:1.1;font-variant-numeric:tabular-nums}
+  .arcadehud .ah small{color:var(--dim);font-size:10px;text-transform:uppercase;letter-spacing:.4px}
+  .arcbar{height:6px;background:var(--bg3);border-radius:4px;overflow:hidden;margin-bottom:12px}
+  .arcbar i{display:block;height:100%;background:linear-gradient(90deg,var(--acc),var(--ok));transition:width .12s linear}
+  .quizopt.arc{font-size:17px;padding:16px 14px;text-align:center;font-weight:800}
+  /* ---------- la roue des 12 ---------- */
+  .wheel{position:relative;width:290px;height:290px;margin:10px auto 4px}
+  .wctr{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);text-align:center;width:110px}
+  .wctr b{display:block;font-size:30px;font-weight:900;line-height:1}
+  .wctr b span{font-size:15px;color:var(--dim)}
+  .wctr small{display:block;font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px}
+  .wctr i{display:block;font-style:normal;font-size:13px;font-weight:800;color:var(--acc);margin-top:3px}
+  .wchip{position:absolute;width:54px;height:54px;border-radius:50%;background:var(--bg2);border:2px solid var(--line);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;text-align:center}
+  .wchip b{font-size:13px;font-weight:800;line-height:1}
+  .wchip small{font-size:9px;color:var(--dim);margin-top:1px}
+  .wchip .wp{display:flex;gap:2px;margin-top:3px}
+  .wchip .wp i{width:4px;height:4px;border-radius:50%;background:#0006}
+  .wchip .wp i.on{background:var(--acc)}
+  .wchip.lv1,.wchip.lv2{border-color:#6a5a2e}.wchip.lv3,.wchip.lv4{border-color:var(--acc2)}
+  .wchip.lv5{border-color:var(--ok);background:linear-gradient(160deg,#14301f,#1b2b22)}
+  .wchip.lv5 .wp i.on{background:var(--ok)}
+  .wchip.due{border-color:var(--acc);box-shadow:0 0 0 3px rgba(232,161,60,.18)}
+  .wlegend{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;font-size:11px;color:var(--dim);margin:6px 0 4px}
+  .wlegend span{display:flex;align-items:center;gap:4px}
+  .wlegend i{width:11px;height:11px;border-radius:50%;border:2px solid var(--line);background:var(--bg2)}
+  .wlegend i.lv2{border-color:#6a5a2e}.wlegend i.lv5{border-color:var(--ok);background:#14301f}
+  .wlegend i.due{border-color:var(--acc);box-shadow:0 0 0 2px rgba(232,161,60,.2)}
+  /* ---------- le juke-box ---------- */
+  .jbgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:12px 0 4px}
+  .jbc{background:var(--bg3);border:1px solid var(--line);border-radius:9px;padding:11px 3px;text-align:center;font-weight:800;font-size:14px}
+  .jbc.on{background:var(--acc);color:#1a1200;border-color:var(--acc)}
   /* ---------- exercise ---------- */
   .exhead{text-align:center;margin:8px 0 4px}
   .exhead .target{font-size:34px;font-weight:800;letter-spacing:1px}
@@ -1667,6 +1702,17 @@ const DRILLS=[
        : (p>0 ? `Programme de maîtrise des gammes majeures. <b style="color:var(--ok)">${m}/12</b> scellées · <b style="color:var(--acc)">${p}%</b>. Fais ta <b>séance du jour</b>.`
               : `Connaître PARFAITEMENT tes 12 gammes majeures — par cœur, en ~2 semaines. 5 paliers par gamme, séance quotidienne adaptative. <b style="color:var(--acc)">Commence ici.</b>`); },
    run:()=>goDash()},
+  {id:'arcade', icon:'🕹️', title:'L\'ARCADE DES GAMMES', req:null,
+   desc:()=>{ const b=(S.best&&S.best.arcade)||0;
+     return '<b>60 secondes, 3 vies, un combo qui monte (×2, ×3, ×4).</b> Les questions du Flash servies au rythme d\'un jeu d\'arcade : pas de correction quand tu as juste, on enchaîne. C\'est le mode qui rend les armures RÉFLEXES.'
+     +(b?` Record : <b style="color:var(--acc)">${b}</b> — rang ${arcRank(b)}.`:' Aucun record posé.'); },
+   run:()=>goArcade()},
+  {id:'roue', icon:'🗺', title:'LA ROUE DES 12', req:null,
+   desc:()=>`Ta carte de conquête : les 12 gammes en <b>cercle des quintes</b>, chacune éclairée selon son palier. Les dièses à droite, les bémols à gauche — tu vois d\'un coup d\'œil de quel côté tu traînes. <b style="color:var(--ok)">${goMastered()}/12</b> scellées.`,
+   run:()=>goWheel()},
+  {id:'juke', icon:'🎧', title:'LE JUKE-BOX — LES GAMMES EN VRAI', req:null,
+   desc:()=>`${JUKE.length} vrais morceaux rangés <b>par gamme</b> (penta, dorien, mixolydien, lydien, phrygien, blues, mineur harmonique). L\'app tient la grille en boucle, ta gamme s\'allume en bleu, la note à viser en orange. <b style="color:var(--acc)">${jbCount()}/${JUKE.length}</b> joués.`,
+   run:()=>jukeRoom()},
   {id:'errs', icon:'🩹', title:'MES ERREURS', req:null,
    desc:()=>errCount()
      ? `<b style="color:var(--bad)">${errCount()}</b> point(s) que tu as raté(s) t'attendent. Une erreur ne sort de la liste qu'après <b>2 réussites</b> — c'est là que le progrès se fait, pas dans ce que tu sais déjà.`
@@ -4032,6 +4078,11 @@ const Player = {
 function renderMorceaux(){
   main.innerHTML=`<h1 class="page">Morceaux</h1>
   <p style="color:var(--dim);font-size:14px;margin:-6px 0 14px">La théorie, ça se joue. L'app tient le tempo et t'allume les touches — tes doigts suivent. Ralentis, coupe une main, boucle : c'est toi qui mènes. <b style="color:var(--txt)">Classés par difficulté</b> — commence en haut.</p>`;
+  const jbc=document.createElement('div'); jbc.className='card'; jbc.style.borderColor='var(--acc)'; jbc.style.cursor='pointer';
+  jbc.innerHTML=`<b style="font-size:16px">🎧 LE JUKE-BOX — les gammes en vrai</b>
+    <p style="color:var(--dim);font-size:13px;margin:4px 0 0">${JUKE.length} morceaux connus rangés <b>par gamme</b> : l'app tient la grille en boucle, ta gamme s'allume en bleu, la note à viser en orange. De <i>Lonely Day</i> à <i>Hotel California</i>. <b style="color:var(--acc)">${jbCount()}/${JUKE.length}</b> joués.`;
+  const jbb=document.createElement('button'); jbb.className='btn ghost'; jbb.textContent='Ouvrir le Juke-box'; jbb.onclick=()=>jukeRoom();
+  jbc.appendChild(jbb); jbc.onclick=e=>{ if(e.target!==jbb) jukeRoom(); }; main.appendChild(jbc);
   const byDiff=(a,b)=>(a.diff||0)-(b.diff||0);
   const melodies=SONGS.filter(s=>!s.jam).sort(byDiff), jams=SONGS.filter(s=>s.jam).sort(byDiff);
   const section=(titre,list)=>{
@@ -5064,6 +5115,9 @@ function trophyDefs(){
     {ic:'⚡',n:'Rapide',d:'Un record de sprint posé', ok:!!sprint, p:sprint?1:0},
     {ic:'📅',n:'Habitué',d:'Joué 14 jours différents', ok:days>=14, p:p(days,14)},
     {ic:'💎',n:'Mille XP',d:'Atteindre 1000 XP', ok:xp>=1000, p:p(xp,1000)},
+    {ic:'🕹️',n:'Arcade',d:'500 points en 60 s', ok:((S.best&&S.best.arcade)||0)>=500, p:p((S.best&&S.best.arcade)||0,500)},
+    {ic:'🎧',n:'Juke-box',d:'5 morceaux improvisés', ok:jbCount()>=5, p:p(jbCount(),5)},
+    {ic:'🗺',n:'Cartographe',d:'Les 12 gammes scellées', ok:goMastered()>=12, p:p(goMastered(),12)},
     {ic:'👑',n:'Sensei',d:'Grade maximum (3200 XP)', ok:xp>=3200, p:p(xp,3200)},
   ];
 }
@@ -6333,6 +6387,12 @@ function goDash(){
     bigBtn.textContent = started ? '🎯 SÉANCE DU JOUR' : '🚀 Démarrer le programme';
     bigBtn.onclick=()=>{ close(); goSeance(); };
     inner.appendChild(bigBtn);
+    const whBtn=document.createElement('button'); whBtn.className='btn ghost';
+    whBtn.textContent='🗺 La Roue des 12 — ta carte de conquête';
+    whBtn.onclick=()=>{ close(); goWheel(); }; inner.appendChild(whBtn);
+    const arBtn=document.createElement('button'); arBtn.className='btn ghost';
+    arBtn.textContent='🕹️ L\'Arcade — 60 s, combo, 3 vies';
+    arBtn.onclick=()=>{ close(); goArcade(); }; inner.appendChild(arBtn);
     const flBtn=document.createElement('button'); flBtn.className='btn ghost';
     flBtn.textContent='⚡ Le Flash des 12 — 12 questions mélangées';
     flBtn.onclick=()=>{ close(); goFlash(); }; inner.appendChild(flBtn);
@@ -6382,6 +6442,420 @@ function goDash(){
         · <b>⚡ Le Flash des 12</b> mélange les gammes et pose les questions <b>dans les deux sens</b>. Travailler une gamme en bloc donne l'impression de savoir et ne laisse rien le lendemain.<br>
         · <b>🧭 La Boussole</b> remplace 12 listes par <b>une liste et deux raccourcis</b>. Une règle se recalcule, une liste s'oublie.
       </div>`);
+  });
+}
+
+/* ================================================================
+   L'ARCADE DES GAMMES — 60 secondes, combo, 3 vies.
+   Le Grand Œuvre construit la connaissance ; le Flash l'entretient ;
+   l'Arcade la rend RÉFLEXE. Même vivier de questions que le Flash,
+   mais sans filet : chrono qui tourne, combo qui monte, vies qui
+   tombent. C'est le mode qu'on relance « juste une dernière ».
+   ================================================================ */
+const ARC_RANKS=[[0,'Touriste'],[200,'Apprenti'],[450,'Lecteur d\'armures'],[800,'Cartographe'],[1300,'Maître des 12'],[2000,'Sensei des gammes']];
+function arcRank(sc){ let n=ARC_RANKS[0][1]; ARC_RANKS.forEach(r=>{ if(sc>=r[0]) n=r[1]; }); return n; }
+var _arcT=null;
+function goArcade(){
+  openCustom('🕹️ L\'Arcade des gammes',(inner,close)=>{
+    const best=(S.best&&S.best.arcade)||0;
+    const intro=document.createElement('div'); intro.className='theory';
+    intro.innerHTML=`<p><b>60 secondes. 3 vies. Un combo qui monte.</b> Les mêmes questions que le Flash — armures, degrés, relatifs, raccourcis, dans les deux sens — mais servies au rythme d'un jeu d'arcade : pas de correction quand tu as juste, on enchaîne.</p>
+      <p style="margin-top:6px">Trois bonnes réponses d'affilée : <b style="color:var(--acc)">×2</b>. Six : <b style="color:var(--acc)">×3</b>. Neuf : <b style="color:var(--acc)">×4</b>. Une erreur casse le combo <i>et</i> coûte une vie. C'est là que la vitesse se gagne.</p>`;
+    inner.appendChild(intro);
+    const st=document.createElement('div'); st.className='gostat';
+    st.innerHTML=`<div class="b"><div class="n" style="color:var(--acc)">${best}</div><div class="l">record</div></div>
+      <div class="b"><div class="n" style="font-size:16px">${arcRank(best)}</div><div class="l">rang</div></div>
+      <div class="b"><div class="n" style="color:var(--ok)">${goMastered()}<small style="font-size:13px;color:var(--dim)">/12</small></div><div class="l">gammes sues</div></div>`;
+    inner.appendChild(st);
+    const b=document.createElement('button'); b.className='btn'; b.textContent='🕹️ Insérer une pièce';
+    b.onclick=()=>{ inner.innerHTML=''; runArcade(inner,close); }; inner.appendChild(b);
+    const w=goWeak(3);
+    if(w.length){ const wd=document.createElement('div'); wd.className='tip';
+      wd.style.cssText='background:#2a1d1d;border-left:3px solid var(--bad);padding:10px 12px;border-radius:0 10px 10px 0;margin-top:12px;font-size:13px;line-height:1.5;color:#e8cfcf';
+      wd.innerHTML=`🎯 L'Arcade sert plus souvent tes trous : ${w.map(r=>`<b>${GO_SCALES[r].name}</b> (${goMissPct(r)}% de ratés)`).join(' · ')}.`;
+      inner.appendChild(wd); }
+  });
+}
+function runArcade(inner,close){
+  const DUR=60; let score=0, combo=0, lives=3, good=0, asked=0, over=false, t0=Date.now(), qt0=0, q=null;
+  inner.innerHTML=`<div class="arcadehud">
+      <div class="ah"><b id="ascore">0</b><small>score</small></div>
+      <div class="ah"><b id="acombo">×1</b><small>combo</small></div>
+      <div class="ah"><b id="alives">❤️❤️❤️</b><small>vies</small></div>
+      <div class="ah"><b id="atime">60.0</b><small>secondes</small></div>
+    </div><div class="arcbar"><i id="abar" style="width:100%"></i></div><div id="aq"></div>`;
+  const area=inner.querySelector('#aq');
+  const hud=()=>{ const left=Math.max(0,DUR-(Date.now()-t0)/1000);
+    inner.querySelector('#ascore').textContent=score;
+    const m=Math.min(4,1+Math.floor(combo/3));
+    const ce=inner.querySelector('#acombo'); ce.textContent='×'+m; ce.style.color=m>1?'var(--acc)':'var(--txt)';
+    inner.querySelector('#alives').textContent='❤️'.repeat(lives)||'—';
+    const te=inner.querySelector('#atime'); te.textContent=left.toFixed(1); te.style.color=left<10?'var(--bad)':'var(--txt)';
+    inner.querySelector('#abar').style.width=(100*left/DUR)+'%';
+    if(left<=0 && !over) finish(); };
+  const step=()=>{ if(over) return;
+    q=goFlashQs(1)[0]; asked++; qt0=Date.now();
+    area.innerHTML=`<div style="font-size:18px;font-weight:700;line-height:1.4;margin:10px 0 12px;text-align:center">${q.q}</div>`;
+    q.opts.forEach((o,oi)=>{ const b=document.createElement('button'); b.className='quizopt arc'; b.textContent=o;
+      b.onclick=()=>answer(oi,b); area.appendChild(b); }); };
+  const answer=(oi,btn)=>{ if(over) return;
+    area.querySelectorAll('.quizopt').forEach(x=>x.style.pointerEvents='none');
+    const ok=oi===q.a; goStat(q.root,ok);
+    if(ok){ const fast=(Date.now()-qt0)<3500, m=Math.min(4,1+Math.floor(combo/3));
+      score+=(fast?15:10)*m; combo++; good++;
+      btn.classList.add('right'); tada();
+      if(combo===3||combo===6||combo===9) toast('🔥 combo ×'+Math.min(4,1+Math.floor(combo/3)));
+      hud(); setTimeout(step,240);
+    } else { combo=0; lives--; btn.classList.add('wrong'); buzz();
+      area.querySelectorAll('.quizopt')[q.a].classList.add('right');
+      const w=document.createElement('div'); w.className='quizwhy'; w.innerHTML=q.why; area.appendChild(w);
+      hud(); if(lives<=0) setTimeout(finish,1500); else setTimeout(step,1600); } };
+  const finish=()=>{ if(over) return; over=true; if(_arcT){ clearInterval(_arcT); _arcT=null; }
+    if(!S.best) S.best={};
+    const isBest=score>(S.best.arcade||0); if(isBest) S.best.arcade=score;
+    const xp=Math.min(60,Math.round(score/15)); if(xp) award(xp);
+    dailyMark('scales'); dailyMark('drill'); save();
+    inner.innerHTML=`<div class="exhead"><div class="target" style="font-size:44px">${score}</div>
+      <div class="sub">${good}/${asked} · rang <b style="color:var(--acc)">${arcRank(score)}</b>${isBest?' · 🏆 <b>nouveau record</b>':''}</div></div>
+      <p style="text-align:center;color:var(--dim);font-size:13px;line-height:1.5;margin:10px 0">${score>=800?'Réflexes installés. Les armures ne se calculent plus, elles se voient.':score>=350?'Bon score. Le combo est là où tout se joue : c\'est l\'enchaînement propre qui rapporte, pas la vitesse brute.':'Normal au début. Repasse par 🧭 La Boussole : une règle qui se recalcule bat douze listes apprises par cœur.'}<br><b style="color:var(--acc)">+${xp} XP</b></p>`;
+    const a=document.createElement('button'); a.className='btn'; a.textContent='🕹️ Rejouer'; a.onclick=()=>runArcade(inner,close); inner.appendChild(a);
+    const b=document.createElement('button'); b.className='btn ghost'; b.textContent='🗺 La Roue des 12'; b.onclick=()=>{ close(); goWheel(); }; inner.appendChild(b);
+    const c=document.createElement('button'); c.className='btn ghost'; c.textContent='Fermer'; c.onclick=close; inner.appendChild(c); };
+  if(_arcT) clearInterval(_arcT); _arcT=setInterval(hud,100);
+  step(); hud();
+}
+
+/* ================================================================
+   LA ROUE DES 12 — la carte de conquête.
+   Les 12 gammes rangées en CERCLE DES QUINTES : à droite les dièses,
+   à gauche les bémols. La progression devient un territoire qui
+   s'éclaire de part et d'autre de Do. Une liste ne se regarde pas ;
+   une carte, si.
+   ================================================================ */
+const WHEEL=[0,7,2,9,4,11,6,1,8,3,10,5];   /* Do Sol Ré La Mi Si Fa#/Solb Réb Lab Mib Sib Fa */
+function goWheel(){
+  gmState();
+  openCustom('🗺 La Roue des 12',(inner,close)=>{
+    const m=goMastered(), pct=goProgPct(), due=goDueList();
+    const p=document.createElement('p'); p.style.cssText='color:var(--dim);font-size:13.5px;line-height:1.5;margin:2px 0 10px';
+    p.innerHTML='Tes 12 gammes rangées en <b>cercle des quintes</b> : chaque pas vers la droite ajoute un <b>dièse</b>, chaque pas vers la gauche un <b>bémol</b>. Ta conquête s\'éclaire donc <b>des deux côtés de Do</b> — et tu vois d\'un coup d\'œil de quel côté tu traînes. Touche une gamme pour la travailler.';
+    inner.appendChild(p);
+    const wrap=document.createElement('div'); wrap.className='wheel'; inner.appendChild(wrap);
+    const ctr=document.createElement('div'); ctr.className='wctr';
+    ctr.innerHTML=`<b>${m}<span>/12</span></b><small>conquises</small><i>${pct}%</i>`; wrap.appendChild(ctr);
+    const C=145, R=115;
+    WHEEL.forEach((root,i)=>{
+      const sc=GO_SCALES[root], g=gm(root), isDue=goIsDue(root);
+      const a=(-90+i*30)*Math.PI/180, x=C+R*Math.cos(a), y=C+R*Math.sin(a);
+      const d=document.createElement('div');
+      d.className='wchip lv'+Math.min(5,g.lvl)+(isDue?' due':'');
+      d.style.left=(x-27)+'px'; d.style.top=(y-27)+'px';
+      let pips=''; for(let k=1;k<=5;k++) pips+=`<i class="${k<=g.lvl?'on':''}"></i>`;
+      d.innerHTML=`<b>${sc.name}</b><small>${sc.alt===0?'—':sc.alt+sc.type}</small><div class="wp">${pips}</div>`;
+      d.onclick=()=>{ close(); goMenu(root); };
+      wrap.appendChild(d);
+    });
+    const lg=document.createElement('div'); lg.className='wlegend';
+    lg.innerHTML=`<span><i class="lv0"></i>pas ouverte</span><span><i class="lv2"></i>en cours</span><span><i class="lv5"></i>scellée</span><span><i class="due"></i>à revoir</span>`;
+    inner.appendChild(lg);
+    if(due.length){ const t=document.createElement('div'); t.className='tip';
+      t.style.cssText='background:#2a2415;border-left:3px solid var(--acc);padding:10px 12px;border-radius:0 10px 10px 0;margin:12px 0 0;font-size:13px;line-height:1.5;color:#e8ddc4';
+      t.innerHTML=`⏳ <b>${due.length} gamme(s) à revoir</b> : ${due.map(r=>GO_SCALES[r].name).join(' · ')}. Entretien raté = elle redescend d'un palier.`;
+      inner.appendChild(t); }
+    const b1=document.createElement('button'); b1.className='btn'; b1.textContent='🎯 Séance du jour'; b1.onclick=()=>{ close(); goSeance(); }; inner.appendChild(b1);
+    const b2=document.createElement('button'); b2.className='btn ghost'; b2.textContent='🕹️ L\'Arcade — 60 s, combo, 3 vies'; b2.onclick=()=>{ close(); goArcade(); }; inner.appendChild(b2);
+    const b3=document.createElement('button'); b3.className='btn ghost'; b3.textContent='🎓 Le tableau de bord complet'; b3.onclick=()=>{ close(); goDash(); }; inner.appendChild(b3);
+    const th=document.createElement('div'); th.className='theory'; th.innerHTML=`
+      <h3>Lire la roue</h3>
+      <p>Do en haut, sans altération. À droite : <b>Sol (1♯), Ré (2♯), La (3♯)…</b> chaque quinte ajoute un dièse. À gauche : <b>Fa (1♭), Si♭ (2♭), Mi♭ (3♭)…</b> chaque quarte ajoute un bémol. En bas, les deux routes se rejoignent (Fa♯ = Sol♭).</p>
+      <div class="tip">Deux gammes <b>voisines</b> sur la roue ne diffèrent que d'<b>une note</b>. C'est pour ça qu'on les apprend dans cet ordre : chaque nouvelle gamme n'est qu'un pas de plus, jamais une liste à réapprendre.</div>`;
+    inner.appendChild(th);
+  });
+}
+
+/* ================================================================
+   LE JUKE-BOX — les gammes sur de VRAIS morceaux.
+   L'app tient la grille, tu improvises la main droite avec la gamme
+   surlignée. Le chaînon entre « je connais mes 12 gammes » et
+   « je joue ». Trié par gamme : chaque famille (dorien, mixolydien…)
+   a ses morceaux qui la rendent évidente à l'oreille.
+   ================================================================ */
+const JSC_DEF={
+  pm:{n:'penta mineure', iv:[0,3,5,7,10], fam:'Penta mineure'},
+  aeo:{n:'mineure naturelle', iv:[0,2,3,5,7,8,10], fam:'Penta mineure'},
+  PM:{n:'penta majeure', iv:[0,2,4,7,9], fam:'Penta majeure'},
+  maj:{n:'majeure', iv:[0,2,4,5,7,9,11], fam:'Penta majeure'},
+  dor:{n:'dorien', iv:[0,2,3,5,7,9,10], fam:'Dorien'},
+  mix:{n:'mixolydien', iv:[0,2,4,5,7,9,10], fam:'Mixolydien'},
+  lyd:{n:'lydien', iv:[0,2,4,6,7,9,11], fam:'Lydien'},
+  phr:{n:'phrygien', iv:[0,1,3,5,7,8,10], fam:'Phrygien'},
+  phrD:{n:'phrygien dominant', iv:[0,1,4,5,7,8,10], fam:'Phrygien'},
+  blu:{n:'gamme blues', iv:[0,3,5,6,7,10], fam:'Blues'},
+  har:{n:'mineure harmonique', iv:[0,2,3,5,7,8,11], fam:'Harmonique'}
+};
+const JB_FAM=['Penta mineure','Penta majeure','Dorien','Mixolydien','Lydien','Phrygien','Blues','Harmonique'];
+const JUKE=[
+ {id:'lonelyday', ic:'🖤', t:'Lonely Day', a:'System of a Down', star:1, root:8, key:'Sol♯ mineur', sc:'pm', diff:1, bpm:88, exact:1,
+  ch:[[8,'min'],[4,'maj'],[11,'maj'],[3,'dom7']],
+  aim:[7,'Sur le <b>Ré♯7</b>, vise le <b>Sol</b> : c\'est sa tierce, et c\'est la note qui tire vers le retour au Sol♯m. Elle n\'est PAS dans ta penta — c\'est exactement pour ça qu\'elle sonne.'],
+  why:'La boucle est <b>i – ♭VI – ♭III – V7</b> : trois accords tout droit sortis de Sol♯ mineur, plus un Ré♯7 emprunté au mineur harmonique. Voilà pourquoi la penta mineure de Sol♯ passe partout — et pourquoi le dernier accord crée cette tension.',
+  hand:'Main gauche : la fondamentale au temps 1, la quinte au temps 3 (l\'app te la joue). Main droite : commence par UNE note par mesure, tenue.'},
+ {id:'change', ic:'🪰', t:'Change (In the House of Flies)', a:'Deftones', root:0, key:'Do mineur', sc:'pm', diff:1, bpm:96, exact:1,
+  ch:[[0,'min'],[0,'min'],[5,'min'],[5,'min']],
+  aim:[3,'Le <b>Mi♭</b> (la ♭3), <b>tenu</b>. Ici la lenteur EST la musique.'],
+  why:'Deux accords, <b>Dom – Fam</b> (i – iv). Avec si peu d\'harmonie, ce qui compte n\'est plus quelle note mais <b>combien de temps</b> tu la laisses sonner.',
+  hand:'Joue très peu de notes, très espacées. Pédale de sustain généreuse.'},
+ {id:'teenspirit', ic:'💥', t:'Smells Like Teen Spirit', a:'Nirvana', root:5, key:'Fa mineur', sc:'pm', diff:1, bpm:117, exact:1,
+  ch:[[5,'min'],[10,'min'],[8,'maj'],[1,'maj']],
+  aim:[8,'Le <b>La♭</b> (la ♭3) est aussi la fondamentale du 3<sup>e</sup> accord : atterris dessus quand il arrive, ça « colle » d\'un coup.'],
+  why:'<b>i – iv – ♭III – ♭VI</b> : la boucle mineure des années 90. Quatre accords, une seule penta par-dessus.',
+  hand:'Main gauche en octaves sèches sur le temps 1 : c\'est ce qui donne le côté « power chord » au piano.'},
+ {id:'likeastone', ic:'🪨', t:'Like a Stone', a:'Audioslave', root:9, key:'La mineur', sc:'pm', diff:1, bpm:100, exact:1,
+  ch:[[9,'min'],[7,'maj'],[4,'min'],[5,'maj']],
+  aim:[9,'Sur le <b>Fa</b>, ton La est SA tierce : reste dessus, ça sonne plein et triste à la fois.'],
+  why:'<b>i – ♭VII – v – ♭VI</b> : que du diatonique de La mineur — donc la penta mineure de La ne peut pas se tromper. Le morceau idéal pour ta première vraie impro lente.',
+  hand:'La mineur = que des touches blanches. Aucune excuse : c\'est le terrain le plus simple qui existe.'},
+ {id:'zombie', ic:'🪖', t:'Zombie', a:'The Cranberries', root:4, key:'Mi mineur', sc:'aeo', diff:1, bpm:84, exact:1,
+  ch:[[4,'min'],[0,'maj'],[7,'maj'],[2,'maj']],
+  aim:[6,'Sur le <b>Ré</b>, vise le <b>Fa♯</b> : sa tierce. Elle est dans la gamme de Mi mineur mais PAS dans la penta — ta première note « en plus ».'],
+  why:'<b>i – ♭VI – ♭III – ♭VII</b> : la boucle mineure la plus jouée de la planète. Parfaite pour apprendre à sortir de la penta d\'une seule note.',
+  hand:'Essaie la main droite en accords plaqués sur les temps 2 et 4 : le morceau devient tout de suite reconnaissable.'},
+ {id:'nothingelse', ic:'🖤', t:'Nothing Else Matters', a:'Metallica', root:4, key:'Mi mineur', sc:'aeo', diff:1, bpm:70, exact:1,
+  ch:[[4,'min'],[2,'maj'],[0,'maj']],
+  aim:[11,'Sur le <b>Ré</b> le <b>Fa♯</b> ; sur le <b>Do</b> le <b>Mi</b>. Lentes, tenues.'],
+  why:'Em – Ré – Do : la descente ♭VII–♭VI, le cliché le plus émouvant du rock. À ce tempo, tu as le temps de <b>choisir</b> chaque note.',
+  hand:'Arpège la main gauche (fondamentale – quinte – octave) au lieu de plaquer : c\'est tout l\'esprit du morceau.'},
+ {id:'stairway', ic:'🪜', t:'Stairway to Heaven (le solo)', a:'Led Zeppelin', root:9, key:'La mineur', sc:'pm', diff:2, bpm:82, exact:1,
+  ch:[[9,'min'],[7,'maj'],[5,'maj'],[9,'min']],
+  aim:[0,'Le <b>Do</b> (♭3) tenu, c\'est la signature de tout le solo.'],
+  why:'Le solo modèle : peu de matériel, des motifs répétés, une montée d\'intensité. Un grand solo se construit avec de la <b>répétition</b>, pas avec du vocabulaire.',
+  hand:''},
+ {id:'seven', ic:'🥁', t:'Seven Nation Army', a:'The White Stripes', root:4, key:'Mi mineur', sc:'pm', diff:1, bpm:124, exact:0,
+  ch:[[4,'min'],[4,'min'],[0,'maj'],[7,'maj']],
+  aim:[7,'Le riff, c\'est <b>Mi – Sol – Mi – Ré – Do – Si</b> : cinq notes de la penta mineure de Mi. Joue-le main gauche, en octaves.'],
+  why:'Le riff le plus connu du siècle est une <b>penta mineure descendante</b>. Quand on te dit qu\'une gamme fait de la musique — c\'est littéralement ça.',
+  hand:'Main gauche : le riff en octaves. Main droite : rien pendant 8 mesures, puis une note. Le vide fait le morceau.'},
+ {id:'comeasyouare', ic:'🌊', t:'Come As You Are', a:'Nirvana', root:6, key:'Fa♯ mineur', sc:'aeo', diff:2, bpm:120, exact:0,
+  ch:[[6,'min'],[6,'min'],[9,'maj'],[11,'min']],
+  aim:[4,'Le riff descend la gamme mineure. Repère le <b>Mi</b> (la ♭7) : c\'est la note qui donne son côté résigné.'],
+  why:'Le riff EST la gamme, jouée note à note. Le meilleur exercice de gamme du monde, parce que tu l\'as déjà dans l\'oreille.',
+  hand:'Fa♯ mineur = 3 dièses. Bonne occasion de vérifier que ta gamme tient hors des touches blanches.'},
+ /* ---- majeur ---- */
+ {id:'sweetchild', ic:'🌹', t:'Sweet Child o\' Mine', a:'Guns N\' Roses', root:2, key:'Ré majeur', sc:'PM', diff:2, bpm:126, exact:1,
+  ch:[[2,'maj'],[0,'maj'],[7,'maj'],[2,'maj']],
+  aim:[6,'Le <b>Fa♯</b> (tierce majeure) : la note qui rend tout ça joyeux.'],
+  why:'Penta majeure de Ré = penta mineure de Si : <b>mêmes cinq notes</b>, autre maison. Une gamme apprise, deux couleurs.',
+  hand:'Le riff se joue très bien main droite en croches régulières : c\'est un excellent exercice de doigté.'},
+ {id:'wishyou', ic:'🔥', t:'Wish You Were Here', a:'Pink Floyd', root:7, key:'Sol majeur', sc:'PM', diff:1, bpm:120, exact:1,
+  ch:[[0,'maj'],[2,'maj'],[9,'min'],[7,'maj']],
+  aim:[11,'Le <b>Si</b> (tierce de Sol) sur le dernier accord : la note qui « rentre à la maison ».'],
+  why:'Do – Ré – Lam – Sol : IV – V – ii – I en Sol majeur. Douce, ouverte : le majeur sans avoir l\'air de faire un exercice.',
+  hand:''},
+ {id:'threelittle', ic:'🐦', t:'Three Little Birds', a:'Bob Marley', root:9, key:'La majeur', sc:'PM', diff:1, bpm:76, exact:1,
+  ch:[[9,'maj'],[2,'maj'],[4,'maj'],[9,'maj']],
+  aim:[1,'Le <b>Do♯</b> (tierce majeure) : LA note du sourire. Impossible de sonner triste dessus.'],
+  why:'<b>I – IV – V</b>, les trois voisins du cercle. Le terrain le plus doux pour la penta majeure.',
+  hand:'Joue les accords main droite sur les CONTRETEMPS (le « et » de chaque temps) : c\'est tout le reggae.'},
+ {id:'creep', ic:'🕳', t:'Creep', a:'Radiohead', root:7, key:'Sol majeur', sc:'maj', diff:2, bpm:92, exact:1,
+  ch:[[7,'maj'],[11,'maj'],[0,'maj'],[0,'min']],
+  aim:[3,'Le <b>Mi♭</b> du dernier accord (Dom). Il n\'appartient pas à Sol majeur : c\'est un accord <b>emprunté</b>, et c\'est tout le frisson du morceau.'],
+  why:'I – III – IV – <b>iv</b>. Deux intrus (Si majeur, puis Do MINEUR). Le meilleur exemple pour comprendre qu\'une « fausse » note choisie exprès est la plus belle du morceau.',
+  hand:'Écoute bien le passage Do majeur → Do mineur : une seule note bouge (Mi → Mi♭). Joue-la seule, deux fois, pour l\'entendre.'},
+ /* ---- dorien ---- */
+ {id:'oyecomova', ic:'🔥', t:'Oye Como Va', a:'Santana', root:9, key:'La dorien', sc:'dor', diff:2, bpm:112, exact:1,
+  ch:[[9,'m7'],[2,'dom7']],
+  aim:[6,'Le <b>Fa♯</b> — la sixte MAJEURE. Elle seule sépare « mineur triste » de « mineur cool ».'],
+  why:'Am7 – D7. Le Ré7 contient un Fa♯ là où un La mineur normal aurait un Fa naturel. <b>Joue le Fa naturel pour comparer : la couleur s\'éteint immédiatement.</b>',
+  hand:'C\'est LE morceau à deux accords : parfait pour travailler la main gauche en boucle sans réfléchir.'},
+ {id:'getlucky', ic:'🕺', t:'Get Lucky', a:'Daft Punk', root:11, key:'Si dorien', sc:'dor', diff:2, bpm:116, exact:1,
+  ch:[[11,'min'],[2,'maj'],[6,'min'],[4,'maj']],
+  aim:[8,'Le <b>Sol♯</b>, apporté par le Mi majeur. Un IV MAJEUR dans un morceau mineur = signature du dorien.'],
+  why:'Bm – Ré – F♯m – Mi. En Si mineur naturel, le 4<sup>e</sup> accord serait Mi MINEUR. Il est majeur : voilà pourquoi ça groove au lieu de pleurer.',
+  hand:''},
+ {id:'wicked', ic:'🌘', t:'Wicked Game', a:'Chris Isaak', root:11, key:'Si dorien', sc:'dor', diff:1, bpm:112, exact:1,
+  ch:[[11,'min'],[9,'maj'],[4,'maj']],
+  aim:[8,'Même note-clé que Get Lucky : le <b>Sol♯</b> du Mi majeur. Longue, avec la pédale.'],
+  why:'Bm – La – Mi, en boucle sans fin. Trois accords, une ambiance : la preuve que le <b>son</b> compte autant que les notes.',
+  hand:'Très peu de notes, beaucoup de pédale. Laisse le silence faire la moitié du travail.'},
+ {id:'sowhat', ic:'🎺', t:'So What', a:'Miles Davis', root:2, key:'Ré dorien', sc:'dor', diff:3, bpm:130, exact:1,
+  ch:[[2,'m7'],[2,'m7'],[3,'m7'],[2,'m7']],
+  aim:[11,'Le <b>Si</b> naturel (la 6te majeure). Sur le Mi♭m7 du pont, tout glisse d\'un demi-ton.'],
+  why:'Le jazz modal : <b>un seul accord</b> pendant 8 mesures. Plus rien ne t\'aide, plus rien ne te gêne. L\'examen final de l\'impro.',
+  hand:'Ré dorien = les touches blanches, maison sur Ré. Tu peux improviser en ne jouant QUE des blanches — concentre-toi sur le rythme.'},
+ {id:'brick', ic:'🧱', t:'Another Brick in the Wall (le solo)', a:'Pink Floyd', root:2, key:'Ré mineur / dorien', sc:'dor', diff:2, bpm:104, exact:0,
+  ch:[[2,'min'],[2,'min'],[0,'maj'],[0,'maj']],
+  aim:[7,'Des notes <b>tenues</b>, jamais pressées. Prends le <b>Sol</b> (la 4te) et laisse-la sonner longtemps avant de bouger.'],
+  why:'Le solo le plus « chantant » du rock, sur une boucle minimale. Leçon : une note bien placée vaut dix notes rapides.',
+  hand:''},
+ /* ---- mixolydien ---- */
+ {id:'sweethome', ic:'🏡', t:'Sweet Home Alabama', a:'Lynyrd Skynyrd', root:2, key:'Ré mixolydien', sc:'mix', diff:2, bpm:98, exact:1,
+  ch:[[2,'maj'],[0,'maj'],[7,'maj']],
+  aim:[0,'Le <b>Do naturel</b> (la ♭7). En Ré MAJEUR il y aurait un Do♯ — ici non, et c\'est tout le grain sudiste.'],
+  why:'Ré – Do – Sol : I – ♭VII – IV. L\'accord de Do est <b>impossible</b> en Ré majeur pur : c\'est la carte d\'identité du mixolydien.',
+  hand:''},
+ {id:'sympathy', ic:'😈', t:'Sympathy for the Devil', a:'The Rolling Stones', root:4, key:'Mi mixolydien', sc:'mix', diff:2, bpm:116, exact:1,
+  ch:[[4,'maj'],[2,'maj'],[9,'maj'],[4,'maj']],
+  aim:[8,'Le <b>Sol♯</b> (tierce majeure) contre le <b>Ré</b> (♭7) : les deux ensemble, c\'est le son. Passe de l\'un à l\'autre.'],
+  why:'Mi – Ré – La – Mi : même formule que Sweet Home Alabama, autre planète. Un mode n\'est pas un style : c\'est une palette.',
+  hand:''},
+ {id:'backinblack', ic:'⚫', t:'Back in Black', a:'AC/DC', root:4, key:'Mi (mixo / blues)', sc:'mix', diff:2, bpm:92, exact:1,
+  ch:[[4,'maj'],[2,'maj'],[9,'maj']],
+  aim:[8,'Le mouvement <b>Sol → Sol♯</b> (♭3 vers 3). Au piano : joue les deux à la suite, très vite, en écrasement. C\'est le son du rock.'],
+  why:'Une penta MINEURE sur des accords MAJEURS : cette friction ♭3/3 est tout le rock\'n\'roll (et tout le blues).',
+  hand:'Le « crush » ♭3→3 se joue avec deux doigts collés, presque en même temps. C\'est le geste bluesy de base au piano.'},
+ /* ---- lydien ---- */
+ {id:'simpsons', ic:'🍩', t:'Le thème des Simpson', a:'Danny Elfman', root:0, key:'Do lydien', sc:'lyd', diff:2, bpm:110, exact:0,
+  ch:[[0,'maj7'],[2,'maj']],
+  aim:[6,'Le <b>Fa♯</b> — la quarte AUGMENTÉE. Toute la couleur « décalée, magique » tient dans cette seule note.'],
+  why:'Un Do avec un Ré majeur par-dessus : le Ré majeur apporte le Fa♯, et voilà le lydien. Le mode du cinéma : ça flotte, ça ne se pose jamais.',
+  hand:'Main gauche : garde un Do en pédale tout du long. C\'est la pédale qui crée l\'effet lydien.'},
+ {id:'dreams', ic:'🌫', t:'Dreams', a:'Fleetwood Mac', root:5, key:'Fa lydien', sc:'lyd', diff:1, bpm:120, exact:1,
+  ch:[[5,'maj7'],[7,'maj']],
+  aim:[11,'Le <b>Si</b> naturel (♯4), amené par l\'accord de Sol. Fa majeur normal aurait un Si♭ : compare, la bascule est immédiate.'],
+  why:'<b>Deux accords, tout le morceau</b> : Famaj7 – Sol. Le meilleur bac à sable lydien qui existe.',
+  hand:''},
+ /* ---- phrygien ---- */
+ {id:'roam', ic:'🐍', t:'Wherever I May Roam', a:'Metallica', root:4, key:'Mi phrygien', sc:'phr', diff:2, bpm:110, exact:0,
+  ch:[[4,'min'],[5,'maj'],[4,'min'],[5,'maj']],
+  aim:[5,'Le <b>Fa</b> — la ♭2, collée à la fondamentale. Joue Mi–Fa–Mi : tout l\'Orient dans deux notes voisines.'],
+  why:'Un Mi mineur suivi d\'un Fa MAJEUR : impossible en mineur normal. Ce ♭II est la signature du phrygien.',
+  hand:'Mi phrygien = les touches blanches, maison sur Mi. Tu l\'as déjà sous les doigts sans le savoir.'},
+ {id:'misirlou', ic:'🏄', t:'Misirlou', a:'Dick Dale (Pulp Fiction)', root:4, key:'Mi phrygien dominant', sc:'phrD', diff:3, bpm:170, exact:0,
+  ch:[[4,'maj'],[5,'maj'],[4,'maj'],[4,'maj']],
+  aim:[8,'La tierce <b>MAJEURE</b> (Sol♯) juste au-dessus d\'une ♭2 (Fa) : cet écart d\'un ton et demi, c\'est LE son « oriental ».'],
+  why:'Le phrygien dominant = le 5<sup>e</sup> mode du mineur harmonique. Une ♭2 sombre et une tierce majeure claire dans la même gamme.',
+  hand:''},
+ /* ---- blues ---- */
+ {id:'blues12', ic:'🎺', t:'Le blues en 12 mesures (en La)', a:'la grille reine', root:9, key:'La', sc:'blu', diff:1, bpm:92, exact:1,
+  ch:[[9,'dom7'],[9,'dom7'],[9,'dom7'],[9,'dom7'],[2,'dom7'],[2,'dom7'],[9,'dom7'],[9,'dom7'],[4,'dom7'],[2,'dom7'],[9,'dom7'],[4,'dom7']],
+  aim:[1,'Sur le <b>La7</b> vise le <b>Do♯</b> ; sur le Ré7 le <b>Fa♯</b> ; sur le Mi7 le <b>Sol♯</b>. Chaque fois : la tierce de l\'accord qui passe.'],
+  why:'La penta mineure de La passe sur les 12 mesures — mais viser la tierce de chaque accord, c\'est ce qui sépare « je joue une gamme » de « je joue les changements ».',
+  hand:'12 mesures : compte-les. Le blues, c\'est d\'abord une FORME qu\'on sent arriver, pas des notes.'},
+ {id:'thrill', ic:'👑', t:'The Thrill Is Gone', a:'B.B. King', root:11, key:'Si mineur', sc:'pm', diff:2, bpm:80, exact:1,
+  ch:[[11,'min'],[11,'min'],[4,'min'],[11,'min'],[7,'maj'],[6,'dom7'],[11,'min'],[11,'min']],
+  aim:[10,'Sur le <b>Fa♯7</b>, vise le <b>La♯</b> : sa tierce, étrangère à Si mineur, qui crée toute la tension avant le retour.'],
+  why:'Le blues MINEUR : i – iv – ♭VI – V7. B.B. joue trois notes par phrase et laisse tout respirer. Écoute le silence autant que les notes.',
+  hand:''},
+ {id:'cometogether', ic:'🚶', t:'Come Together', a:'The Beatles', root:2, key:'Ré mineur', sc:'pm', diff:1, bpm:82, exact:0,
+  ch:[[2,'min'],[2,'min'],[9,'dom7'],[7,'dom7']],
+  aim:[5,'Le riff tourne autour du <b>Fa</b> (♭3) et du Ré. Joue-le mou, en retard sur le temps : le groove est là.'],
+  why:'Encore un riff qui n\'est qu\'une penta mineure. Trois époques (Beatles, Nirvana, White Stripes), la même gamme.',
+  hand:''},
+ {id:'heyjoe', ic:'🔫', t:'Hey Joe', a:'Jimi Hendrix', root:4, key:'Mi (blues)', sc:'blu', diff:2, bpm:80, exact:1,
+  ch:[[0,'maj'],[7,'maj'],[2,'maj'],[9,'maj'],[4,'maj']],
+  aim:[10,'La <b>♭5</b> (Si♭) <b>en passage</b>, jamais tenue. C\'est la « blue note », le grain sale.'],
+  why:'Do – Sol – Ré – La – Mi : la grille descend le <b>cercle des quintes</b>, chaque accord tire vers le suivant. Une seule gamme tient sur les cinq : la preuve qu\'une palette peut couvrir des accords très mobiles.',
+  hand:'Regarde la grille sur 🎡 le cercle des quintes : elle le descend, cran par cran. Tu la retiendras en une fois.'},
+ /* ---- mineur harmonique ---- */
+ {id:'hotel', ic:'🏨', t:'Hotel California', a:'Eagles', root:11, key:'Si mineur', sc:'har', diff:3, bpm:74, exact:1,
+  ch:[[11,'min'],[6,'maj'],[9,'maj'],[4,'maj'],[7,'maj'],[2,'maj'],[4,'min'],[6,'maj']],
+  aim:[10,'Sur le <b>Fa♯ majeur</b> (le V), vise le <b>La♯</b> : la 7<sup>e</sup> RELEVÉE du mineur harmonique, la note qui donne la couleur dramatique.'],
+  why:'Huit accords, un seul intrus : le Fa♯ MAJEUR au lieu de mineur. Il vient du mineur harmonique et c\'est lui qui rend la boucle inoubliable.',
+  hand:'Huit accords : la meilleure étude de main gauche du répertoire. Prends-la lentement, deux accords à la fois.'}
+];
+/* CoordPlayer ne sait pas surligner une grille : on lui ajoute un hook, une
+   seule fois (patcher à chaque ouverture empilerait les surcharges). */
+if(typeof CoordPlayer!=='undefined' && !CoordPlayer._barHook){
+  CoordPlayer._barHook=1;
+  const _of=CoordPlayer._frame;
+  CoordPlayer._frame=function(){ _of.call(this);
+    if(this.playing && this.onBar && this.g){
+      const beat=(this.ctx.currentTime-this.anchorTime)/this.spb+this.anchorBeat;
+      if(beat<0){ this.onBar(-1); return; }       /* décompte : rien n'est allumé */
+      const bb=((beat%this.total)+this.total)%this.total;
+      this.onBar(Math.floor(bb/4)%this.g.chords.length); } };
+}
+function jbDone(id){ return !!(S.juke&&S.juke[id]); }
+function jbCount(){ return S.juke?Object.keys(S.juke).length:0; }
+function jukeRoom(fam){
+  CoordPlayer.stop();
+  openCustom('🎧 Le Juke-box',(inner,close)=>{
+    const p=document.createElement('p'); p.style.cssText='color:var(--dim);font-size:13.5px;line-height:1.5;margin:2px 0 10px';
+    p.innerHTML='De <b>vrais morceaux</b>, rangés <b>par gamme</b>. L\'app tient la grille en boucle, la gamme s\'allume en bleu sur le clavier, et on te dit <b>quelle note viser</b> quand tel accord passe. C\'est ici que les 12 gammes deviennent de la musique.';
+    inner.appendChild(p);
+    const st=document.createElement('div'); st.className='gostat';
+    st.innerHTML=`<div class="b"><div class="n" style="color:var(--acc)">${jbCount()}<small style="font-size:13px;color:var(--dim)">/${JUKE.length}</small></div><div class="l">morceaux joués</div></div>
+      <div class="b"><div class="n">${JB_FAM.length}</div><div class="l">familles de gammes</div></div>`;
+    inner.appendChild(st);
+    const fr=document.createElement('div'); fr.className='selrow'; inner.appendChild(fr);
+    const mk=(lab,on,fn)=>{ const t=document.createElement('div'); t.className='tag'+(on?' on':''); t.textContent=lab; t.onclick=fn; fr.appendChild(t); };
+    mk('Tout',!fam,()=>jukeRoom(null));
+    JB_FAM.forEach(f=>{ const n=JUKE.filter(s=>JSC_DEF[s.sc].fam===f).length; if(n) mk(f+' · '+n, fam===f, ()=>jukeRoom(f)); });
+    const list=fam?JUKE.filter(s=>JSC_DEF[s.sc].fam===fam):JUKE;
+    let last=null;
+    list.forEach(s=>{ const f=JSC_DEF[s.sc].fam;
+      if(!fam && f!==last){ last=f; const h=document.createElement('div');
+        h.style.cssText='font-size:14px;font-weight:800;color:var(--acc);margin:16px 0 6px'; h.textContent=f; inner.appendChild(h); }
+      const c=document.createElement('div'); c.className='card'; c.style.cursor='pointer'; if(jbDone(s.id)) c.style.opacity='.72';
+      c.innerHTML=`<b style="font-size:15px">${jbDone(s.id)?'✓ ':''}${s.ic} ${s.t}${s.star?' ⭐':''}</b>
+        <p style="color:var(--dim);font-size:12.5px;margin:3px 0 0">${s.a} · <b style="color:var(--acc)">${s.key}</b> · ${JSC_DEF[s.sc].n} · ${'◆'.repeat(s.diff)}</p>`;
+      c.onclick=()=>jukeSong(s); inner.appendChild(c); });
+  });
+}
+function jukeSong(s){
+  const SC=JSC_DEF[s.sc], pcs=SC.iv.map(i=>(s.root+i)%12);
+  CoordPlayer.stop();
+  openCustom(s.ic+' '+s.t,(inner,close)=>{
+    inner.insertAdjacentHTML('beforeend',
+      `<div style="text-align:center;margin:2px 0 6px"><b style="font-size:19px">${s.t}</b><div style="color:var(--dim);font-size:13px">${s.a}</div></div>
+       <div class="gostat"><div class="b"><div class="n" style="font-size:15px;color:var(--acc)">${s.key}</div><div class="l">tonalité</div></div>
+       <div class="b"><div class="n" style="font-size:15px">${SC.n}</div><div class="l">ta gamme</div></div>
+       <div class="b"><div class="n" style="font-size:15px">${s.bpm}</div><div class="l">BPM</div></div></div>`);
+    if(!s.exact) inner.insertAdjacentHTML('beforeend','<p style="color:var(--dim);font-size:12px;text-align:center;margin:-4px 0 8px">Boucle d\'entraînement dans la tonalité — pas la grille exacte du disque.</p>');
+    const now=document.createElement('div'); now.className='nowchord';
+    now.innerHTML='<div class="cn" id="jcn">—</div><div class="nn" id="jnn">'+SC.n+' de '+NOTE_FR[s.root]+'</div>'; inner.appendChild(now);
+    const beats=document.createElement('div'); beats.className='rbeats'; beats.innerHTML='<i></i><i></i><i></i><i></i>'; inner.appendChild(beats);
+    const kb=buildKeyboard(48,72,(m,k)=>{ playNote(m); k.classList.add('flash'); setTimeout(()=>k.classList.remove('flash'),150); });
+    inner.appendChild(kb);
+    const leg=document.createElement('div'); leg.className='fb'; leg.style.cssText='font-weight:700;font-size:13px;line-height:1.5';
+    leg.innerHTML=`<span style="color:var(--blue)">🔵 ta gamme</span> : ${pcs.map(p=>NOTE_FR[p]).join(' · ')}`+
+      (s.aim?` &nbsp;·&nbsp; <span style="color:var(--acc)">🟠 la note à viser</span> : <b>${NOTE_FR[s.aim[0]]}</b>`:'');
+    inner.appendChild(leg);
+    /* enharmonie : le clavier de l'app écrit certaines touches en bémols alors que
+       la tonalité du morceau, elle, s'écrit en dièses. On le dit au lieu de le cacher. */
+    if(s.key.indexOf(NOTE_FR[s.root])<0){
+      const e=document.createElement('p'); e.style.cssText='color:var(--dim);font-size:12px;text-align:center;line-height:1.45;margin:6px 0 0';
+      e.innerHTML=`🎹 Le clavier écrit <b>${NOTE_FR[s.root]}</b> — <b>même touche</b> que ${s.key.split(' ')[0]}. Les deux noms désignent la même hauteur ; on écrit ${s.key.split(' ')[0]} ici parce que la tonalité du morceau s'écrit avec des dièses.`;
+      inner.appendChild(e); }
+    /* grille visible */
+    const g=document.createElement('div'); g.className='jbgrid';
+    const cells=s.ch.map(c=>{ const e=document.createElement('div'); e.className='jbc'; e.textContent=chordName(c[0],c[1]); g.appendChild(e); return e; });
+    inner.appendChild(g);
+    const play=document.createElement('button'); play.className='btn'; play.textContent='▶ Lancer la boucle';
+    inner.appendChild(play);
+    const tempo=document.createElement('div'); tempo.className='tempo';
+    tempo.innerHTML='<span class="tl">Tempo</span><input type="range" min="50" max="150" step="2"><span class="tv"></span>'; inner.appendChild(tempo);
+    const slider=tempo.querySelector('input'), tv=tempo.querySelector('.tv'); slider.value=s.bpm; tv.textContent=s.bpm+' BPM';
+    const hsel=document.createElement('div'); hsel.className='selrow'; inner.appendChild(hsel);
+    [['both','▶ L\'app joue tout (à toi l\'impro)'],['left','🎹 L\'app joue la basse'],['off','🥁 Juste le clic']].forEach(([v,l],i)=>{
+      const t=document.createElement('div'); t.className='tag'+(i===0?' on':''); t.textContent=l;
+      t.onclick=()=>{ CoordPlayer.hands=v; hsel.querySelectorAll('.tag').forEach(x=>x.classList.remove('on')); t.classList.add('on'); if(CoordPlayer.playing) CoordPlayer.start(); }; hsel.appendChild(t); });
+    if(s.aim) inner.insertAdjacentHTML('beforeend',`<div class="theory"><h3>🎯 Quoi viser</h3><p>${s.aim[1]}</p></div>`);
+    inner.insertAdjacentHTML('beforeend',`<div class="theory"><h3>Pourquoi ça marche</h3><p>${s.why}</p>${s.hand?`<div class="tip">🎹 ${s.hand}</div>`:''}</div>`);
+    /* validation */
+    const v=document.createElement('div'); v.className='card'; v.style.borderColor='var(--acc)';
+    if(jbDone(s.id)) v.innerHTML=`<b>✓ Morceau joué</b><p style="color:var(--dim);font-size:13px;margin:5px 0 0">Reviens-y quand tu veux : un morceau validé reste un échauffement.</p>`;
+    else{ v.innerHTML=`<b>✅ Valider ce morceau</b><p style="color:var(--dim);font-size:13px;margin:5px 0 8px">À cocher seulement si tu as improvisé dessus <b>et que ça sonnait</b>. L'app ne peut pas t'entendre : l'honnêteté, c'est toi.</p>`;
+      const b=document.createElement('button'); b.className='btn'; b.textContent='J\'ai joué dessus, ça sonnait';
+      b.onclick=()=>{ if(!S.juke)S.juke={}; S.juke[s.id]=todayStr(); if(!S.songs)S.songs={}; S.songs['jb:'+s.id]=1; save(); award(25); dailyMark('song'); toast('🎧 +25 XP'); CoordPlayer.stop(); jukeSong(s); };
+      v.appendChild(b); }
+    inner.appendChild(v);
+    const back=document.createElement('button'); back.className='btn ghost'; back.textContent='← Le Juke-box';
+    back.onclick=()=>{ CoordPlayer.stop(); jukeRoom(JSC_DEF[s.sc].fam); }; inner.appendChild(back);
+    /* branchement du moteur d'accompagnement */
+    CoordPlayer.g={chords:s.ch, bpm:s.bpm, scale:pcs, scaleName:SC.n, tip:''};
+    CoordPlayer.bpm=s.bpm; CoordPlayer.hands='both'; CoordPlayer.kb=kb;
+    CoordPlayer.els={ now:now.querySelector('#jcn'), beat:[...beats.querySelectorAll('i')], play };
+    kb.clearSel();
+    for(let m=48;m<=72;m++){ const k=kb.keyEl(m); if(!k) continue;
+      if(s.aim && m%12===s.aim[0]) k.classList.add('sel');
+      else if(pcs.includes(m%12)) k.classList.add('hint'); }
+    play.onclick=()=>{ if(CoordPlayer.playing){ CoordPlayer.stop(); cells.forEach(c=>c.classList.remove('on')); }
+      else { CoordPlayer.start(); } };
+    slider.oninput=()=>{ CoordPlayer.bpm=+slider.value; tv.textContent=slider.value+' BPM'; if(CoordPlayer.playing) CoordPlayer.start(); };
+    /* surlignage de la mesure en cours (via le hook posé une seule fois) */
+    CoordPlayer.onBar=bar=>cells.forEach((c,i)=>c.classList.toggle('on', i===bar));
+    overlay.scrollTop=0;
   });
 }
 
