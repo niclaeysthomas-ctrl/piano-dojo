@@ -1541,6 +1541,123 @@ function coachAdvice(){
     btn:'Session mixte', run:()=>dojoMix()};
 }
 function goTab(t){ const b=document.querySelector('nav button[data-tab="'+t+'"]'); if(b) b.click(); }
+
+/* ---------- SPRINT DES QUINTES — un maximum de bonnes réponses en 20 s ----------
+   Demande de Thomas. La quinte juste = +7 demi-tons ; descendante = -7 (soit +5).
+   Les deux sens réunis, c'est le cercle des quintes dans les deux directions —
+   exactement ce que le Grand Œuvre exige. */
+const QUINTE_DUREE = 20;
+function quinteRep(pc, sens){ return sens==='bas' ? (pc+5)%12 : (pc+7)%12; }
+function dojoQuinte(){
+  openCustom('⚡ Sprint des quintes',(inner,close)=>{
+    let sens = S.quinteSens || 'haut';
+    const wrap=document.createElement('div'); inner.appendChild(wrap);
+
+    const ecranAccueil=()=>{
+      const rec=(S.best.quinte||{})[sens]||0;
+      wrap.innerHTML=`
+        <p style="color:var(--dim);font-size:14px;line-height:1.55;margin:2px 0 14px">
+          Une note s'affiche, tu donnes sa <b style="color:var(--txt)">quinte</b>. Le plus possible en
+          <b style="color:var(--acc)">${QUINTE_DUREE} secondes</b>. Pas de réflexion : c'est le réflexe qu'on installe.
+        </p>
+        <div class="chipwrap" style="margin-bottom:14px">
+          <div class="chip ${sens==='haut'?'cur':''}" data-s="haut">Quinte ↑</div>
+          <div class="chip ${sens==='bas'?'cur':''}" data-s="bas">Quinte ↓</div>
+          <div class="chip ${sens==='mix'?'cur':''}" data-s="mix">Mélangé</div>
+        </div>
+        <div style="text-align:center;color:var(--dim);font-size:13px;margin-bottom:10px">
+          ${rec?`🏆 Ton record : <b style="color:var(--acc)">${rec}</b> bonnes réponses`:'Aucun record encore.'}
+        </div>
+        <button class="btn" id="qGo">Lancer les ${QUINTE_DUREE} secondes</button>`;
+      wrap.querySelectorAll('.chip[data-s]').forEach(c=>c.onclick=()=>{
+        sens=c.dataset.s; S.quinteSens=sens; save(); ecranAccueil();
+      });
+      wrap.querySelector('#qGo').onclick=partie;
+    };
+
+    let t0, tick, pc, sensCur, bons=0, ratés=0, fini=false, historique=[];
+    const tirage=()=>{
+      pc=Math.floor(Math.random()*12);
+      sensCur = sens==='mix' ? (Math.random()<0.5?'haut':'bas') : sens;
+    };
+    const partie=()=>{
+      bons=0; ratés=0; fini=false; historique=[]; t0=Date.now(); tirage();
+      wrap.innerHTML=`
+        <div class="gotimer" id="qT">${QUINTE_DUREE}.0</div>
+        <div style="height:6px;border-radius:3px;background:var(--bg3);overflow:hidden;margin:0 0 16px">
+          <i id="qBar" style="display:block;height:100%;width:100%;background:var(--acc)"></i></div>
+        <div id="qQ" style="text-align:center;margin-bottom:4px"></div>
+        <div id="qG" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:16px"></div>
+        <div id="qS" style="text-align:center;color:var(--dim);font-size:13px;margin-top:14px"></div>`;
+      const g=wrap.querySelector('#qG');
+      NOTE_FR.forEach((n,i)=>{
+        const b=document.createElement('button');
+        b.className='btn ghost'; b.style.cssText='padding:14px 0;font-size:15px;font-weight:800;margin:0';
+        b.textContent=n; b.onclick=()=>repondre(i,b);
+        g.appendChild(b);
+      });
+      poser();
+      tick=setInterval(()=>{
+        const reste=Math.max(0,QUINTE_DUREE-(Date.now()-t0)/1000);
+        const el=wrap.querySelector('#qT'), bar=wrap.querySelector('#qBar');
+        if(el) el.textContent=reste.toFixed(1);
+        if(bar) bar.style.width=(reste/QUINTE_DUREE*100)+'%';
+        if(el && reste<5) el.style.color='var(--bad)';
+        if(reste<=0) terminer();
+      },100);
+    };
+    const poser=()=>{
+      const q=wrap.querySelector('#qQ'); if(!q) return;
+      q.innerHTML=`<div style="color:var(--dim);font-size:12px;letter-spacing:1px;text-transform:uppercase">
+          Quinte ${sensCur==='bas'?'DESCENDANTE ↓':'ASCENDANTE ↑'} de</div>
+        <div style="font-size:52px;font-weight:900;line-height:1.15;color:var(--txt)">${NOTE_FR[pc]}</div>`;
+      const st=wrap.querySelector('#qS');
+      if(st) st.innerHTML=`<b style="color:var(--ok)">${bons}</b> bonnes · <b style="color:var(--bad)">${ratés}</b> ratées`;
+    };
+    const repondre=(i,btn)=>{
+      if(fini) return;
+      const bon=quinteRep(pc,sensCur);
+      const juste=(i===bon);
+      historique.push({note:NOTE_FR[pc], sens:sensCur, donne:NOTE_FR[i], attendu:NOTE_FR[bon], juste});
+      if(juste){ bons++; try{ playNote(60+bon,.28,.32); }catch(e){} }
+      else{
+        ratés++;
+        btn.style.background='var(--bad)'; btn.style.color='#fff';
+        const bb=[...wrap.querySelectorAll('#qG button')][bon];
+        if(bb){ bb.style.background='var(--ok)'; bb.style.color='#0d0f14'; }
+        setTimeout(()=>{ [...wrap.querySelectorAll('#qG button')].forEach(x=>{x.style.background='';x.style.color='';}); },260);
+      }
+      tirage(); poser();
+    };
+    const terminer=()=>{
+      if(fini) return; fini=true; clearInterval(tick);
+      S.best.quinte=S.best.quinte||{};
+      const anc=S.best.quinte[sens]||0, record=bons>anc;
+      if(record) S.best.quinte[sens]=bons;
+      award(6+bons*2); dailyMark('quinte'); save();
+      const rates=historique.filter(h=>!h.juste);
+      wrap.innerHTML=`
+        <div style="text-align:center;padding:18px 0">
+          <div style="font-size:56px;font-weight:900;line-height:1;color:${bons>=12?'var(--ok)':bons>=7?'var(--acc)':'var(--txt)'}">${bons}</div>
+          <div style="color:var(--dim);font-size:13px;margin-top:6px">bonnes réponses en ${QUINTE_DUREE} s${ratés?` · ${ratés} ratée${ratés>1?'s':''}`:' · sans faute'}</div>
+          ${record?`<div style="color:var(--acc);font-weight:800;margin-top:10px">🏆 RECORD${anc?` — tu battais ${anc}`:''}</div>`
+                  :`<div style="color:var(--dim);font-size:12px;margin-top:10px">Ton record : ${anc}</div>`}
+          <div style="color:var(--ok);font-size:12px;margin-top:6px">+${6+bons*2} XP</div>
+        </div>
+        ${rates.length?`<div class="card"><b style="font-size:14px">Ce qui a coincé</b>
+          <div style="margin-top:8px;display:flex;flex-direction:column;gap:5px">
+          ${rates.map(h=>`<div style="font-size:13px;color:var(--dim)">
+             ${h.note} ${h.sens==='bas'?'↓':'↑'} → tu as dit <b style="color:var(--bad)">${h.donne}</b>,
+             c'était <b style="color:var(--ok)">${h.attendu}</b></div>`).join('')}</div></div>`:''}
+        <button class="btn" id="qAgain">↻ Rejouer</button>
+        <button class="btn ghost" id="qBack">Retour</button>`;
+      wrap.querySelector('#qAgain').onclick=partie;
+      wrap.querySelector('#qBack').onclick=ecranAccueil;
+    };
+    ecranAccueil();
+  });
+}
+
 /* pool d'exercices variés pour la séance : un différent chaque jour (rotation) */
 const DAILY_DRILLS=[
   {req:'m0l2', ic:'🕵️', txt:'Reconnaissance : qui est cet accord ?', fn:()=>dojoNamer()},
@@ -1569,6 +1686,8 @@ function dailyProgram(){
   P.push({key:'impro', ic:'🎹', txt:'Impro guidée : construis et joue', fn:()=>improRoom()});
   /* construction de gamme OBLIGATOIRE tous les jours (demande de Thomas) */
   P.push({key:'scales', ic:'🪜', txt:'Construis une gamme (au hasard)', fn:()=>dojoScale()});
+  /* réflexe des quintes : 20 s chrono, tous les jours (demande de Thomas) */
+  P.push({key:'quinte', ic:'⚡', txt:'Sprint des quintes — 20 s chrono', fn:()=>dojoQuinte()});
   /* accords colorés — sus2/sus4, 9, 11 — dès que les 7e sont vues */
   if(S.done['m5l1']) P.push({key:'colab', ic:'🎨', txt:'Accords colorés : sus, 9, 11', fn:()=>chordLabRoom()});
   if(lvl==='normal') return P;
@@ -1750,6 +1869,12 @@ const DRILLS=[
   {id:'coord', icon:'🤝', title:'Deux mains & impro', req:null,
    desc:()=>'L\'app joue une main, tu joues l\'autre. Répertoire gradué (pop → « You Know I\'m No Good » → jazz) avec la penta donnée et surlignée. Le vrai chaînon pour improviser à deux mains.',
    run:()=>coordRoom()},
+  {id:'quinte', icon:'⚡', title:'Sprint des quintes', req:null,
+   desc:()=>{const b=S.best.quinte||{};const l=[['haut','↑'],['bas','↓'],['mix','mélangé']]
+       .filter(([k])=>b[k]).map(([k,l])=>`${l} <b style="color:var(--acc)">${b[k]}</b>`).join(' · ');
+     return 'Une note, sa quinte, le plus vite possible — <b>20 s chrono</b>. Ascendante, descendante ou mélangé : c\'est le cercle des quintes qui rentre dans le réflexe.'
+       +(l?` Records : ${l}.`:' Aucun record encore.');},
+   run:()=>dojoQuinte()},
   {id:'sprint', icon:'⚡', title:'Sprint d\'accords', req:'m0l2',
    desc:()=>'10 accords aléatoires, chronométrés.'+(S.best.sprint?` Record sans faute : <b style="color:var(--acc)">${S.best.sprint}s</b>.`:' Fais un sans-faute pour poser un record.'),
    run:()=>dojoChords()},
