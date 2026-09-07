@@ -547,7 +547,14 @@ function ensureDaily(){
 }
 /* marque une tâche de la séance par sa CLÉ ('warm','lesson','ear','tech','song','mix').
    Bonus quand toutes les tâches du programme du jour (selon l'intensité) sont faites. */
+/* Le « slot » de la séance en cours. Une salle lancée depuis la séance du jour coche
+   SA ligne dès que l'exercice se termine — même quand l'exercice marque une clé
+   générique ('scales', 'drill'…) que dix salles partagent. Sans ça, faire le Grand
+   Œuvre cochait aussi le Flash et la Boussole, qu'on n'avait pas ouverts. */
+let DAILY_SLOT=null;
+function dailyRun(key, fn){ DAILY_SLOT=key; fn(); }
 function dailyMark(key){
+  if(DAILY_SLOT && DAILY_SLOT!==key){ const s=DAILY_SLOT; DAILY_SLOT=null; dailyMark(s); }
   const d=ensureDaily();
   if(d.done[key]) return;
   d.done[key]=true; save();
@@ -1527,6 +1534,12 @@ function coachAdvice(){
   if(w && w.score<70) return {ic:'🎯', title:'Ton point faible : '+w.label, tone:'var(--bad)',
     msg:`Ton bilan te met à <b>${w.score}/100</b> sur ${w.label}. C'est là que tu gagnes le plus de terrain aujourd'hui — pas ailleurs.`,
     btn:'Travailler '+w.label, run:w.run};
+  /* les gammes scellées dont l'entretien est échu passent avant la leçon suivante :
+     c'est ce qui s'efface en silence, et c'est devenu son chantier prioritaire */
+  const gd=goDueList().length;
+  if(gd) return {ic:'🎓', title:gd+' gamme'+(gd>1?'s':'')+' à revoir', tone:'var(--acc)',
+    msg:`Leur entretien est échu. Une gamme scellée qu'on laisse filer <b>redescend d'un palier</b> — c'est aujourd'hui que ça se joue, pas la semaine prochaine.`,
+    btn:'Séance du Grand Œuvre', run:()=>goSeance()};
   const nl=nextLesson();
   if(nl){
     return {ic:'📖', title:'La prochaine leçon', tone:'var(--acc)',
@@ -1536,8 +1549,12 @@ function coachAdvice(){
   if(n>0) return {ic:'🩹', title:'Il reste des erreurs', tone:'var(--bad)',
     msg:`<b>${n}</b> en attente. Finis le travail avant d'ajouter du neuf.`,
     btn:'Rattraper', run:()=>dojoErrs()};
+  const gm12=goMastered();
+  if(gm12<12) return {ic:'🎓', title:'Les 12 gammes : '+gm12+'/12', tone:'var(--acc)',
+    msg:'Palier pris, erreurs rattrapées. Le chantier qui reste, c\'est celui-là — les gammes, leurs armures et leurs degrés. C\'est de lui que dépendent les modes et l\'impro.',
+    btn:'Séance du Grand Œuvre', run:()=>goSeance()};
   return {ic:'🥋', title:'Entretiens ton niveau', tone:'var(--ok)',
-    msg:'Palier pris, erreurs rattrapées. La session mixte rebrasse tout ce que tu sais déjà — c\'est ce qui empêche de perdre.',
+    msg:'Palier pris, erreurs rattrapées, 12 gammes scellées. La session mixte rebrasse tout ce que tu sais déjà — c\'est ce qui empêche de perdre.',
     btn:'Session mixte', run:()=>dojoMix()};
 }
 function goTab(t){ const b=document.querySelector('nav button[data-tab="'+t+'"]'); if(b) b.click(); }
@@ -1892,55 +1909,91 @@ function qcRoom(){
   });
 }
 
-/* pool d'exercices variés pour la séance : un différent chaque jour (rotation) */
+/* ---------------- LA SÉANCE DU JOUR ----------------
+   Rééquilibrée le 2026-09-07 (demande de Thomas : « les accords 7e/9e/11 deviennent
+   simples, je veux beaucoup moins de son et beaucoup plus de gammes / modes / quintes
+   / cycle et armures »). Rien n'a été retiré : le travail d'accords est regroupé en UN
+   créneau tournant au lieu de trois, et le terrain (gammes, cycle, armures, modes)
+   passe en tête et devient le socle présent à toutes les intensités. */
+const DAY_IDX=()=>Math.floor(Date.now()/864e5);
+const pickDay=arr=>arr[DAY_IDX()%arr.length];
+
+/* cycle des quintes & armures : la même chose par quatre portes d'entrée */
+const CYCLE_ROT=[
+  {ic:'🧭', txt:'Cycle & armures : la Boussole', fn:()=>goCompass()},
+  {ic:'🎡', txt:'Cycle des quintes : le drill', fn:()=>circleDrill()},
+  {ic:'🕹️', txt:'Cycle & armures : l\'Arcade (60 s)', fn:()=>goArcade()},
+];
+const MODES_ROT=[
+  {ic:'🎭', txt:'Les modes : construis-en un, ou reconnais-le', fn:()=>dojoModes()},
+  {ic:'🃏', txt:'Les modes : fiches + gymnastique', fn:()=>modesFiches()},
+];
+/* le travail d'accords : UN créneau, qui tourne (au lieu de colab + tech + drill) */
+const SOUND_ROT=[
+  {req:'m5l1', ic:'🎨', txt:'Accords : sprint des 7e', fn:()=>dojoSev()},
+  {req:'m5l1', ic:'🎨', txt:'Accords colorés : sus, 9, 11, 13', fn:()=>chordLabRoom()},
+  {req:'m5l3', ic:'🐚', txt:'Accords : shell voicings 1–3–7', fn:()=>dojoShell()},
+  {req:'m0l2', ic:'🕵️', txt:'Accords : qui est cet accord ?', fn:()=>dojoNamer()},
+  {req:'m1l1', ic:'🔄', txt:'Accords : les renversements', fn:()=>dojoInv()},
+  {req:null,   ic:'⚡', txt:'Accords : sprint de 10', fn:()=>dojoChords()},
+];
+/* pool varié du marathon — recentré lui aussi sur le terrain */
 const DAILY_DRILLS=[
-  {req:'m0l2', ic:'🕵️', txt:'Reconnaissance : qui est cet accord ?', fn:()=>dojoNamer()},
-  {req:'m1l2', ic:'🌊', txt:'Enchaînements fluides (voice leading)', fn:()=>dojoVL()},
+  {req:null,  ic:'🗝', txt:'Sprint des gammes : 4 d\'affilée', fn:()=>dojoKeys()},
+  {req:null,  ic:'🪜', txt:'Construis une gamme (au hasard)', fn:()=>dojoScale()},
+  {req:null,  ic:'🎧', txt:'Juke-box : ta gamme sur un vrai morceau', fn:()=>jukeRoom()},
+  {req:null,  ic:'🧠', txt:'Quiz : formats, modes & grilles', fn:()=>dojoTheoryQuiz()},
   {req:'m2l2', ic:'🎲', txt:'Joue une progression tirée au sort', fn:()=>dojoProg()},
-  {req:'m6l1', ic:'🪜', txt:'Gammes depuis une fondamentale au hasard', fn:()=>dojoScale()},
-  {req:null, ic:'🧠', txt:'Quiz : formats & grilles', fn:()=>dojoTheoryQuiz()},
-  {req:'m5l1', ic:'🎨', txt:'Accords colorés (sus, dim, 9 · 11 · 13, ♯11…)', fn:()=>chordLabRoom()},
+  {req:'m1l2', ic:'🌊', txt:'Enchaînements fluides (voice leading)', fn:()=>dojoVL()},
 ];
 const INTENSITIES=[['normal','Normal'],['intense','Intense'],['forge','Forge'],['marathon','Marathon']];
 function curIntensity(){ return S.intensity||'intense'; }
-/* Le programme du jour : plus l'intensité monte, plus il y a de travail (mais toujours
-   UN palier de leçon/jour). warm/lesson/ear = socle ; tech/song/mix = surcharge. */
 function dailyProgram(){
-  const nl=nextLesson(), nErr=errCount(), wk=weakSpot(), lvl=curIntensity();
+  const nl=nextLesson(), nErr=errCount(), lvl=curIntensity();
   const P=[];
+
+  /* ---- SOCLE : le terrain, présent quelle que soit l'intensité ---- */
+  /* 1. échauffement — armures dans les deux sens, 2 min (les erreurs passent avant) */
   P.push(nErr>=3
     ? {key:'warm', ic:'🩹', txt:'Rattrapage : '+nErr+' erreur'+(nErr>1?'s':'')+' en attente', fn:()=>dojoErrs()}
-    : {key:'warm', ic:'⚡', txt:'Échauffement : sprint de 10 accords', fn:()=>dojoChords()});
-  P.push({key:'lesson', ic:'📖', lesson:true,
-    txt: nl?('Leçon : '+nl.title):'Révision : une leçon au hasard',
-    fn:()=>openLesson(nl||ALL_LESSONS[Math.floor(Math.random()*ALL_LESSONS.length)])});
-  /* écoute : l'unique exercice — majeur ou mineur sur une note tirée au hasard */
-  P.push({key:'ear', ic:'👂', txt:'Oreille : majeur ou mineur ?', fn:()=>dojoEar()});
-  /* impro guidée : construis la gamme, déduis la grille, joue tes phrases par-dessus */
-  P.push({key:'impro', ic:'🎹', txt:'Impro guidée : construis et joue', fn:()=>improRoom()});
-  /* construction de gamme OBLIGATOIRE tous les jours (demande de Thomas) */
-  P.push({key:'scales', ic:'🪜', txt:'Construis une gamme (au hasard)', fn:()=>dojoScale()});
-  /* les quintes : d'abord les CARTES (mémoriser), le sprint quand c'est su (vitesse) */
+    : {key:'warm', ic:'⚡', txt:'Échauffement : le Flash des 12 gammes', fn:()=>goFlash()});
+  /* 2. LE CHANTIER : la séance adaptative du Grand Œuvre (gammes + armures + degrés).
+        Elle remplace l'ancien « construis une gamme » : elle le contient, en mieux. */
+  {const nGo=goDueList().length, m=goMastered();
+   P.push({key:'go', ic:'🎓',
+     txt:'Grand Œuvre : la séance du jour'+(nGo?` — ${nGo} gamme${nGo>1?'s':''} à revoir`:` — ${m}/12 scellées`),
+     fn:()=>goSeance()});}
+  /* 3. les quintes : les cartes d'abord (mémoriser), le sprint quand c'est su (vitesse) */
   {const nq=qcQueue().length;
    P.push({key:'qcards', ic:'🃏', txt:'Quintes en cartes'+(nq?` — ${nq} carte${nq>1?'s':''} à voir`:' — à jour'), fn:()=>qcRoom()});}
   if(qcMature()) P.push({key:'quinte', ic:'⚡', txt:'Sprint des quintes — 20 s chrono', fn:()=>dojoQuinte()});
-  /* accords colorés — sus2/sus4, 9, 11 — dès que les 7e sont vues */
-  if(S.done['m5l1']) P.push({key:'colab', ic:'🎨', txt:'Accords colorés : sus, 9, 11', fn:()=>chordLabRoom()});
+  /* 4. le cycle et les armures par une autre porte que le Flash, une par jour */
+  {const c=pickDay(CYCLE_ROT); P.push({key:'cycle', ic:c.ic, txt:c.txt, fn:c.fn});}
+  /* 5. les modes — enfin dans la séance, plus seulement dans le Dojo */
+  {const m=pickDay(MODES_ROT); P.push({key:'modes', ic:m.ic, txt:m.txt, fn:m.fn});}
+  /* 6. la leçon du parcours : un palier par jour, comme toujours */
+  P.push({key:'lesson', ic:'📖', lesson:true,
+    txt: nl?('Leçon : '+nl.title):'Révision : une leçon au hasard',
+    fn:()=>openLesson(nl||ALL_LESSONS[Math.floor(Math.random()*ALL_LESSONS.length)])});
   if(lvl==='normal') return P;
-  /* intense : + technique (renversements/7e) + un exercice varié tournant */
-  if(S.done['m5l1']) P.push({key:'tech', ic:'🎨', txt:'Technique : sprint des 7e', fn:()=>dojoSev()});
-  else if(S.done['m1l1']) P.push({key:'tech', ic:'🔄', txt:'Technique : les renversements', fn:()=>dojoInv()});
-  const pool=DAILY_DRILLS.filter(x=>!x.req||S.done[x.req]);
-  if(pool.length){
-    const pick=pool[Math.floor(Date.now()/864e5)%pool.length];
-    P.push({key:'drill', ic:pick.ic, txt:pick.txt, fn:pick.fn});
-  }
+
+  /* ---- INTENSE : le débouché musical + l'oreille (son point faible) ---- */
+  P.push({key:'impro', ic:'🎹', txt:'Impro guidée : la gamme en musique', fn:()=>improRoom()});
+  P.push({key:'ear', ic:'👂', txt:'Oreille : majeur ou mineur ?', fn:()=>dojoEar()});
   if(lvl==='intense') return P;
-  /* forge & marathon : + session mixte (révision de tout l\'acquis) */
+
+  /* ---- FORGE : le travail d'accords (un seul créneau, tournant) + la révision ---- */
+  {const pool=SOUND_ROT.filter(x=>!x.req||S.done[x.req]);
+   const s=pickDay(pool.length?pool:SOUND_ROT.slice(-1));
+   P.push({key:'sound', ic:s.ic, txt:s.txt, fn:s.fn});}
   if(S.done['m0l2']) P.push({key:'mix', ic:'🎯', txt:'Session mixte : révise tout', fn:()=>dojoMix()});
   if(lvl==='forge') return P;
-  /* marathon (temps doublé) : + quiz théorique (formats, modes, grilles) */
-  P.push({key:'tquiz', ic:'🧠', txt:'Quiz : formats, modes & grilles', fn:()=>dojoTheoryQuiz()});
+
+  /* ---- MARATHON : + un exercice varié tournant ---- */
+  {const pool=DAILY_DRILLS.filter(x=>!x.req||S.done[x.req]);
+   /* clé 'varie' et non 'drill' : 'drill' est la clé générique que dix salles marquent,
+      elle cocherait cette ligne toute seule. Le slot de la séance s'en charge. */
+   if(pool.length){ const d=pickDay(pool); P.push({key:'varie', ic:d.ic, txt:d.txt, fn:d.fn}); }}
   return P;
 }
 function renderParcours(){
@@ -1998,7 +2051,7 @@ function renderParcours(){
     const doneT=!!d.done[t.key];
     const r=document.createElement('div'); r.className='row'+(doneT?' ok':'');
     r.innerHTML = `<div class="st">${doneT?'✓':t.ic}</div><span>${t.txt}</span><small style="color:var(--dim)">›</small>`;
-    if(!doneT) r.onclick=t.fn;
+    if(!doneT) r.onclick=()=>dailyRun(t.key, t.fn);
     daily.appendChild(r);
   });
   const bn=document.createElement('div'); bn.className='bonus';
@@ -3148,8 +3201,8 @@ function modesFiches(){
     et.innerHTML=`<h3 style="margin-top:22px">🎯 Exos au choix</h3><p>Pioche celui que tu veux travailler.</p>`;
     inner.appendChild(et);
     const mkExo=(txt,fn)=>{ const b=document.createElement('button'); b.className='btn ghost'; b.style.textAlign='left'; b.innerHTML=txt; b.onclick=fn; inner.appendChild(b); };
-    mkExo('🧠 <b>La gymnastique (quiz)</b> — « tel mode → quelle gamme majeure ? »',()=>openCustom('🧠 Gymnastique des modes',(i,c)=>runQuiz(i,{qs:genGymQs(6)},ok=>{ if(ok){award(10);toast('+10 XP');} c(); })));
-    mkExo('🎼 <b>Construis un mode</b> — joue-le depuis une note tirée au sort',()=>{ const ex=genModeScale(); openCustom('🎨 '+ex.name,(i,c)=>runScale(i,ex,ok=>{ if(ok){award(10);toast('+10 XP');} c(); })); });
+    mkExo('🧠 <b>La gymnastique (quiz)</b> — « tel mode → quelle gamme majeure ? »',()=>openCustom('🧠 Gymnastique des modes',(i,c)=>runQuiz(i,{qs:genGymQs(6)},ok=>{ if(ok){dailyMark('modes'); award(10);toast('+10 XP');} c(); })));
+    mkExo('🎼 <b>Construis un mode</b> — joue-le depuis une note tirée au sort',()=>{ const ex=genModeScale(); openCustom('🎨 '+ex.name,(i,c)=>runScale(i,ex,ok=>{ if(ok){dailyMark('modes'); award(10);toast('+10 XP');} c(); })); });
     mkExo('🎭 <b>Explorer à l’oreille</b> — les 7 modes sur le même Do',()=>{ closeOverlay(); modesExplorer(); });
     overlay.scrollTop=0;
   });
@@ -3231,7 +3284,7 @@ function dojoShell(){
     runChord(inner,{items, sub:'8 accords en 1–3–7 : le squelette du son jazz, la quinte en moins. C\'est la leçon 🐚 en actes.'},(ok,score,failed)=>{
       if(ok){
         const secs=Math.round((Date.now()-t0)/1000);
-        award(10);
+        dailyMark('tech'); award(10);
         let msg=`+10 XP · ${secs}s`;
         if(!failed && (!S.best.shell||secs<S.best.shell)){ S.best.shell=secs; save(); msg+=' · 🏆 RECORD'; }
         toast(msg);
@@ -3267,7 +3320,7 @@ function dojoKeys(){
         const secs=Math.round((Date.now()-t0)/1000);
         let msg=`+10 XP · ${secs}s`;
         if(clean && (!S.best.scales || secs<S.best.scales)){ S.best.scales=secs; save(); msg+=' · 🏆 RECORD'; }
-        award(10); toast(msg);
+        dailyMark('scales'); dailyMark('drill'); award(10); toast(msg);
         const d=document.createElement('div'); d.className='kseg';
         d.innerHTML=`<div class="exhead"><div class="target">🗝 ${roots.length}/${roots.length}</div>
           <div class="sub">${clean?'Sans aucune reprise. C\'est ça, les connaître.':'Bouclé — mais avec des reprises. Refais celles qui ont coincé, seules, demain.'}</div></div>`;
@@ -3287,11 +3340,11 @@ function dojoKeys(){
 function dojoModes(){
   const quiz=Math.random()<.4;
   if(quiz) return openCustom('🎨 Les modes',(inner,close)=>{
-    runQuiz(inner,{qs:genModeQs(6)},ok=>{ if(ok){award(10); toast('+10 XP');} close(); });
+    runQuiz(inner,{qs:genModeQs(6)},ok=>{ if(ok){dailyMark('modes'); award(10); toast('+10 XP');} close(); });
   });
   const ex=genModeScale();
   openCustom('🎨 '+ex.name,(inner,close)=>{
-    runScale(inner,ex,ok=>{ if(ok){award(10); toast('+10 XP');} close(); });
+    runScale(inner,ex,ok=>{ if(ok){dailyMark('modes'); award(10); toast('+10 XP');} close(); });
   });
 }
 function dojoScale(){
@@ -3670,7 +3723,7 @@ function renderOutils(){
    ================================================================ */
 const overlay=document.getElementById('overlay');
 const overlayInner=document.getElementById('overlayInner');
-function closeOverlay(){ overlay.classList.remove('open'); Metro.stop(); Player.stop(false); if(typeof CoordPlayer!=='undefined')CoordPlayer.stop(); render(); }
+function closeOverlay(){ DAILY_SLOT=null; overlay.classList.remove('open'); Metro.stop(); Player.stop(false); if(typeof CoordPlayer!=='undefined')CoordPlayer.stop(); render(); }
 function openCustom(title,fill){
   overlayInner.innerHTML=`<div class="topbar"><button class="back">←</button><b>${title}</b></div>`;
   overlayInner.querySelector('.back').onclick=closeOverlay;
@@ -5612,22 +5665,43 @@ function lexiconView(){
    DÉFI DU JOUR — un challenge spécial chaque jour, +30 XP bonus
    ================================================================ */
 const R12A=[0,1,2,3,4,5,6,7,8,9,10,11];
+/* questions « quinte de X ? » en QCM, tirées du deck des cartes (mêmes orthographes) */
+function genQuinteQs(n){
+  const open=QC_CARDS.filter(c=>qcLvlOpen(c.lvl));
+  const src=(open.length>=n?open:QC_CARDS).slice().sort(()=>Math.random()-.5).slice(0,n);
+  return src.map(c=>{
+    const uniq=[...new Set(QC_CARDS.map(x=>x.nb))].filter(x=>x!==c.nb).sort(()=>Math.random()-.5).slice(0,3);
+    const opts=[c.nb,...uniq].sort(()=>Math.random()-.5);
+    return {q:`Quinte ${c.dir==='up'?'ASCENDANTE ↑':'DESCENDANTE ↓'} de <b>${c.na}</b> ?`,
+            opts, a:opts.indexOf(c.nb), why:c.why};
+  });
+}
+/* Le défi du jour alterne strictement TERRAIN (gammes/armures/quintes/modes) et SON
+   (accords) : une ligne sur deux, pour qu'il ne tombe plus 5 fois sur des accords. */
 const DEFIS=[
+  {ic:'🧭', title:'Les armures en éclair', req:null, desc:'8 questions sur les 12 gammes, dans les deux sens : combien d\'altérations, et lesquelles.',
+   launch:(box,done)=>runFlash(box, goFlashQs(8), (good,total)=>done(good>=Math.ceil(total*.75)))},
   {ic:'⚡', title:'Sprint d\'accords', req:'m0l2', desc:'10 accords majeurs/mineurs d\'affilée, toutes tonalités. Vise le sans-faute.',
    launch:(box,done)=>runChord(box,{gen:{types:['maj','min'],roots:R12A,count:10}, pass:8, sub:'DÉFI · 10 accords, toutes tonalités.'}, done)},
-  {ic:'🧠', title:'Quiz éclair', req:null, desc:'6 questions de théorie. Le sans-faute est l\'objectif.',
-   launch:(box,done)=>runQuiz(box,{qs:genTheoryQuiz(6)}, done)},
-  {ic:'🪜', title:'Gamme surprise', req:null, desc:'Construis la gamme tirée au sort, note après note.',
-   launch:(box,done)=>runScale(box, genScaleEx(), done)},
+  {ic:'🃏', title:'Quintes éclair', req:null, desc:'10 quintes à donner de tête, ascendantes et descendantes — l\'orthographe compte.',
+   launch:(box,done)=>runQuiz(box,{qs:genQuinteQs(10)}, done)},
   {ic:'🎨', title:'Les 7e sous pression', req:'m5l1', desc:'8 accords de 7e (maj7 / m7 / 7), toutes tonalités.',
    launch:(box,done)=>runChord(box,{gen:{types:['maj7','m7','dom7'],roots:R12A,count:8}, pass:6, sub:'DÉFI · les couleurs de 7e.'}, done)},
-  {ic:'🎭', title:'Accords colorés', req:'m5l1', desc:'8 accords sus / dim / 9 / 11 à construire au clavier.',
+  {ic:'🪜', title:'Gamme surprise', req:null, desc:'Construis la gamme tirée au sort, note après note.',
+   launch:(box,done)=>runScale(box, genScaleEx(), done)},
+  {ic:'🌈', title:'Accords colorés', req:'m5l1', desc:'8 accords sus / dim / 9 / 11 à construire au clavier.',
    launch:(box,done)=>runChord(box,{gen:{types:['sus2','sus4','m7b5','dim7','dom9','maj9','m9'],roots:R12A,count:8}, pass:6, sub:'DÉFI coloré.'}, done)},
+  {ic:'🎭', title:'Les modes', req:null, desc:'6 questions : dorien, lydien, mixolydien… quelle gamme majeure, quelle note-couleur.',
+   launch:(box,done)=>runQuiz(box,{qs:genModeQs(6)}, done)},
   {ic:'🔄', title:'Renversements', req:'m1l1', desc:'10 accords slash — les bonnes notes ET la bonne basse en bas.',
    launch:(box,done)=>runChord(box,{items:genInvItems(10,['maj','min']), pass:8, sub:'DÉFI renversements.'}, done)},
+  {ic:'🎡', title:'Le cycle des quintes', req:null, desc:'8 questions sur le cycle : voisins, relative mineure, armure ↔ tonalité.',
+   launch:(box,done)=>runQuiz(box,{qs:genCircleQs(8)}, done)},
   {ic:'🎲', title:'La progression', req:'m2l2', desc:'Joue une progression connue, tirée au sort dans une tonalité au hasard.',
    launch:(box,done)=>{ const p=DOJO_PROGS[Math.floor(Math.random()*DOJO_PROGS.length)], key=[0,2,5,7,9][Math.floor(Math.random()*5)];
      runProg(box,{rounds:1,free:true,chords:p.deg.map(([d,t])=>({root:(key+d)%12,t})),sub:'DÉFI · '+p.name+' en '+NOTE[key]}, done); }},
+  {ic:'🧠', title:'Quiz éclair', req:null, desc:'6 questions de théorie. Le sans-faute est l\'objectif.',
+   launch:(box,done)=>runQuiz(box,{qs:genTheoryQuiz(6)}, done)},
 ];
 function availDefis(){ return DEFIS.filter(d=>!d.req||S.done[d.req]); }
 function todaysDefi(){ const a=availDefis(); return a[Math.floor(Date.now()/864e5)%a.length]; }
