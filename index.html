@@ -403,6 +403,22 @@
   .mfphr span{color:var(--dim);font-size:12.5px;font-weight:500}
   .mfplay{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px}
   .mfplay .btn{margin:0;padding:10px 4px;font-size:12.5px}
+  /* accordeur de voix (singTuner) */
+  .tuner{background:var(--bg2);border:1px solid var(--line);border-radius:14px;padding:14px 14px 10px;margin:12px 0;text-align:center}
+  .tn-note{font-size:46px;font-weight:900;line-height:1.1}
+  .tn-msg{font-size:14px;font-weight:700;color:var(--dim);min-height:22px;margin-top:3px}
+  .tn-msg.ok{color:var(--ok)} .tn-msg.near{color:var(--acc)} .tn-msg.bad{color:var(--bad)}
+  .tn-msg small{font-weight:600;opacity:.85}
+  .tn-gauge{position:relative;height:30px;margin:12px 6px 2px;border-radius:8px;background:var(--bg3)}
+  .tn-zone{position:absolute;top:0;bottom:0;left:30%;width:40%;background:rgba(62,207,122,.14);border-left:1px solid rgba(62,207,122,.45);border-right:1px solid rgba(62,207,122,.45)}
+  .tn-mid{position:absolute;top:0;bottom:0;left:50%;width:2px;margin-left:-1px;background:var(--line)}
+  .tn-needle{position:absolute;top:-4px;bottom:-4px;left:50%;width:6px;margin-left:-3px;border-radius:3px;background:var(--dim);opacity:.35;transition:left .08s linear,background .15s}
+  .tn-needle.ok{background:var(--ok);opacity:1} .tn-needle.near{background:var(--acc);opacity:1} .tn-needle.bad{background:var(--bad);opacity:1}
+  .tn-scale{display:flex;justify-content:space-between;font-size:10.5px;color:var(--dim);font-weight:700;margin:5px 4px 0}
+  .tn-hold{height:6px;border-radius:3px;background:var(--bg3);overflow:hidden;margin:10px 0 2px}
+  .tn-hold i{display:block;height:100%;width:0;background:var(--ok);transition:width .1s linear}
+  .tuner .btn{margin:10px 0 0}
+  .tn-phones{display:flex;gap:7px;align-items:center;justify-content:center;font-size:11.5px;color:var(--dim);margin-top:9px;cursor:pointer}
   .pckbtog{display:block;margin:8px auto 0;background:none;border:0;color:var(--dim);font-size:12px;font-weight:700;cursor:pointer;padding:4px 8px}
   .nchip:active{transform:scale(.93)}
   .gotimer{text-align:center;font-weight:800;font-size:22px;color:var(--acc);font-variant-numeric:tabular-nums;margin:4px 0}
@@ -784,8 +800,162 @@ function ac(){
   if(AC.state==='suspended') AC.resume();
   return AC;
 }
+/* ---------------- micro : la hauteur de la voix ----------------
+   Demande de Thomas (2026-09-11) : « comme un accordeur, un truc qui m'entend et me dit si je
+   dois monter ou descendre ». Une voix seule est un signal à UNE hauteur : ça se détecte de
+   façon fiable (contrairement à un accord). Méthode McLeod (NSDF) : on cherche le décalage
+   pour lequel le signal se ressemble le plus à lui-même — c'est sa période.
+   Rien n'est enregistré ni envoyé : l'analyseur lit le micro en direct, point. */
+const Mic={on:false, stream:null, src:null, an:null, buf:null, quiet:0, owner:null,
+  async start(){
+    if(this.on) return true;
+    if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia) throw new Error('nomic');
+    /* sans traitement : l'annulation d'écho et le gain auto déforment la hauteur */
+    const stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}});
+    this._wire(ac().createMediaStreamSource(stream)); this.stream=stream; return true;
+  },
+  _wire(node){ const ctx=ac(); this.an=ctx.createAnalyser(); this.an.fftSize=2048; node.connect(this.an);
+    this.src=node; this.buf=new Float32Array(this.an.fftSize); this.on=true; },
+  attach(node){ this.stop(); this._wire(node); },      /* test : un oscillateur à la place du micro */
+  stop(){ if(this.stream) this.stream.getTracks().forEach(t=>t.stop()); try{ if(this.src) this.src.disconnect(); }catch(e){}
+    this.on=false; this.stream=this.src=this.an=null; this.owner=null; },
+  /* MIDI flottant (69 = La 440), null (silence/bruit), ou 'quiet' (l'app joue : elle ne s'écoute pas elle-même) */
+  read(){
+    if(!this.on) return null;
+    if(!S.micPhones && ac().currentTime<this.quiet) return 'quiet';
+    this.an.getFloatTimeDomainData(this.buf);
+    const f=detectPitch(this.buf, ac().sampleRate);
+    return f ? 69+12*Math.log2(f/440) : null;
+  }
+};
+function detectPitch(x, sr){
+  /* ÷2 (moyenne de 2 échantillons) : 1024 points à ~22–24 kHz suffisent largement pour une voix,
+     et le calcul (quadratique) devient ~4× plus léger — 16 ms → ~4 ms par lecture */
+  if(sr>30000){ const h=x.length>>1, y=new Float32Array(h); for(let i=0;i<h;i++) y[i]=(x[2*i]+x[2*i+1])*.5; x=y; sr/=2; }
+  const n=x.length; let e=0; for(let i=0;i<n;i++) e+=x[i]*x[i];
+  if(Math.sqrt(e/n)<0.008) return null;                              /* silence */
+  const tMin=Math.floor(sr/1100), tMax=Math.min(Math.floor(sr/65), (n>>1)-2);   /* 65–1100 Hz : toute voix */
+  const nsdf=new Float32Array(tMax+2);
+  for(let t=0;t<=tMax+1;t++){
+    let acf=0, m=0;
+    for(let i=0;i+t<n;i++){ const a=x[i], b=x[i+t]; acf+=a*b; m+=a*a+b*b; }
+    nsdf[t]=m?2*acf/m:0;
+  }
+  /* le 1er lobe (autour de 0) ne compte pas ; puis le sommet de chaque lobe positif, et on garde
+     le PREMIER assez haut (≥ 0,88 × le plus haut) — c'est ce qui évite les erreurs d'octave */
+  let t=1; while(t<=tMax && nsdf[t]>0) t++;
+  const peaks=[]; let pos=false, best=-1, bi=0;
+  for(;t<=tMax;t++){
+    if(nsdf[t]>0){ if(!pos){ pos=true; best=-1; } if(nsdf[t]>best){ best=nsdf[t]; bi=t; } }
+    else if(pos){ pos=false; if(bi>=tMin) peaks.push(bi); }
+  }
+  if(pos && bi>=tMin) peaks.push(bi);
+  if(!peaks.length) return null;
+  const top=Math.max(...peaks.map(p=>nsdf[p]));
+  if(top<0.75) return null;                                          /* pas assez périodique : souffle, bruit */
+  const t0=peaks.find(p=>nsdf[p]>=0.88*top);
+  const a=nsdf[t0-1], b=nsdf[t0], c=nsdf[t0+1], den=a-2*b+c;
+  return sr/(t0+(den?(a-c)/(2*den):0));                              /* interpolation parabolique */
+}
+/* L'accordeur : ce que tu chantes, par rapport à une cible (ou à la note la plus proche).
+   opts.target = MIDI visé, comparé À L'OCTAVE PRÈS (ta voix n'est pas à l'étage du piano) ;
+   opts.above  = MIDI à dépasser (pour l'octave : « la même note, plus haut ») ;
+   opts.onHit(cents, secondes pour la trouver, midi chanté) = une fois, quand la note est TENUE juste 1 s. */
+function singTuner(opts){
+  opts=opts||{};
+  const HOLD=1000;
+  const el=document.createElement('div'); el.className='tuner';
+  el.innerHTML=`<div class="tn-note">—</div>
+    <div class="tn-msg">Appuie sur 🎤 puis chante.</div>
+    <div class="tn-gauge"><div class="tn-zone"></div><div class="tn-mid"></div><div class="tn-needle"></div></div>
+    <div class="tn-scale"><span>← trop bas</span><span>juste</span><span>trop haut →</span></div>
+    <div class="tn-hold"><i></i></div>
+    <button class="btn" data-k="mic">🎤 Écoute-moi</button>
+    <label class="tn-phones"><input type="checkbox"${S.micPhones?' checked':''}> 🎧 J'ai des écouteurs (l'app m'écoute même quand elle joue)</label>`;
+  const q=s=>el.querySelector(s), noteEl=q('.tn-note'), msgEl=q('.tn-msg'), needle=q('.tn-needle'),
+        holdBar=q('.tn-hold'), hold=q('.tn-hold i'), mic=q('[data-k=mic]');
+  q('.tn-phones input').onchange=e=>{ S.micPhones=e.target.checked; save(); };
+  let timer=null, hist=[], inSince=null, lastIn=0, lastVoice=0, holdC=[], hit=false, t0=null;
+  const msg=(h,cls)=>{ msgEl.innerHTML=h; msgEl.className='tn-msg'+(cls?' '+cls:''); };
+  const needleAt=(c,cls)=>{ needle.style.left=(50+Math.max(-50,Math.min(50,c)))+'%'; needle.className='tn-needle'+(cls?' '+cls:''); };
+  const resetHold=()=>{ inSince=null; holdC=[]; hold.style.width='0'; };
+  const sgn=c=>(c>0?'+':'')+c, cts=c=>sgn(c)+' cent'+(Math.abs(c)>1?'s':'');
+  const halt=()=>{ clearInterval(timer); timer=null; mic.textContent='🎤 Écoute-moi'; mic.className='btn'; };
+  const stop=()=>{ halt(); if(Mic.owner===el) Mic.stop(); };             /* ⏹ : coupe vraiment */
+  const tick=()=>{
+    if(!Mic.on || (Mic.owner && Mic.owner!==el)){ halt(); return; }
+    if(!el.isConnected){                                                 /* étape suivante : on passe la main au prochain accordeur ; */
+      halt(); if(Mic.owner===el){ Mic.owner=null;                        /* personne ne la prend en 1,5 s → micro coupé */
+        setTimeout(()=>{ if(Mic.on && !Mic.owner) Mic.stop(); },1500); }
+      return;
+    }
+    const now=performance.now(), r=Mic.read();
+    if(r==='quiet'){ msg('🔇 L\'app joue — chante juste après.'); resetHold(); return; }
+    if(r==null){
+      if(now-lastVoice>400){ noteEl.textContent='—'; needleAt(0,''); hist=[]; if(!hit) msg('🎤 Je t\'écoute — chante.'); }
+      if(inSince!=null && now-lastIn>250) resetHold();
+      return;
+    }
+    lastVoice=now; if(t0==null) t0=now;
+    hist.push(r); if(hist.length>5) hist.shift();
+    const m=hist.slice().sort((a,b)=>a-b)[hist.length>>1];          /* médiane : vibrato et attaques ne font pas sauter l'aiguille */
+    const near=Math.round(m), name=NOTE_FR[((near%12)+12)%12];
+    noteEl.textContent=name;
+    if(opts.target==null){                                           /* accordeur libre : la note la plus proche */
+      const c=Math.round((m-near)*100);
+      if(Math.abs(c)<=10){ msg(`✓ Pile sur ${name} <small>(${cts(c)})</small>`,'ok'); needleAt(c,'ok'); }
+      else { msg(`${name}, un peu ${c<0?'bas':'haut'} <small>(${cts(c)})</small>`,'near'); needleAt(c,'near'); }
+      return;
+    }
+    let d=m-opts.target; d-=12*Math.round(d/12);                     /* écart à la cible, à l'octave près */
+    const c=Math.round(d*100);
+    let good=false;
+    if(opts.above!=null && m<opts.above){ msg('↑ Bonne note, mais au même étage : <b>monte d\'une octave</b>','bad'); needleAt(-50,'bad'); }
+    else if(Math.abs(d)>=0.5){
+      const k=Math.round(Math.abs(d)), up=d<0;
+      msg(`${up?'↑ Monte':'↓ Descends'} ${k===1?'d\'un demi-ton':k===2?'d\'un ton':'de '+k+' demi-tons'}`,'bad'); needleAt(up?-50:50,'bad');
+    }
+    else if(Math.abs(c)>20){ msg(`Presque — ${c<0?'↑ monte':'↓ descends'} un chouïa <small>(${cts(c)})</small>`,'near'); needleAt(c,'near'); good=Math.abs(c)<=25; }
+    else { msg(`✓ Juste <small>(${cts(c)})</small>${hit?'':' — tiens-la…'}`,'ok'); needleAt(c,'ok'); good=true; }
+    if(good){ if(inSince==null){ inSince=now; holdC=[]; } lastIn=now; holdC.push(Math.abs(c)); }
+    else if(inSince!=null && now-lastIn>250) resetHold();
+    const held=inSince!=null?lastIn-inSince:0;
+    hold.style.width=Math.min(100,held/HOLD*100)+'%';
+    if(!hit && held>=HOLD){
+      hit=true;
+      if(opts.onHit) opts.onHit(Math.round(holdC.reduce((s,x)=>s+x,0)/holdC.length), (inSince-t0)/1000, m);
+    }
+  };
+  const listen=()=>{
+    Mic.owner=el; hist=[]; t0=null; lastVoice=performance.now(); resetHold();
+    mic.textContent='⏹ Couper le micro'; mic.className='btn ghost';
+    msg('🎤 Je t\'écoute — chante.');
+    clearInterval(timer); timer=setInterval(tick,40);
+  };
+  mic.onclick=async()=>{
+    if(timer){ stop(); msg('Micro coupé.'); return; }
+    try{ await Mic.start(); }
+    catch(e){ msg(micErr(e),'bad'); return; }
+    listen();
+  };
+  el.setTarget=t=>{ opts.target=t; hit=false; t0=null; hist=[]; resetHold(); holdBar.style.display=t==null?'none':''; };
+  el.stop=stop;
+  holdBar.style.display=opts.target==null?'none':'';
+  /* micro déjà ouvert à l'étape d'avant : on continue d'écouter, sans re-taper 🎤 */
+  if(Mic.on && (!Mic.owner || !Mic.owner.isConnected)) listen();
+  return el;
+}
+function micErr(e){
+  if(e&&e.message==='nomic') return 'Pas d\'accès au micro ici : ouvre l\'app en ligne (https), dans Safari ou Chrome.';
+  const n=e&&e.name;
+  if(n==='NotAllowedError'||n==='SecurityError') return 'Micro refusé. Autorise-le (réglages du navigateur → ce site → Micro), puis réessaie.';
+  if(n==='NotFoundError') return 'Aucun micro trouvé sur cet appareil.';
+  return 'Micro indisponible'+(n?' ('+n+')':'')+'.';
+}
+const centTxt=c=>c+' cent'+(Math.abs(c)>1?'s':'');   /* « 1 cent », « 12 cents » */
 function playNote(midi, dur=1.4, vel=.4, when=0){
   const ctx=ac(), t=ctx.currentTime+when;
+  if(Mic.on) Mic.quiet=Math.max(Mic.quiet, t+dur+.15);   /* l'accordeur se bouche les oreilles pendant que l'app joue */
   const f=440*Math.pow(2,(midi-69)/12);
   const g=ctx.createGain(), lp=ctx.createBiquadFilter();
   lp.type='lowpass'; lp.frequency.value=Math.min(f*7,9500); lp.Q.value=.5;
@@ -2282,7 +2452,7 @@ const DRILLS=[
    desc:()=>'Gamme majeure (ou pentatonique) depuis une fondamentale tirée au sort.',
    run:()=>dojoScale()},
   {id:'voix', icon:'🎤', title:'Chanter pour entendre', req:null,
-   desc:()=>{ const s=earStat('voix'); return 'Le parcours d\'oreille par la VOIX : bourdon, chante les couleurs (majeur/mineur) et les intervalles, puis reconnais — armé par ta voix. Tu chantes déjà juste : on branche ton oreille sur les mots. 5 min/jour, le plus rentable contre ton point faible.'+(s.best?` Reconnaissance record : <b style="color:var(--acc)">${s.best}%</b>.`:''); },
+   desc:()=>{ const s=earStat('voix'); return 'Le parcours d\'oreille par la VOIX : bourdon, chante les couleurs (majeur/mineur) et les intervalles — <b>l\'app t\'écoute au micro</b> et te dit monte / descends, comme un accordeur — puis reconnais, armé par ta voix. Tu chantes déjà juste : on branche ton oreille sur les mots. 5 min/jour, le plus rentable contre ton point faible.'+(s.best?` Reconnaissance record : <b style="color:var(--acc)">${s.best}%</b>.`:''); },
    run:()=>dojoVoix()},
   {id:'ear', icon:'👂', title:'Majeur ou mineur ?', req:null,
    desc:()=>{ const s=earStat('mm'); return 'Une note tirée au hasard : compare son majeur à son mineur, ressens la bascule, puis teste-toi. L\'exercice d\'oreille express — fais-le court et quotidien.'+(s.best?` Record : <b style="color:var(--acc)">${s.best}%</b>.`:''); },
@@ -2367,7 +2537,7 @@ function dojoVoix(){
   const play=(semis,when,dur)=>{ playNote(ROOT+semis,dur||1.7,.42,when||0); };
   openCustom('🎤 Chanter pour entendre · '+rn,(inner,close)=>{
     const box=document.createElement('div'); inner.appendChild(box);
-    let step=0, sung=0, total=0;
+    let step=0, sung=0, total=0, sungRoot=null, res=[];   /* sungRoot : ta fondamentale, à la hauteur où TA voix la chante */
     const next=()=>{ step++; go(); };
     function singStep(o){
       total++;
@@ -2380,35 +2550,50 @@ function dojoVoix(){
       const fb=document.createElement('div'); fb.className='fb'; fb.style.minHeight='22px'; fb.style.margin='10px 0'; box.appendChild(fb);
       if(o.ref){ const t=document.createElement('div'); t.className='tip'; t.innerHTML='🎵 Repère : '+o.ref; box.appendChild(t); }
       const rate=document.createElement('div'); rate.style.cssText='display:none;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:10px';
-      const verify=document.createElement('button'); verify.className='btn'; verify.textContent='🔊 Vérifier (joue la note visée)';
+      const nextBtn=document.createElement('button'); nextBtn.className='btn ok'; nextBtn.style.display='none'; nextBtn.textContent='Suivant →'; nextBtn.onclick=next;
+      /* l'accordeur t'écoute et te guide vers la note visée (à l'octave près) ; tenue juste 1 s = validé.
+         Sans micro, l'ancienne voie reste : Vérifier, puis t'évaluer toi-même. */
+      let heard=false;
+      box.appendChild(singTuner({target:ROOT+o.semis, above:(o.oct&&sungRoot!=null)?sungRoot+6:null,
+        onHit:(cents,secs)=>{ heard=true; sung++; res.push({t:o.short,cents,secs}); tada();
+          fb.className='fb ok'; fb.innerHTML=`✓ Tenue juste — à <b>${centTxt(cents)}</b> près${secs>=0.5?`, trouvée en ${secs.toFixed(1).replace('.',',')} s`:''}. ${cents<=10?'Pile.':cents<=18?'Juste.':'Juste, un poil limite.'}`;
+          rate.style.display='none'; nextBtn.style.display=''; }}));
+      box.appendChild(nextBtn);
+      const verify=document.createElement('button'); verify.className='btn ghost'; verify.textContent='🔊 Vérifier (joue la note visée)';
       verify.onclick=()=>{
         drone(2.2); setTimeout(()=>play(o.semis,0,1.8),650);
         kb.clearSel(); const r=kb.keyEl(ROOT); if(r)r.classList.add('hint'); const tk=kb.keyEl(ROOT+o.semis); if(tk)tk.classList.add('sel','target');
+        if(heard) return;
         fb.className='fb'; fb.innerHTML='Compare à ce que tu viens de chanter'+(o.colorHint?' — <b>'+o.colorHint+'</b>':'')+'. Tu étais où ?';
         rate.style.display='grid'; verify.textContent='🔁 Réécouter';
       };
       box.appendChild(verify); box.appendChild(rate);
-      const mk=(lab,val,col)=>{ const b=document.createElement('button'); b.className='btn ghost'; b.style.borderColor=col; b.style.color=col; b.textContent=lab; b.onclick=()=>{ if(val) sung++; next(); }; return b; };
+      const mk=(lab,val,col)=>{ const b=document.createElement('button'); b.className='btn ghost'; b.style.borderColor=col; b.style.color=col; b.textContent=lab; b.onclick=()=>{ if(val) sung++; res.push({t:o.short,self:lab}); next(); }; return b; };
       rate.appendChild(mk('À côté',0,'var(--bad)')); rate.appendChild(mk('Presque',0,'var(--acc)')); rate.appendChild(mk('Juste ✓',1,'var(--ok)'));
     }
     function intro(){
       box.innerHTML=`<div class="exhead"><div class="target" style="font-size:22px">🎤 Chanter pour entendre</div></div>`;
       const p=document.createElement('div'); p.style.cssText='color:#c9cde0;font-size:14.5px;line-height:1.6';
-      p.innerHTML=`Tu chantes juste — donc <b style="color:var(--txt)">ton oreille marche déjà</b>. Ici on la branche sur les couleurs : tu <b>chantes d'abord</b>, tu <b>vérifies après</b>. C'est l'ordre qui compte — tu produis de ta tête avant d'entendre la réponse.<br><br>Personne ne t'écoute, aucune note sur ta voix. Juste toi et ton oreille. 5 minutes.`;
+      p.innerHTML=`Tu chantes juste — donc <b style="color:var(--txt)">ton oreille marche déjà</b>. Ici on la branche sur les couleurs : tu <b>chantes d'abord</b>, tu <b>vérifies après</b>. C'est l'ordre qui compte — tu produis de ta tête avant d'entendre la réponse.<br><br><b style="color:var(--txt)">🎤 L'app peut t'écouter</b>, comme un accordeur : elle te dit quelle note tu chantes, s'il faut <b>monter ou descendre</b>, et valide quand tu tiens la note juste une seconde. Rien n'est enregistré ni envoyé — le micro est lu en direct, puis coupé. Sans micro, tu t'évalues toi-même comme avant. 5 minutes.`;
       box.appendChild(p);
       const b=document.createElement('button'); b.className='btn'; b.textContent='Commencer →'; b.onclick=next; box.appendChild(b);
+      const bt=document.createElement('button'); bt.className='btn ghost'; bt.textContent='🎚 Accordeur libre (chante ce que tu veux)'; bt.onclick=()=>voiceTunerRoom(); box.appendChild(bt);
     }
     function droneTonic(){
       box.innerHTML=`<div class="exhead"><div class="target" style="font-size:20px">🏠 Le bourdon · ${rn}</div></div>`;
       const p=document.createElement('div'); p.style.cssText='color:#c9cde0;font-size:14px;line-height:1.55;margin:6px 0 12px';
-      p.innerHTML=`Écoute ce <b>${rn}</b> tenu, puis <b>chante-le</b> et tiens-le avec lui. Sens le repos, le « chez-soi ». C'est ton point zéro : toute couleur se mesure par rapport à lui.`; box.appendChild(p);
+      p.innerHTML=`Écoute ce <b>${rn}</b> tenu, puis <b>chante-le</b> et tiens-le. Sens le repos, le « chez-soi ». C'est ton point zéro : toute couleur se mesure par rapport à lui.<br><span style="color:var(--dim);font-size:13px">Avec le micro, l'app te dit si tu es dessus — et retient à quelle hauteur ta voix le chante (elle s'en sert pour l'octave).</span>`; box.appendChild(p);
       const b1=document.createElement('button'); b1.className='btn'; b1.textContent='▶ Le bourdon'; b1.onclick=()=>drone(5); box.appendChild(b1);
-      const b2=document.createElement('button'); b2.className='btn ok'; b2.style.marginTop='8px'; b2.textContent='Je le tiens → suivant'; b2.onclick=next; box.appendChild(b2);
+      const fb=document.createElement('div'); fb.className='fb'; fb.style.minHeight='22px';
+      const b2=document.createElement('button'); b2.className='btn ok'; b2.style.marginTop='8px'; b2.textContent='Je le tiens → suivant'; b2.onclick=next;
+      box.appendChild(singTuner({target:ROOT, onHit:(cents,secs,midi)=>{ sungRoot=midi; res.push({t:'Fondamentale',cents,secs}); tada();
+        fb.className='fb ok'; fb.innerHTML=`✓ Tu tiens ton ${rn} — à <b>${centTxt(cents)}</b> près.`; b2.textContent='Suivant →'; }}));
+      box.appendChild(fb); box.appendChild(b2);
     }
-    const singM3=()=>singStep({title:'Chante la note BRILLANTE', semis:4, colorHint:'brillant, ça sourit', cue:`Sur le bourdon <b>${rn}</b>, chante la <b style="color:var(--acc)">tierce majeure</b> — la note qui « sourit ». Monte doucement depuis la fondamentale jusqu'à ce que ça sonne <b>lumineux</b>.`, ref:`la 3ᵉ note de « <b>Oh, when the saints</b> » (Oh→<b>when</b>).`});
-    const singm3=()=>singStep({title:'Chante la note SOMBRE', semis:3, colorHint:'sombre, ça se referme', cue:`Même fondamentale <b>${rn}</b>. Chante la <b style="color:var(--purple)">tierce mineure</b> — un demi-ton plus bas que la brillante : la note qui « se referme », mélancolique.`, ref:`le début de « <b>Greensleeves</b> » (le soupir triste).`});
-    const singP5=()=>singStep({title:'Chante la QUINTE', semis:7, cue:`Chante la <b>quinte</b> au-dessus de <b>${rn}</b> : l'intervalle le plus stable, solide, ouvert.`, ref:`« <b>Ah vous dirai-je maman</b> » / Twinkle (Do Do → <b>Sol</b> Sol).`});
-    const singOct=()=>singStep({title:"Chante l'OCTAVE", semis:12, cue:`Chante le même <b>${rn}</b> mais tout en haut — l'octave. La « même note », en plus aigu.`, ref:`« <b>Some-where</b> over the rainbow ».`});
+    const singM3=()=>singStep({title:'Chante la note BRILLANTE', semis:4, short:'Tierce majeure', colorHint:'brillant, ça sourit', cue:`Sur le bourdon <b>${rn}</b>, chante la <b style="color:var(--acc)">tierce majeure</b> — la note qui « sourit ». Monte doucement depuis la fondamentale jusqu'à ce que ça sonne <b>lumineux</b>.`, ref:`la 3ᵉ note de « <b>Oh, when the saints</b> » (Oh→<b>when</b>).`});
+    const singm3=()=>singStep({title:'Chante la note SOMBRE', semis:3, short:'Tierce mineure', colorHint:'sombre, ça se referme', cue:`Même fondamentale <b>${rn}</b>. Chante la <b style="color:var(--purple)">tierce mineure</b> — un demi-ton plus bas que la brillante : la note qui « se referme », mélancolique.`, ref:`le début de « <b>Greensleeves</b> » (le soupir triste).`});
+    const singP5=()=>singStep({title:'Chante la QUINTE', semis:7, short:'Quinte', cue:`Chante la <b>quinte</b> au-dessus de <b>${rn}</b> : l'intervalle le plus stable, solide, ouvert.`, ref:`« <b>Ah vous dirai-je maman</b> » / Twinkle (Do Do → <b>Sol</b> Sol).`});
+    const singOct=()=>singStep({title:"Chante l'OCTAVE", semis:12, short:'Octave', oct:true, cue:`Chante le même <b>${rn}</b> mais tout en haut — l'octave. La « même note », en plus aigu.`, ref:`« <b>Some-where</b> over the rainbow ».`});
     function recognise(){
       let i=0, score=0, cur=null, ans=false; const N=6;
       const sound=(q,when,dur)=>{ when=when||0; dur=dur||2; playNote(ROOT,dur,.3,when); playNote(ROOT+(q==='maj'?4:3),dur,.42,when); };
@@ -2431,17 +2616,59 @@ function dojoVoix(){
       const finish=()=>{
         const pct=Math.round(score/N*100); earPush('voix',pct); if(score>(S.earBest||0)) S.earBest=score; dailyMark('ear'); award(15); save(); chime();
         const st=earStat('voix');
+        const sumHtml=singSummary(); save();
         const msg=score>=5?'Voilà ton oreille au travail. Elle était là — tu l\'as juste branchée sur les mots.':score>=3?'Ça monte, et c\'est en CHANTANT que ça a bougé, pas en devinant. Reviens 5 min demain.':'Normal de partir de loin sur ce muscle-là — mais pas sur ton oreille, elle marche (tu chantes juste). La production quotidienne paie vite.';
         box.innerHTML=`<div class="exhead"><div class="target">🎤 ${score}/${N}</div><div class="sub" style="line-height:1.55">${msg}</div></div>
-          <p style="color:var(--dim);font-size:12px;text-align:center;margin:6px 0">Cette séance : ${sung}/${total} intervalles chantés « juste » · reconnaissance record ${st.best}%</p>`;
+          <p style="color:var(--dim);font-size:12px;text-align:center;margin:6px 0">Cette séance : ${sung}/${total} intervalles chantés « juste » · reconnaissance record ${st.best}%</p>${sumHtml}`;
         const b1=document.createElement('button'); b1.className='btn'; b1.textContent='↻ Recommencer (autre note)'; b1.onclick=()=>dojoVoix(); box.appendChild(b1);
         const b2=document.createElement('button'); b2.className='btn ghost'; b2.textContent='Terminer'; b2.onclick=close; box.appendChild(b2);
       };
       rndr();
     }
+    /* le bilan de ce que l'accordeur a entendu + la justesse moyenne comparée aux 5 séances d'avant */
+    function singSummary(){
+      if(!res.length) return '';
+      const mic=res.filter(r=>r.cents!=null);
+      let avgTxt='';
+      if(mic.length){
+        const avg=Math.round(mic.reduce((s,r)=>s+r.cents,0)/mic.length);
+        const H=S.singHist=(S.singHist||[]), prev=H.slice(-5);
+        H.push({d:todayStr(),avg,n:mic.length}); if(H.length>30) H.splice(0,H.length-30);
+        const pAvg=prev.length?Math.round(prev.reduce((s,h)=>s+h.avg,0)/prev.length):null;
+        avgTxt=`<div style="margin-top:9px;font-size:13px">Justesse moyenne : <b style="color:var(--acc)">${centTxt(avg)}</b>${pAvg!=null?` · tes ${prev.length} séance${prev.length>1?'s':''} d'avant : ${centTxt(pAvg)}${avg<pAvg?'<b style="color:var(--ok)">▲ mieux</b>':avg>pAvg?'▼':'='}`:''}
+          <div style="color:var(--dim);font-size:11.5px;margin-top:3px">100 cents = un demi-ton. Sous 20, l'oreille entend « juste ».</div></div>`;
+      }
+      return `<div class="card" style="text-align:left"><b style="font-size:14px">🎤 Ce que l'app a entendu</b>
+        <div style="margin-top:8px;display:flex;flex-direction:column;gap:5px">${res.map(r=>`<div style="font-size:13px;color:var(--dim)">${r.t} — ${r.cents!=null
+          ?`<b style="color:var(--ok)">✓ à ${centTxt(r.cents)}</b>${r.secs>=0.5?` · trouvée en ${r.secs.toFixed(1).replace('.',',')} s`:''}`
+          :`auto-évaluée : <b style="color:var(--txt)">${r.self}</b>`}</div>`).join('')}</div>${avgTxt}</div>`;
+    }
     const STEPS=[intro, droneTonic, singM3, singm3, singP5, singOct, recognise];
     function go(){ if(step<STEPS.length) STEPS[step](); }
     go();
+  });
+}
+/* L'accordeur libre (Outils + Chanter pour entendre) : chante, l'app dit quelle note et de
+   combien tu es à côté ; avec une cible, elle la joue puis te guide (monte / descends / tiens). */
+function voiceTunerRoom(){
+  openCustom('🎚 Accordeur de voix',(inner)=>{
+    const p=document.createElement('p'); p.style.cssText='color:var(--dim);font-size:13.5px;line-height:1.55;margin:2px 0 12px';
+    p.innerHTML=`Chante une note : l'app te dit <b style="color:var(--txt)">laquelle</b> et de combien tu es à côté, en <b style="color:var(--txt)">cents</b> (100 cents = un demi-ton ; sous 20, l'oreille entend « juste »). Choisis une <b style="color:var(--txt)">cible</b> : l'app la joue, puis te guide — monte, descends, tiens. Rien n'est enregistré : le micro est lu en direct, puis coupé.`;
+    inner.appendChild(p);
+    let cur=null;
+    const tn=singTuner({onHit:c=>{ tada(); toast('✓ '+NOTE_FR[cur%12]+' tenu juste — à '+centTxt(c)); }});
+    const row=document.createElement('div'); row.className='selrow';
+    [['Libre',null]].concat(NOTE_FR.map((n,pc)=>[n,pc])).forEach(([lab,pc])=>{
+      const t=document.createElement('div'); t.className='tag'+(pc===null?' on':''); t.textContent=lab;
+      t.onclick=()=>{ row.querySelectorAll('.tag').forEach(x=>x.classList.remove('on')); t.classList.add('on');
+        cur = pc===null ? null : 55+((pc-7+12)%12);          /* Sol3 → Fa#4 : le milieu d'une voix */
+        tn.setTarget(cur); if(cur!=null) playNote(cur,1.6,.45); };
+      row.appendChild(t);
+    });
+    inner.appendChild(row); inner.appendChild(tn);
+    const tip=document.createElement('div'); tip.className='tip'; tip.style.marginTop='4px';
+    tip.innerHTML='💡 Chante sur « ou » ou « a », sans vibrato, à 20–30 cm du téléphone. L\'app ignore ce qu\'elle joue elle-même : chante <b>après</b> la note de référence (ou coche « écouteurs »). Sur iPhone, le son de l\'app peut baisser tant que le micro est ouvert — ⏹ pour le couper.';
+    inner.appendChild(tip);
   });
 }
 function dojoEar(){
@@ -3826,6 +4053,12 @@ function renderOutils(){
   <div style="text-align:center;font-size:11px;color:var(--dim);margin-top:6px">XP des 7 derniers jours — la régularité se voit ici.</div>`;
   main.appendChild(c4);
 
+  const cTun=document.createElement('div'); cTun.className='card';
+  cTun.innerHTML=`<b style="font-size:16px">🎚 Accordeur de voix</b>
+    <p style="color:var(--dim);font-size:13px;margin:4px 0 0;line-height:1.5">Chante : l'app t'entend et te dit quelle note, de combien tu es à côté, et s'il faut <b style="color:var(--txt)">monter ou descendre</b>. Avec une note cible, c'est l'entraînement de justesse.</p>`;
+  const tunB=document.createElement('button'); tunB.className='btn ghost'; tunB.textContent='🎤 Ouvrir l\'accordeur';
+  tunB.onclick=()=>voiceTunerRoom(); cTun.appendChild(tunB); main.appendChild(cTun);
+
   const cProg=document.createElement('div'); cProg.className='card';
   cProg.innerHTML=`<b style="font-size:16px">📊 Ma progression</b>
     <p style="color:var(--dim);font-size:13px;margin:4px 0 0;line-height:1.5">Un résumé de ta progression (gammes, leçons, oreille…) à <b style="color:var(--txt)">copier et coller à Claude</b> pour qu'il la commente.</p>`;
@@ -3871,7 +4104,7 @@ function renderOutils(){
    ================================================================ */
 const overlay=document.getElementById('overlay');
 const overlayInner=document.getElementById('overlayInner');
-function closeOverlay(){ DAILY_SLOT=null; overlay.classList.remove('open'); Metro.stop(); Player.stop(false); if(typeof CoordPlayer!=='undefined')CoordPlayer.stop(); render(); }
+function closeOverlay(){ DAILY_SLOT=null; overlay.classList.remove('open'); Mic.stop(); Metro.stop(); Player.stop(false); if(typeof CoordPlayer!=='undefined')CoordPlayer.stop(); render(); }
 function openCustom(title,fill){
   overlayInner.innerHTML=`<div class="topbar"><button class="back">←</button><b>${title}</b></div>`;
   overlayInner.querySelector('.back').onclick=closeOverlay;
