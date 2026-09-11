@@ -359,8 +359,8 @@
   .gmcell .rl{font-size:10.5px;color:var(--dim);font-weight:700}
   .bigbar{height:13px;border-radius:7px;background:var(--bg3);overflow:hidden;border:1px solid var(--line)}
   .bigbar>i{display:block;height:100%;background:linear-gradient(90deg,var(--acc),var(--ok));border-radius:7px;transition:width .5s}
-  .noteslots{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin:12px 0 4px}
-  .noteslots .sl{min-width:44px;height:44px;padding:0 8px;border-radius:9px;border:1.5px dashed var(--line);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;color:var(--dim)}
+  .noteslots{display:flex;gap:5px;justify-content:center;flex-wrap:wrap;margin:12px 0 4px}
+  .noteslots .sl{min-width:40px;height:44px;padding:0 5px;border-radius:9px;border:1.5px dashed var(--line);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;color:var(--dim)}
   .noteslots .sl.on{border-style:solid;border-color:var(--acc);color:var(--txt);background:var(--bg3)}
   .noteslots .sl.ton{border-style:solid;border-color:var(--acc2);color:var(--acc);background:rgba(245,184,64,.08)}
   .noteslots .sl.err{border-color:var(--bad);color:var(--bad);animation:shake .3s}
@@ -370,6 +370,24 @@
   .nchip small{display:block;font-size:9.5px;color:var(--dim);font-weight:700}
   .nchip.gone{opacity:.22;pointer-events:none}
   .nchip.sel{border-color:var(--acc);background:rgba(245,184,64,.12);color:var(--acc)}
+  /* clavier d'une octave pour répondre par hauteur (pcKeyboard) */
+  .pckbwrap{max-width:470px;margin:16px auto 6px}
+  .pckb{position:relative;height:168px;border-radius:10px;overflow:hidden;background:#000;touch-action:manipulation;user-select:none;-webkit-user-select:none}
+  .pckb .pk{position:absolute;top:0;cursor:pointer;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;line-height:1.1;text-align:center;transition:background .12s}
+  .pckb .pk.w{height:100%;padding-bottom:9px;background:linear-gradient(#fdfdfd,#e6e6ea);border:1px solid #999;border-radius:0 0 7px 7px;z-index:1;color:#1a1c22}
+  .pckb .pk.b{height:58%;padding-bottom:6px;background:linear-gradient(#3a3a42,#111);border:1px solid #000;border-radius:0 0 5px 5px;z-index:2;color:#f2f2f5}
+  .pckb .pk b{font-size:15px;font-weight:800}
+  .pckb .pk.b b{font-size:11px}
+  .pckb .pk small{font-size:10px;font-weight:700;color:#8a8d98;margin-top:1px}
+  .pckb .pk.b small{font-size:9px;color:#b4b6c2}
+  .pckb .pk.w:active{background:linear-gradient(#e9e9ee,#cfd0d6)}
+  .pckb .pk.b:active{background:linear-gradient(#55555f,#26262c)}
+  .pckb .pk.w.ok{background:linear-gradient(#c9f5da,var(--ok))}
+  .pckb .pk.b.ok{background:linear-gradient(#2f9e62,#1c6b40)}
+  .pckb .pk.w.bad{background:linear-gradient(#ffb3bb,var(--bad))}
+  .pckb .pk.b.bad{background:linear-gradient(#b53b47,#7a222c)}
+  .pckb.nonames .pk b,.pckb.nonames .pk small{visibility:hidden}
+  .pckbtog{display:block;margin:8px auto 0;background:none;border:0;color:var(--dim);font-size:12px;font-weight:700;cursor:pointer;padding:4px 8px}
   .nchip:active{transform:scale(.93)}
   .gotimer{text-align:center;font-weight:800;font-size:22px;color:var(--acc);font-variant-numeric:tabular-nums;margin:4px 0}
   .gofiche{background:var(--bg2);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin:10px 0}
@@ -882,6 +900,43 @@ function buildKeyboard(lo, hi, onTap){
   wrap.kbd=kbd;
   wrap.keyEl=m=>kbd.querySelector(`[data-midi="${m}"]`);
   wrap.clearSel=()=>kbd.querySelectorAll('.sel,.hint').forEach(k=>k.classList.remove('sel','hint'));
+  return wrap;
+}
+
+/* Clavier d'UNE octave pour répondre par hauteur : 7 blanches + 5 noires à leur vraie place
+   (une grille de 12 boutons ne ressemble pas à un piano). Chaque touche porte ses deux noms,
+   y compris Si#/Fab/Mi#/Dob — sans eux, le Mi# de Fa# majeur semble introuvable.
+   onPick(pc, touche) · wrap.flash(pc,'ok'|'bad') · noms masquables (S.pckbHide). */
+const PCKB_NAMES=[['Do','Si#'],['Do#','Réb'],['Ré'],['Ré#','Mib'],['Mi','Fab'],['Fa','Mi#'],['Fa#','Solb'],['Sol'],['Sol#','Lab'],['La'],['La#','Sib'],['Si','Dob']];
+function pcKeyboard(onPick){
+  const wrap=document.createElement('div'); wrap.className='pckbwrap';
+  const kb=document.createElement('div'); kb.className='pckb'+(S.pckbHide?' nonames':''); wrap.appendChild(kb);
+  const WHITES=[0,2,4,5,7,9,11], wW=100/7, bW=wW*.64;
+  const label=pc=>{ const n=PCKB_NAMES[pc]; return `<b>${n[0]}</b>${n[1]?`<small>${n[1]}</small>`:''}`; };
+  WHITES.forEach((pc,i)=>{
+    const k=document.createElement('div'); k.className='pk w'; k.dataset.pc=pc;
+    k.style.left=(i*wW)+'%'; k.style.width=wW+'%'; k.innerHTML=label(pc);
+    kb.appendChild(k);
+  });
+  [1,3,6,8,10].forEach(pc=>{
+    const i=WHITES.filter(w=>w<pc).length;                 /* la noire est à cheval sur la jointure */
+    const k=document.createElement('div'); k.className='pk b'; k.dataset.pc=pc;
+    k.style.left=(i*wW-bW/2)+'%'; k.style.width=bW+'%'; k.innerHTML=label(pc);
+    kb.appendChild(k);
+  });
+  kb.addEventListener('pointerdown',e=>{
+    const k=e.target.closest('.pk'); if(!k) return;
+    e.preventDefault(); onPick(+k.dataset.pc,k);
+  });
+  const tog=document.createElement('button'); tog.className='pckbtog';
+  const togTxt=()=>{ tog.textContent = S.pckbHide ? '🙈 Noms masqués — les afficher' : '🏷 Masquer les noms (trouver la touche à sa place)'; };
+  tog.onclick=()=>{ S.pckbHide=!S.pckbHide; kb.classList.toggle('nonames',S.pckbHide); togTxt(); save(); };
+  togTxt(); wrap.appendChild(tog);
+  wrap.flash=(pc,cls)=>{
+    const k=kb.querySelector(`[data-pc="${pc}"]`); if(!k) return;
+    k.classList.remove('ok','bad'); void k.offsetWidth; k.classList.add(cls);
+    clearTimeout(k._t); k._t=setTimeout(()=>k.classList.remove(cls),320);
+  };
   return wrap;
 }
 
@@ -1592,7 +1647,7 @@ function dojoQuinte(){
       wrap.querySelector('#qGo').onclick=partie;
     };
 
-    let t0, tick, pc, sensCur, bons=0, ratés=0, fini=false, historique=[];
+    let t0, tick, pc, sensCur, kb, bons=0, ratés=0, fini=false, historique=[];
     const tirage=()=>{
       pc=Math.floor(Math.random()*12);
       sensCur = sens==='mix' ? (Math.random()<0.5?'haut':'bas') : sens;
@@ -1604,15 +1659,10 @@ function dojoQuinte(){
         <div style="height:6px;border-radius:3px;background:var(--bg3);overflow:hidden;margin:0 0 16px">
           <i id="qBar" style="display:block;height:100%;width:100%;background:var(--acc)"></i></div>
         <div id="qQ" style="text-align:center;margin-bottom:4px"></div>
-        <div id="qG" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:16px"></div>
+        <div id="qG"></div>
         <div id="qS" style="text-align:center;color:var(--dim);font-size:13px;margin-top:14px"></div>`;
-      const g=wrap.querySelector('#qG');
-      NOTE_FR.forEach((n,i)=>{
-        const b=document.createElement('button');
-        b.className='btn ghost'; b.style.cssText='padding:14px 0;font-size:15px;font-weight:800;margin:0';
-        b.textContent=n; b.onclick=()=>repondre(i,b);
-        g.appendChild(b);
-      });
+      kb=pcKeyboard(i=>repondre(i));
+      wrap.querySelector('#qG').appendChild(kb);
       poser();
       tick=setInterval(()=>{
         const reste=Math.max(0,QUINTE_DUREE-(Date.now()-t0)/1000);
@@ -1631,19 +1681,13 @@ function dojoQuinte(){
       const st=wrap.querySelector('#qS');
       if(st) st.innerHTML=`<b style="color:var(--ok)">${bons}</b> bonnes · <b style="color:var(--bad)">${ratés}</b> ratées`;
     };
-    const repondre=(i,btn)=>{
+    const repondre=(i)=>{
       if(fini) return;
       const bon=quinteRep(pc,sensCur);
       const juste=(i===bon);
       historique.push({note:NOTE_FR[pc], sens:sensCur, donne:NOTE_FR[i], attendu:NOTE_FR[bon], juste});
-      if(juste){ bons++; try{ playNote(60+bon,.28,.32); }catch(e){} }
-      else{
-        ratés++;
-        btn.style.background='var(--bad)'; btn.style.color='#fff';
-        const bb=[...wrap.querySelectorAll('#qG button')][bon];
-        if(bb){ bb.style.background='var(--ok)'; bb.style.color='#0d0f14'; }
-        setTimeout(()=>{ [...wrap.querySelectorAll('#qG button')].forEach(x=>{x.style.background='';x.style.color='';}); },260);
-      }
+      if(juste){ bons++; kb.flash(i,'ok'); try{ playNote(60+bon,.28,.32); }catch(e){} }
+      else{ ratés++; kb.flash(i,'bad'); kb.flash(bon,'ok'); }
       tirage(); poser();
     };
     const terminer=()=>{
@@ -1749,6 +1793,11 @@ function qcAnchored(lvl){ return qcOf(lvl).filter(c=>qcCardState(c.id).box>=2).l
 function qcLvlOpen(lvl){ return lvl===1 || qcAnchored(lvl-1)===qcOf(lvl-1).length; }
 /* le Sprint (vitesse) n'a de sens qu'une fois les 12 quintes montantes solides */
 function qcMature(){ return QC_CARDS.filter(c=>c.lvl<=2).every(c=>qcCardState(c.id).box>=3); }
+/* Comme Anki : un plafond de NOUVELLES cartes par jour (Thomas, 2026-09-11 : « moins de
+   cartes d'abord »). Les révisions dues passent toujours ; les nouvelles arrivent au
+   compte-gouttes, comptées au premier verdict (S.qcNew = {d, n}). */
+const QC_NEW_PER_DAY=3;
+function qcNewLeft(){ const d=S.qcNew||{}; return Math.max(0, QC_NEW_PER_DAY-(d.d===todayStr()?d.n:0)); }
 function qcQueue(){
   const t=todayStr(), due=[], fresh=[];
   QC_CARDS.forEach(c=>{
@@ -1757,7 +1806,7 @@ function qcQueue(){
     if(!s||!s.seen) fresh.push(c);
     else if((s.due||'0000')<=t) due.push(c);
   });
-  return due.concat(fresh.slice(0,7));
+  return due.concat(fresh.slice(0,qcNewLeft()));
 }
 function qcNextDue(){
   const ds=QC_CARDS.map(c=>qcState()[c.id]).filter(s=>s&&s.seen&&s.due).map(s=>s.due).sort();
@@ -1767,33 +1816,39 @@ function qcSched(id, ok){
   const D=qcState(), s=Object.assign({box:0,seen:false,ko:0}, D[id]||{});
   if(ok) s.box=Math.min(s.box+1, QC_STEPS.length-1);
   else { s.box=0; s.ko=(s.ko||0)+1; }
+  if(!s.seen){ const t=todayStr(); if(!S.qcNew||S.qcNew.d!==t) S.qcNew={d:t,n:0}; S.qcNew.n++; }
   s.seen=true;
   const d=new Date(); d.setDate(d.getDate()+QC_STEPS[s.box]);
   s.due=d.toISOString().slice(0,10); s.last=todayStr();
   D[id]=s; save();
 }
 const qcBoxCol=b=> b>=4?'var(--ok)' : b>=2?'var(--acc)' : b>=1?'var(--acc2,#f5b840)' : 'var(--line)';
-/* Le son des deux notes, sans clavier : la carte reste une carte (demande de Thomas
-   le 2026-09-08 — « format classique anki », le piano n'a rien à y faire). */
-function qcTones(card){
-  const up=card.dir==='up';
-  const root = up ? 48+card.a : 60+card.a;   /* base multiple de 12 : root%12 == la note voulue */
-  const tgt  = up ? root+7 : root-7;
-  return {root,tgt,
-    start:()=>playNote(root,1.2,.4),
-    both:()=>{ playNote(root,.9,.36,0); playNote(tgt,.9,.36,.5); playNote(root,1.5,.3,1.05); playNote(tgt,1.5,.3,1.05); }};
-}
+/* Format Anki classique (Thomas, 2026-09-08 puis 2026-09-11 : « pas de son, vraiment
+   format anki classique ») : recto = la question, « Afficher la réponse », verso = la
+   réponse sous un filet, su / pas su avec le délai de retour écrit au-dessus. Ni clavier
+   ni son ; le « pourquoi » est replié. Clavier d'ordi : espace = afficher, 1 = pas su, 2 = su. */
 function qcRoom(){
   openCustom('🃏 Les quintes en cartes',(inner,close)=>{
     const wrap=document.createElement('div'); inner.appendChild(wrap);
+    let keys=null;   /* la carte en cours, pour les raccourcis clavier */
+    const onKey=e=>{
+      if(!wrap.isConnected){ document.removeEventListener('keydown',onKey); return; }
+      if(!keys || e.ctrlKey || e.metaKey || e.altKey) return;
+      const k=e.key, K=keys;
+      if(!K.flipped){ if(k===' '||k==='Enter'){ e.preventDefault(); K.flip(); } }
+      else if(k==='1'){ e.preventDefault(); keys=null; K.rate(false); }
+      else if(k==='2'||k===' '||k==='Enter'){ e.preventDefault(); keys=null; K.rate(true); }
+    };
+    document.addEventListener('keydown',onKey);
 
     const home=()=>{
+      keys=null;
       const q=qcQueue(), nd=qcNextDue();
       let html=`<p style="color:var(--dim);font-size:13.5px;line-height:1.55;margin:2px 0 14px">
-        Une paire à la fois. Tu <b style="color:var(--txt)">dis la réponse à voix haute</b>, tu retournes la carte,
-        puis tu tranches : <b style="color:var(--ok)">su</b> ou <b style="color:var(--bad)">pas su</b>.
-        Ce que tu rates revient tout de suite, ce que tu sais s'espace
-        (${QC_STEPS.slice(1).join(' → ')} jours). C'est ça qui installe la mémoire — le Sprint, lui, ne fait que la mesurer.</p>`;
+        Format Anki : la question, tu réponds <b style="color:var(--txt)">dans ta tête ou à voix haute</b>, tu affiches la réponse,
+        tu tranches : <b style="color:var(--ok)">su</b> ou <b style="color:var(--bad)">pas su</b>.
+        <b style="color:var(--txt)">${QC_NEW_PER_DAY} nouvelles cartes par jour, pas plus</b> : on n'avale pas le cercle d'un coup.
+        Ce que tu rates revient dans la séance, ce que tu sais s'espace (${QC_STEPS.slice(1).join(' → ')} jours).</p>`;
       [1,2,3].forEach(lvl=>{
         const cards=qcOf(lvl), open=qcLvlOpen(lvl), anc=qcAnchored(lvl), L=QC_LVL[lvl];
         html+=`<div class="card" style="${open?'':'opacity:.62'}">
@@ -1819,10 +1874,12 @@ function qcRoom(){
       });
       html+=`<div style="color:var(--dim);font-size:11.5px;text-align:center;margin:-2px 0 12px">
         contour gris = pas encore vue · orange = en cours · vert = ancrée · pointillé = à revoir aujourd'hui</div>`;
+      const nDue=q.filter(c=>qcCardState(c.id).seen).length, nNew=q.length-nDue;
+      const attente=qcNewLeft()===0 && QC_CARDS.some(c=>qcLvlOpen(c.lvl)&&!qcCardState(c.id).seen);
       html+= q.length
-        ? `<button class="btn" id="qcGo">Réviser — ${q.length} carte${q.length>1?'s':''}</button>`
+        ? `<button class="btn" id="qcGo">Étudier — ${[nDue?nDue+' à revoir':'', nNew?nNew+' nouvelle'+(nNew>1?'s':''):''].filter(Boolean).join(' · ')}</button>`
         : `<div class="card" style="text-align:center"><b style="color:var(--ok)">Tout est à jour.</b>
-             <div style="color:var(--dim);font-size:13px;margin-top:5px">${nd?`Prochaine révision le <b>${nd.slice(8)}/${nd.slice(5,7)}</b>. L'espacement fait le travail — n'insiste pas aujourd'hui.`:''}</div></div>
+             <div style="color:var(--dim);font-size:13px;margin-top:5px">${attente?`Tes ${QC_NEW_PER_DAY} nouvelles du jour sont passées — la suite demain. `:''}${nd?`Prochaine révision le <b>${nd.slice(8)}/${nd.slice(5,7)}</b>. L'espacement fait le travail — n'insiste pas aujourd'hui.`:''}</div></div>
            <button class="btn ghost" id="qcFree">Réviser quand même (sans compter)</button>`;
       if(qcMature()) html+=`<div style="color:var(--ok);font-size:12.5px;text-align:center;margin-top:10px">
         ✓ Les 12 quintes montantes sont solides — le <b>⚡ Sprint des quintes</b> est maintenant dans ta séance : passe à la vitesse.</div>`;
@@ -1836,6 +1893,7 @@ function qcRoom(){
       const ouvertsAvant=[1,2,3].filter(qcLvlOpen);
       const total=queue.length; let i=0, ratés=new Set(), vues=0;
       const finish=()=>{
+        keys=null;
         const nouveaux=[1,2,3].filter(qcLvlOpen).filter(l=>ouvertsAvant.indexOf(l)<0);
         let xp=0;
         if(compte){ xp=Math.min(45, 5+total*3); award(xp); dailyMark('qcards'); }
@@ -1854,49 +1912,54 @@ function qcRoom(){
       };
       const carte=()=>{
         if(i>=queue.length) return finish();
-        const c=queue[i], s=qcCardState(c.id), neuve=!s.seen;
+        const c=queue[i];
+        /* les trois compteurs d'Anki : nouvelles (bleu) · ratées à reprendre (rouge) · à revoir (vert) */
+        const rest=queue.slice(i);
+        const nL=rest.filter(x=>ratés.has(x.id)).length;
+        const nN=rest.filter(x=>!ratés.has(x.id)&&!qcCardState(x.id).seen).length;
+        const nR=rest.length-nL-nN;
         wrap.innerHTML=`
-          <div style="display:flex;align-items:center;gap:8px;color:var(--dim);font-size:12px;margin-bottom:10px">
-            <span>reste <b style="color:var(--txt)">${queue.length-i}</b></span>
-            <span style="margin-left:auto">${neuve?'<b style="color:var(--acc)">nouvelle carte</b>':'niveau '+c.lvl}</span></div>
-          <div id="qcCard" style="background:linear-gradient(160deg,var(--bg3),var(--bg2));border:1px solid var(--line);border-radius:18px;padding:30px 16px 26px;text-align:center">
-            <div style="color:var(--dim);font-size:12px;letter-spacing:1.2px;text-transform:uppercase">Quinte ${c.dir==='up'?'ASCENDANTE ↑':'DESCENDANTE ↓'} de</div>
-            <div style="font-size:58px;font-weight:900;line-height:1.15;margin-top:4px">${c.na}</div>
-            <div id="qcRep" style="color:var(--dim);font-size:13px;margin-top:14px">Dis la réponse <b style="color:var(--txt)">à voix haute</b>, puis retourne.</div>
+          <div style="text-align:center;font-size:15px;font-weight:800;margin-bottom:12px;letter-spacing:.5px">
+            <span style="color:#5aa9ff">${nN}</span> &nbsp; <span style="color:var(--bad)">${nL}</span> &nbsp; <span style="color:var(--ok)">${nR}</span></div>
+          <div style="background:var(--bg2);border:1px solid var(--line);border-radius:14px;padding:36px 16px 32px;text-align:center">
+            <div style="color:var(--dim);font-size:13.5px">Quinte ${c.dir==='up'?'ascendante ↑':'descendante ↓'} de</div>
+            <div style="font-size:60px;font-weight:900;line-height:1.15;margin-top:4px">${c.na}</div>
+            <div id="qcBack"></div>
           </div>
-          <div id="qcAct"></div>`;
-        const tn=qcTones(c);
+          <div id="qcAct" style="margin-top:14px"></div>`;
         const act=wrap.querySelector('#qcAct');
-        const flip=document.createElement('button'); flip.className='btn'; flip.textContent='Retourner ▼';
+        const rate=ok=>{ vues++;
+          if(compte) qcSched(c.id, ok);
+          if(!ok){ ratés.add(c.id); queue.splice(Math.min(queue.length, i+4),0,c); }
+          i++; carte(); };
+        const flip=document.createElement('button'); flip.className='btn'; flip.style.margin='0'; flip.textContent='Afficher la réponse';
         flip.onclick=()=>{
-          tn.both();
-          wrap.querySelector('#qcRep').innerHTML=`
-            <div style="height:1px;background:var(--line);margin:2px auto 14px;max-width:150px"></div>
-            <div style="font-size:52px;font-weight:900;color:var(--acc);line-height:1.15">${c.nb}</div>
-            ${c.alt?`<div style="font-size:12.5px;color:var(--dim);margin-top:4px">autre orthographe : <b>${c.alt}</b></div>`:''}`;
+          wrap.querySelector('#qcBack').innerHTML=`
+            <div style="height:1px;background:var(--line);margin:20px 0 18px"></div>
+            <div style="font-size:56px;font-weight:900;color:var(--acc);line-height:1.15">${c.nb}</div>
+            ${c.alt?`<div style="font-size:12.5px;color:var(--dim);margin-top:4px">autre orthographe : <b>${c.alt}</b></div>`:''}
+            <details style="margin-top:18px"><summary style="cursor:pointer;font-size:12.5px;font-weight:700;color:${c.trap?'var(--bad)':'var(--dim)'}">${c.trap?'⚠️ Pourquoi c\'est un piège':'Pourquoi ?'}</summary>
+              <div style="margin-top:9px;font-size:13.5px;line-height:1.6;color:#c9cde0;text-align:left">${c.why}</div></details>`;
+          const nxt=QC_STEPS[Math.min(qcCardState(c.id).box+1, QC_STEPS.length-1)];
           act.innerHTML='';
-          const why=document.createElement('div'); why.className='card';
-          why.style.cssText='margin-top:12px;font-size:13.5px;line-height:1.6;color:#c9cde0'+(c.trap?';border-color:var(--bad)':'');
-          why.innerHTML=c.why; act.appendChild(why);
-          const re=document.createElement('button'); re.className='btn ghost';
-          re.style.cssText='margin:0 0 10px'; re.textContent='🔊 Réécouter les deux notes';
-          re.onclick=()=>tn.both(); act.appendChild(re);
-          const row=document.createElement('div'); row.style.cssText='display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px';
-          const mk=(lab,ok,col)=>{ const b=document.createElement('button'); b.className='btn ghost';
+          const row=document.createElement('div'); row.style.cssText='display:grid;grid-template-columns:1fr 1fr;gap:10px';
+          const mk=(lab,when,ok,col)=>{
+            const cell=document.createElement('div'); cell.style.textAlign='center';
+            cell.innerHTML=`<div style="font-size:11.5px;color:var(--dim);margin-bottom:5px;min-height:14px">${compte?when:''}</div>`;
+            const b=document.createElement('button'); b.className='btn ghost';
             b.style.cssText='border-color:'+col+';color:'+col+';font-weight:800;margin:0'; b.textContent=lab;
-            b.onclick=()=>{ vues++;
-              if(compte) qcSched(c.id, ok);
-              if(!ok){ ratés.add(c.id); queue.splice(Math.min(queue.length, i+4),0,c); }
-              i++; carte(); };
-            return b; };
-          row.appendChild(mk('✗ Pas su',false,'var(--bad)'));
-          row.appendChild(mk('✓ Su',true,'var(--ok)'));
+            b.onclick=()=>rate(ok); cell.appendChild(b); return cell; };
+          row.appendChild(mk('✗ Pas su','dans la séance',false,'var(--bad)'));
+          row.appendChild(mk('✓ Su',nxt===1?'demain':'dans '+nxt+' j',true,'var(--ok)'));
           act.appendChild(row);
+          if(keys) keys.flipped=true;
         };
         act.appendChild(flip);
-        const ec=document.createElement('button'); ec.className='btn ghost'; ec.style.marginTop='0';
-        ec.textContent='🔊 Écouter la note de départ'; ec.onclick=()=>tn.start();
-        act.appendChild(ec);
+        keys={flipped:false, flip:()=>flip.onclick(), rate};
+        if(matchMedia('(hover:hover)').matches){
+          const h=document.createElement('div'); h.style.cssText='text-align:center;color:var(--dim);font-size:11px;margin-top:10px';
+          h.textContent='clavier : espace = afficher · 1 = pas su · 2 = su'; wrap.appendChild(h);
+        }
       };
       carte();
     };
@@ -2155,7 +2218,7 @@ const DRILLS=[
    run:()=>coordRoom()},
   {id:'qcards', icon:'🃏', title:'Les quintes en cartes', req:null,
    desc:()=>{ const q=qcQueue().length, a1=qcAnchored(1), a2=qcAnchored(2), a3=qcAnchored(3), nd=qcNextDue();
-     return 'Le système <b>« su / pas su »</b> à la Anki : une paire à la fois, tu dis la réponse à voix haute, tu retournes, tu tranches. Ce que tu rates revient tout de suite ; ce que tu sais s\'espace. <b>Niveau 1</b> les 7 notes de Do majeur, <b>niveau 2</b> les 5 touches noires, <b>niveau 3</b> la quinte descendante.'
+     return 'Format <b>Anki classique</b> : la question, « Afficher la réponse », <b>su / pas su</b>. Pas de son, pas de clavier, <b>'+QC_NEW_PER_DAY+' nouvelles cartes par jour</b>. Ce que tu rates revient dans la séance ; ce que tu sais s\'espace. <b>Niveau 1</b> les 7 notes de Do majeur, <b>niveau 2</b> les 5 touches noires, <b>niveau 3</b> la quinte descendante.'
        +` <b style="color:var(--ok)">${a1+a2+a3}/${QC_CARDS.length}</b> cartes ancrées.`
        +(q?` <b style="color:var(--acc)">${q} à voir maintenant.</b>`:(nd?` À jour — prochaine révision le ${nd.slice(8)}/${nd.slice(5,7)}.`:'')); },
    run:()=>qcRoom()},
@@ -5848,7 +5911,6 @@ const GO_TARGET_S=13;            /* chrono à battre pour le palier Réflexe */
 const GO_MAXPROG=3;              /* nb de gammes menées de front */
 const NAMEPC={Do:0,'Do#':1,'Réb':1,'Ré':2,'Ré#':3,'Mib':3,'Mi':4,'Mi#':5,'Fab':4,'Fa':5,'Fa#':6,'Solb':6,'Sol':7,'Sol#':8,'Lab':8,'La':9,'La#':10,'Sib':10,'Si':11,'Si#':0,'Dob':11};
 const OTHER={'Do#':'Réb','Réb':'Do#','Ré#':'Mib','Mib':'Ré#','Fa#':'Solb','Solb':'Fa#','Sol#':'Lab','Lab':'Sol#','La#':'Sib','Sib':'La#','Mi#':'Fa','Si#':'Do','Dob':'Si','Fab':'Mi'};
-const CHROMA12=['Do','Do#/Réb','Ré','Ré#/Mib','Mi','Fa','Fa#/Solb','Sol','Sol#/Lab','La','La#/Sib','Si'];
 
 /* ---- état de maîtrise ---- */
 function gmState(){ if(!S.gammes) S.gammes={start:todayStr(), m:{}, diploma:null}; if(!S.gammes.m) S.gammes.m={};
@@ -5944,33 +6006,40 @@ function runOrder(el, opt, cb){
       <div class="sub">Gamme complète${secs!=null?` en <b>${secs}s</b>`:''}${faults?` · ${faults} reprise(s)`:' · sans faute'}.</div>`;
     setTimeout(()=>cb(true, secs, faults), 700);
   };
-  const wrong=(slotEl)=>{
+  const wrong=(slotEl,played)=>{
     buzz(); faults++;
     if(slotEl){ slotEl.classList.add('err'); setTimeout(()=>slotEl.classList.remove('err'),300); }
     idx=1; drawSlots();
     fb.className='fb bad';
-    fb.textContent = faults>=3 && !blind ? '✗ On repart. Rappel : '+seq.join(' ') : '✗ Mauvaise note — on repart de la tonique.';
+    fb.textContent = faults>=3 && !blind ? '✗ On repart. Rappel : '+seq.join(' ')
+      : `✗ ${played?'Pas '+played+' — ':'Mauvaise note — '}on repart de la tonique.`;
   };
   const pick=(pc,name,chip)=>{
     if(!t0 && timed){ t0=Date.now(); tHandle=setInterval(tick,100); }
     const okName = blind ? (pc===seqPc[idx]) : (name===seq[idx]);
     if(okName){
       idx++; drawSlots();
-      if(idx>=7){ finish(); return; }
+      if(idx>=7){ finish(); return true; }
       fb.className='fb'; fb.textContent = blind?'':'Bien — note '+(idx+1)+'/7.';
     } else {
-      wrong(slotsEl.children[idx]);
+      wrong(slotsEl.children[idx], blind ? PCKB_NAMES[pc].join('/') : null);
     }
+    return okName;
   };
-  /* construit les pastilles */
   if(blind){
-    for(let pc=0;pc<12;pc++){
-      const c=document.createElement('div'); c.className='nchip';
-      const parts=CHROMA12[pc].split('/');
-      c.innerHTML = parts.length>1 ? `${parts[0]}<small>${parts[1]}</small>` : parts[0];
-      c.onclick=()=>{ playNote(60+pc,.5); pick(pc,null,c); };
-      chipsEl.appendChild(c);
-    }
+    /* un vrai clavier d'une octave. Le son suit le registre de la gamme : T = tonique
+       (Fa#→54 … Fa→65), chaque degré sonne à T+intervalle, la tonique du descendant à T+12
+       → la gamme monte (ou descend) au lieu de sauter d'octave au passage du Do. */
+    const T = 60+sc.root-(sc.root>5?12:0);
+    const at = pc => T+((pc-sc.root+12)%12);
+    const kb=pcKeyboard((pc)=>{
+      playNote(at(pc),.5);
+      kb.flash(pc, pick(pc,null,null)?'ok':'bad');
+    });
+    chipsEl.className=''; chipsEl.appendChild(kb);          /* finish() vide #chips → le clavier part avec */
+    const hear=document.createElement('button'); hear.className='pckbtog'; hear.textContent='🔊 La tonique';
+    hear.onclick=()=>playNote(desc?T+12:T,.7);
+    kb.insertBefore(hear, kb.lastChild);
   } else {
     const pool=[...sc.notes.slice(1), ...goDecoys(sc)].sort(()=>Math.random()-.5);
     pool.forEach(name=>{
