@@ -419,6 +419,25 @@
   .tn-hold i{display:block;height:100%;width:0;background:var(--ok);transition:width .1s linear}
   .tuner .btn{margin:10px 0 0}
   .tn-phones{display:flex;gap:7px;align-items:center;justify-content:center;font-size:11.5px;color:var(--dim);margin-top:9px;cursor:pointer}
+  /* parcours de justesse (vgHome / vgRunLevel) */
+  .vgseq{display:flex;gap:5px;justify-content:center;flex-wrap:wrap;margin:4px 0 2px}
+  .vgseq span{min-width:36px;padding:4px 6px;border-radius:9px;border:1.5px dashed var(--line);text-align:center;line-height:1.15;color:var(--dim)}
+  .vgseq span b{display:block;font-size:14px}
+  .vgseq span small{display:block;font-size:10.5px;font-weight:700}
+  .vgseq span.cur{border-style:solid;border-color:var(--acc);color:var(--acc);background:rgba(245,184,64,.08)}
+  .vgseq span.ok{border-style:solid;border-color:var(--ok);color:var(--ok)}
+  .vgseq span.ko{border-style:solid;border-color:var(--bad);color:var(--bad)}
+  .vglv{display:flex;align-items:center;gap:10px;padding:11px 12px;margin:0 0 8px;border-radius:12px;background:var(--bg2);border:1px solid var(--line);cursor:pointer}
+  .vglv.cur{border-color:var(--acc)}
+  .vglv .n{font-weight:900;font-size:15px;color:var(--dim);width:22px;text-align:center}
+  .vglv .tx{flex:1;min-width:0}
+  .vglv .tx b{font-size:14.5px}
+  .vglv .tx small{display:block;color:var(--dim);font-size:12px;line-height:1.35;margin-top:2px}
+  .vglv .st{font-size:15px;color:var(--acc);white-space:nowrap;letter-spacing:1px}
+  .vgmode{display:inline-block;font-size:10px;font-weight:800;padding:1px 6px;border-radius:6px;margin-left:6px;vertical-align:2px;background:var(--bg3);color:var(--dim)}
+  .vgmode.blind{background:rgba(160,110,255,.15);color:var(--purple)}
+  .vgrec{text-align:center;font-size:14px;color:var(--dim);margin:8px 0 0}
+  .vgrec b{color:var(--acc);font-size:18px}
   .pckbtog{display:block;margin:8px auto 0;background:none;border:0;color:var(--dim);font-size:12px;font-weight:700;cursor:pointer;padding:4px 8px}
   .nchip:active{transform:scale(.93)}
   .gotimer{text-align:center;font-weight:800;font-size:22px;color:var(--acc);font-variant-numeric:tabular-nums;margin:4px 0}
@@ -863,7 +882,10 @@ function detectPitch(x, sr){
    opts.onHit(cents, secondes pour la trouver, midi chanté) = une fois, quand la note est TENUE juste 1 s. */
 function singTuner(opts){
   opts=opts||{};
-  const HOLD=1000;
+  /* opts.hold (ms à tenir), opts.tol (cents acceptés), opts.blind (« à l'oreille » : ni note ni aiguille,
+     l'app juge quand la note est STABLE ; opts.onMiss(écart en demi-tons) si c'est faux),
+     opts.onStable(midi) (chaque note tenue stable — sert à mesurer la tessiture) */
+  const HOLD=opts.hold||1000, TOL=opts.tol||(opts.blind?30:25), JUSTE=Math.min(20,TOL);
   const el=document.createElement('div'); el.className='tuner';
   el.innerHTML=`<div class="tn-note">—</div>
     <div class="tn-msg">Appuie sur 🎤 puis chante.</div>
@@ -875,7 +897,7 @@ function singTuner(opts){
   const q=s=>el.querySelector(s), noteEl=q('.tn-note'), msgEl=q('.tn-msg'), needle=q('.tn-needle'),
         holdBar=q('.tn-hold'), hold=q('.tn-hold i'), mic=q('[data-k=mic]');
   q('.tn-phones input').onchange=e=>{ S.micPhones=e.target.checked; save(); };
-  let timer=null, hist=[], inSince=null, lastIn=0, lastVoice=0, holdC=[], hit=false, t0=null;
+  let timer=null, hist=[], inSince=null, lastIn=0, lastVoice=0, holdC=[], hit=false, t0=null, stab=[], cool=0, lastTick=0, verdictAt=0, missM=null, lastSilence=0;
   const msg=(h,cls)=>{ msgEl.innerHTML=h; msgEl.className='tn-msg'+(cls?' '+cls:''); };
   const needleAt=(c,cls)=>{ needle.style.left=(50+Math.max(-50,Math.min(50,c)))+'%'; needle.className='tn-needle'+(cls?' '+cls:''); };
   const resetHold=()=>{ inSince=null; holdC=[]; hold.style.width='0'; };
@@ -889,10 +911,13 @@ function singTuner(opts){
         setTimeout(()=>{ if(Mic.on && !Mic.owner) Mic.stop(); },1500); }
       return;
     }
-    const now=performance.now(), r=Mic.read();
-    if(r==='quiet'){ msg('🔇 L\'app joue — chante juste après.'); resetHold(); return; }
+    const now=performance.now(), r=Mic.read(), gapTol=Math.max(250,(now-lastTick)*1.6); lastTick=now;
+    if(r==='quiet'){ msg('🔇 L\'app joue — chante juste après.'); resetHold(); stab=[]; return; }
     if(r==null){
-      if(now-lastVoice>400){ noteEl.textContent='—'; needleAt(0,''); hist=[]; if(!hit) msg('🎤 Je t\'écoute — chante.'); }
+      if(now-lastVoice>200) stab=[];                                 /* une note tenue doit être continue */
+      if(now-lastVoice>250) lastSilence=now;                         /* une vraie pause (souffle repris) */
+      if(now-lastVoice>400){ hist=[];
+        if(now-verdictAt>2500){ noteEl.textContent=opts.blind?'🎤':'—'; needleAt(0,''); if(!hit) msg('🎤 Je t\'écoute — chante.'); } }
       if(inSince!=null && now-lastIn>250) resetHold();
       return;
     }
@@ -900,6 +925,34 @@ function singTuner(opts){
     hist.push(r); if(hist.length>5) hist.shift();
     const m=hist.slice().sort((a,b)=>a-b)[hist.length>>1];          /* médiane : vibrato et attaques ne font pas sauter l'aiguille */
     const near=Math.round(m), name=NOTE_FR[((near%12)+12)%12];
+    /* note STABLE : tenue ~HOLD ms sans bouger (±0,3 demi-ton) — c'est là que juge le mode « à l'oreille » */
+    let stable=null;
+    if(opts.blind || opts.onStable){
+      if(stab.length && now-stab[stab.length-1].t>gapTol) stab=[];
+      stab.push({t:now,m:r});
+      while(stab.length>1 && now-stab[1].t>=HOLD) stab.shift();     /* garde le plus vieux relevé qui couvre encore la fenêtre (robuste si les relevés s'espacent) */
+      const spread=()=>{ const v=stab.map(s=>s.m); return Math.max(...v)-Math.min(...v); };
+      while(stab.length>1 && spread()>0.6) stab.shift();            /* la note a bougé : la tenue repart d'où elle s'est stabilisée */
+      const ms=stab.map(s=>s.m), span=now-stab[0].t;
+      if(now>=cool && span>=HOLD*.85){ stable=ms.slice().sort((a,b)=>a-b)[ms.length>>1]; stab=[]; }
+      if(!hit) hold.style.width=Math.min(100,span/HOLD*100)+'%';
+    }
+    if(opts.blind){                                                  /* à l'oreille : ni note ni aiguille avant le verdict */
+      if(hit || opts.target==null) return;
+      if(stable==null){ if(now-verdictAt>1200){ noteEl.textContent='🎤'; msg('Tiens la note… je juge dans un instant.'); } return; }
+      /* après un raté, on ne rejuge pas la MÊME note tenue : change-la ou reprends ton souffle */
+      if(missM!=null && Math.abs(stable-missM)<0.4 && lastSilence<verdictAt){ cool=now+600; msg('Toujours la même note — change-la, ou reprends ton souffle et recommence.','bad'); return; }
+      let d=stable-opts.target; d-=12*Math.round(d/12);
+      const c=Math.round(d*100); verdictAt=now;
+      noteEl.textContent=NOTE_FR[((Math.round(stable)%12)+12)%12];
+      if(Math.abs(c)<=TOL){ hit=true; hold.style.width='100%'; msg(`✓ Juste <small>(${cts(c)})</small>`,'ok');
+        if(opts.onHit) opts.onHit(Math.abs(c),(now-t0)/1000,stable); }
+      else { const k=Math.round(Math.abs(d)); cool=now+1500; hold.style.width='0'; missM=stable;
+        msg(`✗ ${d<0?'Trop bas':'Trop haut'} ${k===0?'d\'un poil':k===1?'d\'un demi-ton':k===2?'d\'un ton':'de '+k+' demi-tons'} — réessaie`,'bad');
+        if(opts.onMiss) opts.onMiss(d); }
+      return;
+    }
+    if(stable!=null && opts.onStable) opts.onStable(stable);
     noteEl.textContent=name;
     if(opts.target==null){                                           /* accordeur libre : la note la plus proche */
       const c=Math.round((m-near)*100);
@@ -915,7 +968,7 @@ function singTuner(opts){
       const k=Math.round(Math.abs(d)), up=d<0;
       msg(`${up?'↑ Monte':'↓ Descends'} ${k===1?'d\'un demi-ton':k===2?'d\'un ton':'de '+k+' demi-tons'}`,'bad'); needleAt(up?-50:50,'bad');
     }
-    else if(Math.abs(c)>20){ msg(`Presque — ${c<0?'↑ monte':'↓ descends'} un chouïa <small>(${cts(c)})</small>`,'near'); needleAt(c,'near'); good=Math.abs(c)<=25; }
+    else if(Math.abs(c)>JUSTE){ msg(`Presque — ${c<0?'↑ monte':'↓ descends'} un chouïa <small>(${cts(c)})</small>`,'near'); needleAt(c,'near'); good=Math.abs(c)<=TOL; }
     else { msg(`✓ Juste <small>(${cts(c)})</small>${hit?'':' — tiens-la…'}`,'ok'); needleAt(c,'ok'); good=true; }
     if(good){ if(inSince==null){ inSince=now; holdC=[]; } lastIn=now; holdC.push(Math.abs(c)); }
     else if(inSince!=null && now-lastIn>250) resetHold();
@@ -938,9 +991,12 @@ function singTuner(opts){
     catch(e){ msg(micErr(e),'bad'); return; }
     listen();
   };
-  el.setTarget=t=>{ opts.target=t; hit=false; t0=null; hist=[]; resetHold(); holdBar.style.display=t==null?'none':''; };
+  const showHold=()=>{ holdBar.style.display=(opts.target==null&&!opts.onStable)?'none':''; };
+  el.setTarget=t=>{ opts.target=t; hit=false; t0=null; hist=[]; stab=[]; cool=0; verdictAt=0; missM=null; resetHold(); showHold();
+    if(opts.blind){ noteEl.textContent='🎤'; if(timer) msg('🎤 Chante — je juge quand tu tiens la note.'); } };
   el.stop=stop;
-  holdBar.style.display=opts.target==null?'none':'';
+  showHold();
+  if(opts.blind){ q('.tn-gauge').style.display='none'; q('.tn-scale').style.display='none'; noteEl.textContent='🎤'; }
   /* micro déjà ouvert à l'étape d'avant : on continue d'écouter, sans re-taper 🎤 */
   if(Mic.on && (!Mic.owner || !Mic.owner.isConnected)) listen();
   return el;
@@ -2454,6 +2510,10 @@ const DRILLS=[
   {id:'voix', icon:'🎤', title:'Chanter pour entendre', req:null,
    desc:()=>{ const s=earStat('voix'); return 'Le parcours d\'oreille par la VOIX : bourdon, chante les couleurs (majeur/mineur) et les intervalles — <b>l\'app t\'écoute au micro</b> et te dit monte / descends, comme un accordeur — puis reconnais, armé par ta voix. Tu chantes déjà juste : on branche ton oreille sur les mots. 5 min/jour, le plus rentable contre ton point faible.'+(s.best?` Reconnaissance record : <b style="color:var(--acc)">${s.best}%</b>.`:''); },
    run:()=>dojoVoix()},
+  {id:'justesse', icon:'🎯', title:'Justesse de la voix — 10 niveaux', req:null,
+   desc:()=>{ const n=VG_LEVELS.filter(L=>vgLv(L.id).stars).length, s=VG_LEVELS.reduce((a,L)=>a+vgLv(L.id).stars,0);
+     return 'L’accordeur devient un parcours : unisson, tenue, secondes, do-ré-mi, tierces, arpèges, quarte & quinte — d’abord guidé par l’aiguille, puis <b>à l’oreille</b> (l’app juge sans t’aider). Notes tirées dans ta tessiture.'+(n?` <b style="color:var(--acc)">${n}/10 niveaux validés · ${s}/30 ★</b>`:''); },
+   run:()=>voiceTunerRoom('parcours')},
   {id:'ear', icon:'👂', title:'Majeur ou mineur ?', req:null,
    desc:()=>{ const s=earStat('mm'); return 'Une note tirée au hasard : compare son majeur à son mineur, ressens la bascule, puis teste-toi. L\'exercice d\'oreille express — fais-le court et quotidien.'+(s.best?` Record : <b style="color:var(--acc)">${s.best}%</b>.`:''); },
    run:()=>dojoEar()},
@@ -2577,7 +2637,7 @@ function dojoVoix(){
       p.innerHTML=`Tu chantes juste — donc <b style="color:var(--txt)">ton oreille marche déjà</b>. Ici on la branche sur les couleurs : tu <b>chantes d'abord</b>, tu <b>vérifies après</b>. C'est l'ordre qui compte — tu produis de ta tête avant d'entendre la réponse.<br><br><b style="color:var(--txt)">🎤 L'app peut t'écouter</b>, comme un accordeur : elle te dit quelle note tu chantes, s'il faut <b>monter ou descendre</b>, et valide quand tu tiens la note juste une seconde. Rien n'est enregistré ni envoyé — le micro est lu en direct, puis coupé. Sans micro, tu t'évalues toi-même comme avant. 5 minutes.`;
       box.appendChild(p);
       const b=document.createElement('button'); b.className='btn'; b.textContent='Commencer →'; b.onclick=next; box.appendChild(b);
-      const bt=document.createElement('button'); bt.className='btn ghost'; bt.textContent='🎚 Accordeur libre (chante ce que tu veux)'; bt.onclick=()=>voiceTunerRoom(); box.appendChild(bt);
+      const bt=document.createElement('button'); bt.className='btn ghost'; bt.textContent='🎯 Justesse : 10 niveaux + accordeur libre'; bt.onclick=()=>voiceTunerRoom('parcours'); box.appendChild(bt);
     }
     function droneTonic(){
       box.innerHTML=`<div class="exhead"><div class="target" style="font-size:20px">🏠 Le bourdon · ${rn}</div></div>`;
@@ -2648,27 +2708,203 @@ function dojoVoix(){
     go();
   });
 }
-/* L'accordeur libre (Outils + Chanter pour entendre) : chante, l'app dit quelle note et de
-   combien tu es à côté ; avec une cible, elle la joue puis te guide (monte / descends / tiens). */
-function voiceTunerRoom(){
-  openCustom('🎚 Accordeur de voix',(inner)=>{
-    const p=document.createElement('p'); p.style.cssText='color:var(--dim);font-size:13.5px;line-height:1.55;margin:2px 0 12px';
-    p.innerHTML=`Chante une note : l'app te dit <b style="color:var(--txt)">laquelle</b> et de combien tu es à côté, en <b style="color:var(--txt)">cents</b> (100 cents = un demi-ton ; sous 20, l'oreille entend « juste »). Choisis une <b style="color:var(--txt)">cible</b> : l'app la joue, puis te guide — monte, descends, tiens. Rien n'est enregistré : le micro est lu en direct, puis coupé.`;
-    inner.appendChild(p);
-    let cur=null;
-    const tn=singTuner({onHit:c=>{ tada(); toast('✓ '+NOTE_FR[cur%12]+' tenu juste — à '+centTxt(c)); }});
-    const row=document.createElement('div'); row.className='selrow';
-    [['Libre',null]].concat(NOTE_FR.map((n,pc)=>[n,pc])).forEach(([lab,pc])=>{
-      const t=document.createElement('div'); t.className='tag'+(pc===null?' on':''); t.textContent=lab;
-      t.onclick=()=>{ row.querySelectorAll('.tag').forEach(x=>x.classList.remove('on')); t.classList.add('on');
-        cur = pc===null ? null : 55+((pc-7+12)%12);          /* Sol3 → Fa#4 : le milieu d'une voix */
-        tn.setTarget(cur); if(cur!=null) playNote(cur,1.6,.45); };
-      row.appendChild(t);
-    });
-    inner.appendChild(row); inner.appendChild(tn);
-    const tip=document.createElement('div'); tip.className='tip'; tip.style.marginTop='4px';
-    tip.innerHTML='💡 Chante sur « ou » ou « a », sans vibrato, à 20–30 cm du téléphone. L\'app ignore ce qu\'elle joue elle-même : chante <b>après</b> la note de référence (ou coche « écouteurs »). Sur iPhone, le son de l\'app peut baisser tant que le micro est ouvert — ⏹ pour le couper.';
-    inner.appendChild(tip);
+/* ================================================================
+   LA JUSTESSE — le parcours progressif de la voix (Thomas, 2026-09-11 :
+   « améliore l'accordeur avec des exos progressifs et tout »).
+   10 niveaux, du plus guidé au plus nu : l'aiguille aide d'abord (guidé), puis
+   disparaît (à l'oreille : tu chantes, tu tiens, l'app juge). Tout est OUVERT —
+   il veut choisir son travail (cf. cours libres) ; « ▶ ton niveau » = le premier
+   sans étoile. Les notes de départ sont tirées DANS sa tessiture (mesurée ici).
+   ================================================================ */
+const VG_DEF_RANGE={lo:53,hi:67};                   /* Fa3–Sol4 tant que la tessiture n'est pas mesurée */
+const vgState=()=>{ if(!S.vg) S.vg={lv:{}}; if(!S.vg.lv) S.vg.lv={}; return S.vg; };
+const vgRange=()=>vgState().range||VG_DEF_RANGE;
+const vgLv=id=>vgState().lv[id]||{stars:0,best:null,runs:0,hist:[]};
+const noteOct=m=>NOTE_FR[((m%12)+12)%12]+(Math.floor(m/12)-1);
+/* une note de départ telle que tout l'exercice (de lo à hi demi-tons autour d'elle) tienne dans ta voix */
+function vgRef(lo,hi){
+  const r=vgRange(), a=r.lo-lo+1, b=r.hi-hi-1;
+  if(b<a) return Math.round((r.lo+r.hi-lo-hi)/2);
+  return a+Math.floor(Math.random()*(b-a+1));
+}
+/* intervalles + un repère chanté connu pour chacun */
+const VG_IV={
+  1:{n:'la seconde mineure', up:'« Les Dents de la mer » : deux notes collées'},
+  2:{n:'la seconde (un ton)', up:'« Frè-<b>re</b> Jacques » : le 2ᵉ son', dn:'une gamme qui redescend : ré → <b>do</b>'},
+  3:{n:'la tierce mineure', up:'« A-<b>las</b> » (Greensleeves) — la note qui se referme'},
+  4:{n:'la tierce majeure', up:'« Oh, <b>when</b> the saints » — la note qui sourit'},
+  5:{n:'la quarte', up:'« Allons en-<b>fants</b> » (la Marseillaise)'},
+  7:{n:'la quinte', up:'« Ah vous <b>di</b>-rai-je » (Do Do → Sol Sol)'},
+  9:{n:'la sixte majeure', up:'« My <b>Bon</b>-nie » : le grand saut'},
+  12:{n:'l’octave', up:'« <b>Some</b>-<b>where</b> » (Over the rainbow)'},
+};
+const VG_SCALE=[0,2,4,5,7,9,11,12];
+/* nommer juste : l'intervalle donne le degré, donc la lettre (Fa# majeur → Sol# La#, jamais Lab Sib) */
+const VG_DEG={0:0,1:1,2:1,3:2,4:2,5:3,6:3,7:4,8:5,9:5,10:6,11:6};
+const vgName=(rootMidi,semis)=>{ const iv=((semis%12)+12)%12; return spellDeg(((rootMidi%12)+12)%12, iv, VG_DEG[iv]); };
+const vgIv=(iv,dir)=>{ const up=dir!=='down', r=vgRef(up?0:-iv, up?iv:0), I=VG_IV[iv], seq=[r+(up?iv:-iv)];
+  return {ref:r, seq, names:seq.map(m=>vgName(r,m-r)), labels:[up?'↑':'↓'], cue:`Chante <b>${I.n}</b> ${up?'au-dessus':'en dessous'} de la note jouée.`, tip:up?I.up:(I.dn||'')}; };
+const VG_LEVELS=[
+  {id:'uni', t:'L’unisson', s:'L’app joue une note dans ta voix, tu la chantes. L’aiguille te guide jusqu’au centre.', n:6,
+    gen:()=>{ const r=vgRef(0,0); return {ref:r, seq:[r], labels:['='], cue:'Chante <b>la même note</b> que l’app.'}; }},
+  {id:'tenue', t:'La tenue', s:'Tenir 3 s sans bouger, à ±15 cents : le contrôle du souffle, la base de tout le reste.', n:4, hold:3000, tol:15,
+    gen:()=>{ const r=vgRef(0,0); return {ref:r, seq:[r], labels:['3 s'], cue:'Chante la note et <b>tiens-la 3 secondes</b>, bien droite, sans vibrato.'}; }},
+  {id:'uniB', t:'L’unisson à l’oreille', s:'Même chose sans aiguille : tu chantes, tu tiens, l’app juge après.', n:6, blind:true,
+    gen:()=>{ const r=vgRef(0,0); return {ref:r, seq:[r], labels:['='], cue:'Chante la note entendue. Pas d’aiguille : fie-toi à ton oreille.'}; }},
+  {id:'sec', t:'Les pas : la seconde', s:'Un ton au-dessus ou en dessous — la marche de base de toute mélodie.', n:6,
+    gen:()=>vgIv(2, Math.random()<.5?'up':'down')},
+  {id:'gamme', t:'Do-ré-mi', s:'La gamme majeure depuis la note jouée : 8 marches en montant, puis en descendant.', n:2, seq:true, hold:600,
+    gen:i=>{ const up=i%2===0, r=vgRef(up?0:-12, up?12:0), off=up?VG_SCALE:VG_SCALE.map(x=>x-12).reverse();
+      const seq=off.map(x=>r+x), root=up?r:r-12;
+      return {ref:r, seq, names:seq.map(m=>vgName(root,m-root)), labels:(up?VG_SCALE:VG_SCALE.slice().reverse()).map(x=>String(VG_SCALE.indexOf(x)+1)),
+        cue:`La gamme majeure <b>${up?'en montant':'en descendant'}</b> : tiens chaque marche un instant, l’app passe à la suivante.`}; }},
+  {id:'tierce', t:'Les tierces', s:'La majeure (qui sourit) et la mineure (qui se referme), au-dessus de la note jouée.', n:6,
+    gen:()=>vgIv(Math.random()<.5?4:3,'up')},
+  {id:'arp', t:'Les arpèges', s:'1 – 3 – 5 – 8 : l’accord majeur puis mineur, note par note.', n:4, seq:true, hold:600,
+    gen:i=>{ const min=i%2===1, r=vgRef(0,12), iv=[0,min?3:4,7,12], seq=iv.map(x=>r+x);
+      return {ref:r, seq, names:seq.map(m=>vgName(r,m-r)), labels:['1',min?'♭3':'3','5','8'], cue:`L’arpège <b>${min?'mineur':'majeur'}</b> — ${min?'la tierce se referme':'la tierce sourit'}.`}; }},
+  {id:'q45', t:'Quarte & quinte', s:'Les intervalles ouverts, ceux des basses et des cadences.', n:6,
+    gen:()=>vgIv(Math.random()<.5?5:7,'up')},
+  {id:'gammeB', t:'Do-ré-mi à l’oreille', s:'La gamme sans aiguille : une seule note de départ, l’app juge chaque marche.', n:2, seq:true, blind:true, hold:700,
+    gen:i=>VG_LEVELS[4].gen(i)},
+  {id:'ivB', t:'Intervalles à l’oreille', s:'Tirés au hasard (seconde → octave), sans aiguille — ce que ton oreille sait vraiment.', n:8, blind:true,
+    gen:()=>vgIv([2,3,4,5,7,9,12][Math.floor(Math.random()*7)],'up')},
+];
+function vgStars(rate,avg){ return rate>=1&&avg<=12?3 : rate>=.85&&avg<=18?2 : rate>=.7?1 : 0; }
+/* un niveau : n exercices ; chaque marche compte « réussie » si trouvée (guidé) ou juste du 1er coup (à l'oreille) */
+function vgRunLevel(host, li, back){
+  const L=VG_LEVELS[li], items=[...Array(L.n)].map((_,i)=>L.gen(i)), steps=[];
+  const pcN=m=>NOTE_FR[((m%12)+12)%12];
+  let ii=0;
+  const finish=()=>{
+    const n=steps.length, ok=steps.filter(s=>s.ok).length, hits=steps.filter(s=>s.cents!=null);
+    const rate=n?ok/n:0, avg=hits.length?Math.round(hits.reduce((a,s)=>a+s.cents,0)/hits.length):null;
+    const stars=vgStars(rate,avg==null?99:avg), prev=vgLv(L.id);
+    const best=avg==null?prev.best:(prev.best==null?avg:Math.min(prev.best,avg));
+    vgState().lv[L.id]={stars:Math.max(prev.stars,stars), best, runs:prev.runs+1, hist:(prev.hist||[]).concat(avg==null?[]:[avg]).slice(-12)};
+    const xp=8+4*stars; award(xp); dailyMark('ear'); save(); if(stars) chime();
+    const verdict= stars===3?'Propre : 100 %, et juste à l’oreille près. Passe au suivant — et reviens dans quelques jours vérifier que ça tient.'
+      : stars===2?'Solide. Le ★★★ demande 100 % et 12 cents de moyenne au plus.'
+      : stars===1?'Validé. Le ★★ demande 85 % et 18 cents au plus.'
+      : 'Pas encore : 70 % pour la première étoile. Refais-le, ou reviens un niveau plus bas — c’est là que ça se construit.';
+    host.innerHTML=`<div class="exhead"><div class="target" style="letter-spacing:4px;color:var(--acc)">${'★'.repeat(stars)}<span style="color:var(--line)">${'★'.repeat(3-stars)}</span></div>
+      <div class="sub">${li+1}. ${L.t} · <b>${ok}/${n}</b> ${L.blind?'du premier coup':'trouvées'} · justesse moyenne <b>${avg==null?'—':centTxt(avg)}</b>${best!=null?` · record ${centTxt(best)}`:''} · +${xp} XP</div></div>
+      <p style="text-align:center;color:#c9cde0;font-size:13.5px;line-height:1.55;margin:6px 4px 12px">${verdict}</p>`;
+    const mk=(t,cls,fn)=>{ const b=document.createElement('button'); b.className='btn'+(cls?' '+cls:''); b.textContent=t; b.onclick=fn; host.appendChild(b); };
+    if(stars && li<VG_LEVELS.length-1) mk('Niveau suivant → '+(li+2)+'. '+VG_LEVELS[li+1].t,'',()=>vgRunLevel(host,li+1,back));
+    mk('↻ Refaire ce niveau',stars?'ghost':'',()=>vgRunLevel(host,li,back));
+    mk('← Le parcours','ghost',back);
+  };
+  const item=()=>{
+    if(!host.isConnected) return;
+    if(ii>=items.length) return finish();
+    const it=items[ii], sr=[]; let k=0, tries=0;
+    host.innerHTML=`<div class="exhead"><div class="target" style="font-size:19px">${li+1}. ${L.t}${L.blind?'<span class="vgmode blind">à l’oreille</span>':''}</div>
+        <div class="sub">${L.n>1?`<b>${ii+1}/${L.n}</b> · `:''}${it.cue}</div></div>
+      ${it.tip?`<div class="tip" style="margin:0 0 8px">🎵 Repère : ${it.tip}</div>`:''}
+      <div class="vgseq"></div><div class="fb" style="min-height:20px;margin:6px 0 0"></div>`;
+    const seqEl=host.querySelector('.vgseq'), fb=host.querySelector('.fb');
+    const drawSeq=()=>{ seqEl.innerHTML=it.seq.map((m,j)=>`<span class="${j<k?(sr[j]?'ok':'ko'):j===k?'cur':''}"><b>${it.labels[j]||''}</b><small>${(!L.blind||j<k)?((it.names&&it.names[j])||pcN(m)):'?'}</small></span>`).join(''); };
+    drawSeq();
+    const tn=singTuner({target:it.seq[0], blind:!!L.blind, hold:L.hold, tol:L.tol,
+      onHit:c=>{ const first=!L.blind||tries===0; steps.push({ok:first,cents:c}); sr[k]=first; tries=0; k++; drawSeq(); fb.textContent='';
+        if(k<it.seq.length) tn.setTarget(it.seq[k]);
+        else { tada(); ii++; setTimeout(item,900); } },
+      onMiss:()=>{ tries++;
+        if(tries===3){ playNote(it.seq[k],1.5,.45); fb.className='fb'; fb.innerHTML=`Écoute : c’était <b>${pcN(it.seq[k])}</b>. Chante-la pour continuer (cette marche compte comme ratée).`; } }});
+    host.appendChild(tn);
+    const row=document.createElement('div'); row.className='exrow';
+    const bR=document.createElement('button'); bR.className='btn ghost'; bR.textContent='🔊 La note de départ'; bR.onclick=()=>playNote(it.ref,1.6,.45);
+    const bP=document.createElement('button'); bP.className='btn ghost'; bP.textContent='Passer →';
+    bP.onclick=()=>{ for(let j=k;j<it.seq.length;j++) steps.push({ok:false}); ii++; item(); };
+    row.appendChild(bR); row.appendChild(bP); host.appendChild(row);
+    const bQ=document.createElement('button'); bQ.className='btn ghost'; bQ.style.marginTop='0'; bQ.textContent='← Le parcours'; bQ.onclick=back; host.appendChild(bQ);
+    setTimeout(()=>playNote(it.ref,1.6,.45),300);
+  };
+  item();
+}
+function vgHome(host, show){
+  const r=vgState().range, curI=VG_LEVELS.findIndex(L=>!vgLv(L.id).stars);
+  host.innerHTML=`<p style="color:var(--dim);font-size:13.5px;line-height:1.55;margin:2px 0 10px">Dix niveaux, du plus guidé au plus nu. <b style="color:var(--txt)">Guidé</b> : l’aiguille te dit monte / descends. <b style="color:var(--purple)">À l’oreille</b> : plus d’aiguille — tu chantes, tu tiens, l’app juge. Tout est ouvert ; l’ordre est celui qui construit.</p>`;
+  const tc=document.createElement('div'); tc.className='card'; tc.style.cssText='display:flex;align-items:center;gap:10px';
+  tc.innerHTML= r ? `<div style="flex:1;font-size:13.5px">🎚 Ta tessiture : <b style="color:var(--acc)">${noteOct(r.lo)} → ${noteOct(r.hi)}</b><div style="color:var(--dim);font-size:11.5px">mesurée le ${r.d.slice(8)}/${r.d.slice(5,7)} · les notes sont tirées là-dedans</div></div>`
+    : `<div style="flex:1;font-size:13.5px">🎚 <b>Mesure d’abord ta tessiture</b> (1 min)<div style="color:var(--dim);font-size:11.5px">sinon l’app tire ses notes entre ${noteOct(VG_DEF_RANGE.lo)} et ${noteOct(VG_DEF_RANGE.hi)}</div></div>`;
+  const tb=document.createElement('button'); tb.className='btn ghost'; tb.style.cssText='width:auto;margin:0;padding:8px 12px'; tb.textContent=r?'Refaire':'Mesurer';
+  tb.onclick=()=>show('tessiture'); tc.appendChild(tb); host.appendChild(tc);
+  const next = curI>=0 ? curI : Math.max(0, VG_LEVELS.findIndex(L=>vgLv(L.id).stars<3));
+  const go=document.createElement('button'); go.className='btn';
+  go.textContent = curI>=0 ? `▶ Ton niveau : ${curI+1}. ${VG_LEVELS[curI].t}` : '▶ Tout est validé — vise les ★★★ manquantes';
+  go.onclick=()=>{ host.innerHTML=''; vgRunLevel(host, next, ()=>show('parcours')); }; host.appendChild(go);
+  const crit=document.createElement('div'); crit.style.cssText='text-align:center;color:var(--dim);font-size:11.5px;margin:8px 0 12px';
+  crit.textContent='★ 70 % · ★★ 85 % et ≤ 18 cents · ★★★ 100 % et ≤ 12 cents'; host.appendChild(crit);
+  VG_LEVELS.forEach((L,i)=>{ const s=vgLv(L.id);
+    const row=document.createElement('div'); row.className='vglv'+(i===curI?' cur':'');
+    row.innerHTML=`<div class="n">${i+1}</div><div class="tx"><b>${L.t}</b><span class="vgmode${L.blind?' blind':''}">${L.blind?'à l’oreille':'guidé'}</span><small>${L.s}${s.runs?` · ${s.best!=null?'record '+centTxt(s.best)+' · ':''}${s.runs} essai${s.runs>1?'s':''}`:''}</small></div><div class="st">${'★'.repeat(s.stars)}<span style="color:var(--line)">${'★'.repeat(3-s.stars)}</span></div>`;
+    row.onclick=()=>{ host.innerHTML=''; vgRunLevel(host, i, ()=>show('parcours')); };
+    host.appendChild(row);
+  });
+}
+/* la tessiture : la note la plus grave puis la plus aiguë que tu TIENS sans forcer (1 demi-ton de marge de chaque côté) */
+function vgRangeTest(host, back){
+  let phase='lo', low=null, high=null;
+  const draw=()=>{
+    host.innerHTML=`<div class="exhead"><div class="target" style="font-size:19px">🎚 Ta tessiture · ${phase==='lo'?'1/2 le grave':'2/2 l’aigu'}</div>
+      <div class="sub">${phase==='lo'?'Descends vers la note la plus <b>grave</b> que tu tiens <b>sans forcer</b> — une vraie note, pas un grognement — et tiens-la 1 s. Recommence plus bas si tu peux.':'Maintenant la plus <b>aiguë</b> que tu tiens <b>sans forcer ni crier</b> (la voix de tête compte si elle est stable), tiens-la 1 s.'}</div></div>
+      <div class="vgrec">${phase==='lo'?'La plus grave tenue':'La plus aiguë tenue'} : <b id="vgv">—</b></div>`;
+    const v=host.querySelector('#vgv');
+    host.appendChild(singTuner({onStable:m=>{
+      if(phase==='lo'){ if(low==null||m<low){ low=m; v.textContent=noteOct(Math.round(m)); } }
+      else if(high==null||m>high){ high=m; v.textContent=noteOct(Math.round(m)); } }}));
+    const b=document.createElement('button'); b.className='btn ok'; b.textContent=phase==='lo'?'C’est mon plus grave → l’aigu':'C’est mon plus aigu → terminer';
+    b.onclick=()=>{
+      if(phase==='lo'){ if(low==null){ toast('Tiens d’abord une note grave 1 seconde'); return; } phase='hi'; draw(); return; }
+      if(high==null){ toast('Tiens d’abord une note aiguë 1 seconde'); return; }
+      const lo=Math.round(low)+1, hi=Math.round(high)-1;
+      if(hi-lo<5){ host.innerHTML=`<div class="exhead"><div class="target" style="font-size:19px">Moins d’une quinte mesurée</div><div class="sub">Va plus loin dans les deux sens (sans forcer) : il faut au moins une quinte confortable pour tirer des exercices.</div></div>`;
+        const rb=document.createElement('button'); rb.className='btn'; rb.textContent='↻ Recommencer'; rb.onclick=()=>{ phase='lo'; low=high=null; draw(); }; host.appendChild(rb); return; }
+      vgState().range={lo,hi,d:todayStr()}; save(); tada();
+      const oct=((hi-lo)/12).toFixed(1).replace('.',',');
+      host.innerHTML=`<div class="exhead"><div class="target" style="font-size:22px">${noteOct(lo)} → ${noteOct(hi)}</div>
+        <div class="sub">Ta zone confortable : <b>${hi-lo} demi-tons</b> (≈ ${oct} octave${hi-lo>=24?'s':''}). Les exercices tirent désormais leurs notes là-dedans — un demi-ton de marge de chaque côté.</div></div>`;
+      const gb=document.createElement('button'); gb.className='btn'; gb.textContent='▶ Au parcours'; gb.onclick=back; host.appendChild(gb);
+    };
+    host.appendChild(b);
+    const cb=document.createElement('button'); cb.className='btn ghost'; cb.textContent='← Annuler'; cb.onclick=back; host.appendChild(cb);
+  };
+  draw();
+}
+/* l'accordeur libre : chante, l'app dit quelle note et de combien ; avec une cible, elle la joue puis te guide */
+function vgFree(host){
+  const p=document.createElement('p'); p.style.cssText='color:var(--dim);font-size:13.5px;line-height:1.55;margin:2px 0 12px';
+  p.innerHTML=`Chante une note : l'app te dit <b style="color:var(--txt)">laquelle</b> et de combien tu es à côté, en <b style="color:var(--txt)">cents</b> (100 cents = un demi-ton ; sous 20, l'oreille entend « juste »). Choisis une <b style="color:var(--txt)">cible</b> : l'app la joue, puis te guide — monte, descends, tiens. Rien n'est enregistré : le micro est lu en direct, puis coupé.`;
+  host.appendChild(p);
+  let cur=null;
+  const tn=singTuner({onHit:c=>{ tada(); toast('✓ '+NOTE_FR[((cur%12)+12)%12]+' tenu juste — à '+centTxt(c)); }});
+  const r=vgRange(), mid=Math.round((r.lo+r.hi)/2);
+  const row=document.createElement('div'); row.className='selrow';
+  [['Libre',null]].concat(NOTE_FR.map((n,pc)=>[n,pc])).forEach(([lab,pc])=>{
+    const t=document.createElement('div'); t.className='tag'+(pc===null?' on':''); t.textContent=lab;
+    t.onclick=()=>{ row.querySelectorAll('.tag').forEach(x=>x.classList.remove('on')); t.classList.add('on');
+      cur = pc===null ? null : [...Array(12)].map((_,j)=>mid-6+j).find(m=>((m%12)+12)%12===pc);   /* au milieu de ta voix */
+      tn.setTarget(cur); if(cur!=null) playNote(cur,1.6,.45); };
+    row.appendChild(t);
+  });
+  host.appendChild(row); host.appendChild(tn);
+  const tip=document.createElement('div'); tip.className='tip'; tip.style.marginTop='4px';
+  tip.innerHTML='💡 Chante sur « ou » ou « a », sans vibrato, à 20–30 cm du téléphone. L\'app ignore ce qu\'elle joue elle-même : chante <b>après</b> la note de référence (ou coche « écouteurs »). Sur iPhone, le son de l\'app peut baisser tant que le micro est ouvert — ⏹ pour le couper.';
+  host.appendChild(tip);
+}
+function voiceTunerRoom(tab){
+  openCustom('🎯 Justesse de la voix',(inner)=>{
+    const tabs=document.createElement('div'); tabs.className='selrow';
+    const body=document.createElement('div');
+    const show=k=>{ tabs.querySelectorAll('.tag').forEach(t=>t.classList.toggle('on',t.dataset.k===k)); body.innerHTML='';
+      if(k==='parcours') vgHome(body, show); else if(k==='tessiture') vgRangeTest(body, ()=>show('parcours')); else vgFree(body);
+      overlay.scrollTop=0; };
+    [['parcours','🎯 Parcours'],['tessiture','🎚 Tessiture'],['libre','🎛 Libre']].forEach(([k,l])=>{
+      const t=document.createElement('div'); t.className='tag'; t.dataset.k=k; t.textContent=l; t.onclick=()=>show(k); tabs.appendChild(t); });
+    inner.appendChild(tabs); inner.appendChild(body);
+    show(tab||'parcours');
   });
 }
 function dojoEar(){
@@ -4054,9 +4290,9 @@ function renderOutils(){
   main.appendChild(c4);
 
   const cTun=document.createElement('div'); cTun.className='card';
-  cTun.innerHTML=`<b style="font-size:16px">🎚 Accordeur de voix</b>
-    <p style="color:var(--dim);font-size:13px;margin:4px 0 0;line-height:1.5">Chante : l'app t'entend et te dit quelle note, de combien tu es à côté, et s'il faut <b style="color:var(--txt)">monter ou descendre</b>. Avec une note cible, c'est l'entraînement de justesse.</p>`;
-  const tunB=document.createElement('button'); tunB.className='btn ghost'; tunB.textContent='🎤 Ouvrir l\'accordeur';
+  cTun.innerHTML=`<b style="font-size:16px">🎯 Justesse de la voix</b>
+    <p style="color:var(--dim);font-size:13px;margin:4px 0 0;line-height:1.5">Chante : l'app t'entend et te dit s'il faut <b style="color:var(--txt)">monter ou descendre</b>. Un parcours de 10 niveaux (du guidé à l'oreille nue), ta tessiture, et l'accordeur libre.</p>`;
+  const tunB=document.createElement('button'); tunB.className='btn ghost'; tunB.textContent='🎤 Ouvrir';
   tunB.onclick=()=>voiceTunerRoom(); cTun.appendChild(tunB); main.appendChild(cTun);
 
   const cProg=document.createElement('div'); cProg.className='card';
