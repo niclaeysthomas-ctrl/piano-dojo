@@ -443,6 +443,18 @@
   .chbadge{display:inline-block;font-size:10px;font-weight:800;padding:1px 6px;border-radius:6px;margin-left:6px;vertical-align:2px;background:var(--bg3);color:var(--dim)}
   .chbadge.mic{background:rgba(245,184,64,.15);color:var(--acc)}
   .chcat{font-size:11.5px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--dim);margin:16px 0 7px}
+  .chrout{background:linear-gradient(160deg,rgba(245,184,64,.13),rgba(245,184,64,.03));border:1px solid rgba(245,184,64,.35);border-radius:14px;padding:12px 13px 11px;margin:2px 0 10px}
+  .chrout h4{margin:0 0 5px;font-size:15.5px}
+  .chrout .blocs{display:flex;gap:5px;flex-wrap:wrap;margin:9px 0 0}
+  .chrout .blocs span{font-size:10.5px;font-weight:700;color:var(--dim);background:var(--bg3);border:1px solid var(--line);border-radius:8px;padding:3px 7px}
+  .chfoc{background:var(--bg2);border:1px solid var(--line);border-left:3px solid var(--acc);border-radius:10px;padding:9px 11px;margin:10px 0;font-size:13px;line-height:1.5}
+  .chfoc small{display:block;color:var(--dim);font-size:12px;margin-top:3px;line-height:1.45}
+  .chphase{text-align:center;font-size:12px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--dim);margin:10px 0 0}
+  .chphase.on{color:var(--acc)}
+  .vocsyl{text-align:center;font-size:30px;font-weight:900;letter-spacing:2px;color:var(--acc);margin:12px 0 0}
+  .vocpat{display:flex;justify-content:center;gap:5px;margin:9px 0 2px}
+  .vocpat span{min-width:26px;height:30px;padding:0 3px;border-radius:7px;background:var(--bg3);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:var(--dim)}
+  .vocpat span.on{background:var(--acc);color:#1a1200;border-color:var(--acc)}
   .pckbtog{display:block;margin:8px auto 0;background:none;border:0;color:var(--dim);font-size:12px;font-weight:700;cursor:pointer;padding:4px 8px}
   .nchip:active{transform:scale(.93)}
   .gotimer{text-align:center;font-weight:800;font-size:22px;color:var(--acc);font-variant-numeric:tabular-nums;margin:4px 0}
@@ -2519,10 +2531,12 @@ const DRILLS=[
    desc:()=>{ const n=VG_LEVELS.filter(L=>vgLv(L.id).stars).length, s=VG_LEVELS.reduce((a,L)=>a+vgLv(L.id).stars,0);
      return 'L’accordeur devient un parcours : unisson, tenue, secondes, do-ré-mi, tierces, arpèges, quarte & quinte — d’abord guidé par l’aiguille, puis <b>à l’oreille</b> (l’app juge sans t’aider). Notes tirées dans ta tessiture.'+(n?` <b style="color:var(--acc)">${n}/10 niveaux validés · ${s}/30 ★</b>`:''); },
    run:()=>voiceTunerRoom('parcours')},
-  {id:'chant', icon:'🎙', title:'Le chant — avec et sans micro', req:null,
-   desc:()=>{ const n=CHANT.filter(e=>chantDoneToday(e.id)).length;
-     return 'Tout le reste du chant : <b>souffle</b> (respiration basse, « sss » chronométré, appui), <b>échauffement</b> (paille, trille de lèvres, sirène « ng »), <b>placement</b> (hum, mâchoire), <b>diction</b> au métronome, <b>phrasé</b> sur une voyelle — <b>sans micro</b>. Plus la sirène mesurée et le messa di voce, au micro.'
-       +(n?` <b style="color:var(--acc)">${n} exo${n>1?'s':''} fait${n>1?'s':''} aujourd’hui.</b>`:' Séance guidée : 10 min.'); },
+  {id:'chant', icon:'🎙', title:'Le chant — la routine de 12 min', req:null,
+   desc:()=>{ const n=CHANT.filter(e=>chantDoneToday(e.id)).length, F=chantFocus(), r=chantRoutState();
+     return `<b>12 minutes par jour</b>, cinq blocs : souffle (« sss » puis « zzz »), trille de lèvres en gammes, « ng » → voyelles, sirènes, puis <b>de la vraie musique</b> (la même phrase à trois nuances). Plus un focus différent chaque jour — aujourd’hui ${F.ico} <b>${F.t}</b>. Et 23 exos à la carte : souffle, placement, diction, phrasé, aigus, justesse au micro.`
+       +(chantRoutToday()?' <b style="color:var(--ok)">Routine faite aujourd’hui.</b>':'')
+       +(r.streak?` <b style="color:var(--acc)">Série : ${r.streak} jour${r.streak>1?'s':''}.</b>`:'')
+       +(n?` ${n} exo${n>1?'s':''} fait${n>1?'s':''} aujourd’hui.`:''); },
    run:()=>chantRoom()},
   {id:'ear', icon:'👂', title:'Majeur ou mineur ?', req:null,
    desc:()=>{ const s=earStat('mm'); return 'Une note tirée au hasard : compare son majeur à son mineur, ressens la bascule, puis teste-toi. L\'exercice d\'oreille express — fais-le court et quotidien.'+(s.best?` Record : <b style="color:var(--acc)">${s.best}%</b>.`:''); },
@@ -2926,7 +2940,7 @@ function voiceTunerRoom(tab){
    placement, la diction et le phrasé se travaillent sans rien mesurer. Chaque
    exo est guidé étape par étape, chronométré, avec le POURQUOI.
    ================================================================ */
-const CHANT_CAT={echauf:'Échauffement',souffle:'Souffle & appui',place:'Placement & résonance',just:'Justesse',dict:'Diction & rythme',phras:'Phrasé',soin:'Soin de la voix'};
+const CHANT_CAT={echauf:'Échauffement',souffle:'Souffle & appui',place:'Placement & résonance',reg:'Registres & aigus',just:'Justesse',dict:'Diction & rythme',phras:'Phrasé & interprétation',soin:'Soin de la voix'};
 const CHANT=[
   {id:'paille', icon:'🥤', t:'La paille', cat:'echauf', mic:0, min:3,
    why:'Chanter dans une paille (ou lèvres pincées) crée une contre-pression : les cordes travaillent en douceur, sans forcer. C’est l’échauffement le plus sûr et le plus rentable — celui que font les chanteurs pros avant tout le reste.',
@@ -3004,6 +3018,49 @@ const CHANT=[
      {s:0,txt:'<b>Ne crie pas</b> et ne chuchote pas longtemps (le chuchotement force autant que le cri).'},
      {s:0,txt:'<b>Jamais dans la douleur.</b> Gorge qui gratte, voix qui casse, extinction : repos vocal, pas d’exercice. Si ça dure plus de deux semaines, médecin (ORL).'},
      {s:0,txt:'<b>Le sommeil</b> et le silence relatif réparent la voix mieux que n’importe quel remède.'}]},
+  /* ---- LA ROUTINE CIBLÉE (2026-09-13) : sept exos courts, pensés pour être
+     enchaînés en 12 min/jour — souffle, coordination, placement, registres,
+     puis de la VRAIE musique. Voir CHANT_ROUTINE / CHANT_FOCUS plus bas. ---- */
+  {id:'sz', icon:'🌬', t:'« sss » puis « zzz »', cat:'souffle', mic:0, min:2, run:'cycles',
+   why:'Le « sss » est muet, le « zzz » est voisé : <b>même débit d’air, mais les cordes se mettent en travers</b>. Passer de l’un à l’autre sans changer la pression, c’est exactement le geste du chant. Règle qui compte plus que la durée : <b>ne prends pas une énorme inspiration</b> — un poumon trop plein pousse, serre et fait trembler.',
+   cycles:[{lab:'sss',n:4,on:12,off:5,txt:'Inspire <b>tranquillement</b> par le nez (pas à fond), puis souffle sur « <b>sss</b> » à débit constant jusqu’au bout du compte.',tip:'Un sifflement régulier, pas un jet qui faiblit : c’est le débit qu’on entraîne, pas l’apnée.'},
+     {lab:'zzz',n:4,on:12,off:5,txt:'Même chose sur « <b>zzz</b> » : <b>la voix s’ajoute</b>, la pression ne change pas.',tip:'Si le « zzz » vide plus vite que le « sss », tu laisses fuir de l’air en chantant — c’est là que se perdent tes fins de phrases.'}],
+   after:'Deux minutes, tous les jours. Le souffle se gagne en semaines — et c’est lui qui tient la justesse.'},
+  {id:'trilgam', icon:'🎢', t:'Le trille en gammes', cat:'echauf', mic:0, min:3, run:'vocalise',
+   pat:[0,2,4,5,7,5,4,2,0], syll:'brrrr', beat:.34, gap:1.2,
+   cue:'Suis l’app en <b>trille de lèvres</b> : 1-2-3-4-5-4-3-2-1. Ça monte d’un demi-ton à chaque tour.',
+   why:'Le meilleur rapport résultat/temps de tout le chant : la vibration des lèvres protège les cordes <b>pendant</b> que tu fais le travail difficile — changer de hauteur. L’app joue la gamme et monte d’un demi-ton à chaque tour, comme dans un cours : tu montes sans jamais pousser, parce que le « brrr » ne le permet pas.',
+   after:'Si la vibration casse en montant, c’est le signal : tu envoies trop d’air. Allège, ne force pas.'},
+  {id:'aigus', icon:'⬆️', t:'Monter sans pousser', cat:'reg', mic:0, min:3, run:'vocalise',
+   pat:[7,5,4,2,0], syll:'ou', beat:.42, gap:1.3,
+   cue:'Vocalise <b>descendante</b> sur « <b>ou</b> » (bouche ronde) : 5-4-3-2-1. La note haute arrive d’abord — prends-la <b>douce</b>.',
+   why:'On ne gagne pas d’aigus en poussant : on les gagne en <b>allégeant</b>. La vocalise descendante attaque la note haute sans élan, donc sans force : impossible de la « lancer », il faut la poser. Quand ça monte trop, la bonne réponse est toujours la même — <b>moins d’air, plus d’espace</b>.',
+   after:'Un aigu sain se sent léger et un peu « petit » de l’intérieur. S’il gratte ou serre, tu es allé trop haut : descends de deux tours.'},
+  {id:'ngvoy', icon:'👃', t:'« ng » → les voyelles', cat:'place', mic:0, min:3, drone:1,
+   why:'Le « ng » place le son devant, dans le masque ; les <b>voyelles</b>, elles, le déplacent — le « i » remonte, le « a » s’écrase, le « ou » recule. Passer du ng à chaque voyelle en gardant la même vibration, c’est apprendre à garder <b>une seule place</b> quel que soit le mot. C’est aussi la bascule d’une voix légère vers une voix pleine.',
+   steps:[{s:25,txt:'Dis « parki<b>ng</b> » et <b>tiens le ng</b>, bouche fermée, langue au palais. Ça doit bourdonner dans le nez et les pommettes.',tip:'Pince-toi le nez une seconde : le son doit se couper net. Sinon tu n’es pas sur le « ng ».'},
+     {s:45,txt:'<b>ng → ah</b> : garde le bourdon, puis <b>ouvre lentement</b> sur « ah ». La place ne bouge pas, seule la bouche s’ouvre.',tip:'Le « ah » doit sonner aussi devant que le « ng ». S’il tombe dans la gorge, rouvre moins grand.'},
+     {s:60,txt:'Enchaîne les cinq : <b>ng-ah · ng-é · ng-i · ng-o · ng-ou</b>, sur une note confortable. Chaque voyelle repart du bourdon.',tip:'La difficile, c’est « i » : garde la mâchoire basse et l’espace derrière, sinon elle remonte et se pince.'},
+     {s:50,txt:'Refais « ng-ah » sur <b>trois hauteurs</b> : grave, médium, un peu plus aigu. La voyelle ne doit <b>pas changer de place</b> quand la note monte.'}],
+   after:'C’est l’exercice qui fait qu’une voix « porte » sans crier — et qui fatigue le moins.'},
+  {id:'echo', icon:'🔂', t:'Aller-retour piano ↔ voix', cat:'just', mic:1, min:3, run:'echo',
+   why:'Ton avantage de musicien : <b>l’instrument dit la vérité</b>. L’app joue une note, tu la chantes, elle juge — <b>sans aiguille, sans indice</b>, comme dans la vraie vie. Huit allers-retours par jour construisent l’oreille plus vite que trente minutes de vocalises, parce que chaque essai reçoit une réponse.',
+   after:'Joue → chante → joue → chante. C’est la boucle qui développe l’oreille ET la voix en même temps.'},
+  {id:'reel', icon:'🎤', t:'Chanter pour de vrai · 3 nuances', cat:'phras', mic:0, min:2,
+   why:'Le pont entre l’exercice et la musique — <b>le bloc le plus important de la routine</b>. La même phrase à trois volumes sans que la justesse bouge : c’est la vraie mesure du contrôle, et la seule chose qui transfère quand tu chantes pour de bon. Retiens ceci : <b>la puissance ne vient pas du volume, elle vient de la coordination</b>.',
+   steps:[{s:0,txt:'Choisis <b>une phrase</b> d’un morceau que tu aimes chanter. Une phrase, pas le morceau.',tip:'Prends-en une que tu connais par cœur : on travaille le contrôle, pas la mémoire.'},
+     {s:30,txt:'Chante-la <b>très doucement</b>. Presque murmurée — mais soutenue.',tip:'Doux ≠ mou : l’appui reste, les côtes restent ouvertes. Sinon la note descend en justesse.'},
+     {s:30,txt:'Chante-la <b>normalement</b>. Même place, même justesse, même intention.'},
+     {s:30,txt:'Chante-la <b>un peu plus fort</b>. Pas plus d’air : <b>plus d’espace et plus d’appui</b>.',tip:'Si ça serre, si la hauteur monte ou si le son se durcit, tu as poussé : redescends d’un cran.'},
+     {s:40,txt:'Les trois <b>à la suite</b>, en gardant exactement la <b>même justesse</b>. C’est ça qui transforme des vocalises en compétence musicale.'}],
+   after:'Si une seule chose devait rester de la routine, c’est celle-là : finis toujours par de la musique.'},
+  {id:'interp', icon:'🎭', t:'Dire avant de chanter', cat:'phras', mic:0, min:3,
+   why:'Une phrase juste mais sans intention sonne morte — et c’est le défaut n°1 de ceux qui travaillent la technique. Dire le texte remet <b>le sens avant la note</b> : le phrasé, les respirations et les accents se placent alors tout seuls, parce qu’ils viennent de ce que la phrase veut dire.',
+   steps:[{s:30,txt:'Prends le texte de ta phrase et <b>dis-le</b> comme une réplique de théâtre. À qui tu parles ? Pour obtenir quoi ?'},
+     {s:40,txt:'Redis-le <b>dans le rythme du chant</b>, mais sans hauteur (parlé-rythmé). Garde l’intention.'},
+     {s:45,txt:'Maintenant <b>chante-le</b> en gardant exactement cette intention. Les mots importants sonnent plus, les autres passent.',tip:'Un mot souligné, ce n’est pas forcément plus fort : ça peut être plus long, plus doux, ou légèrement en retard.'},
+     {s:45,txt:'Refais-le en changeant <b>un seul paramètre</b> : plus lent, plus doux, ou en entrant un poil après le temps. Écoute ce que ça change.'}],
+   after:'C’est ce travail-là, pas les vocalises, qui fait qu’on a envie de t’écouter.'},
 ];
 const chantState=()=>{ if(!S.chant) S.chant={done:{},sss:0}; if(!S.chant.done) S.chant.done={}; return S.chant; };
 const chantDoneToday=id=>chantState().done[id]===todayStr();
@@ -3015,19 +3072,21 @@ function chantFinish(host, ex, back, onDone){
   if(onDone) return onDone();
   host.innerHTML=`<div class="exhead"><div class="target">✓</div>
       <div class="sub">${ex.icon} ${ex.t} — fait · +${xp} XP${first?'':' (déjà fait aujourd’hui)'}</div></div>
-    <p style="text-align:center;color:#c9cde0;font-size:13.5px;line-height:1.55;margin:6px 8px 12px">${ex.after||'Cinq minutes par jour valent une heure le dimanche : c’est le retour qui construit une voix.'}</p>`;
+    <p style="text-align:center;color:#c9cde0;font-size:13.5px;line-height:1.55;margin:6px 8px 12px">${ex.after||'Cinq minutes par jour valent une heure le dimanche : c’est le retour qui construit une voix.'}</p>
+    ${ex.why?`<details style="margin:0 0 10px"><summary style="cursor:pointer;color:var(--dim);font-size:12.5px;font-weight:700">Pourquoi cet exo ?</summary>
+      <div style="margin-top:8px;font-size:13.5px;line-height:1.6;color:#c9cde0">${ex.why}</div></details>`:''}`;
   const mk=(t,cls,fn)=>{ const b=document.createElement('button'); b.className='btn'+(cls?' '+cls:''); b.textContent=t; b.onclick=fn; host.appendChild(b); };
   mk('↻ Refaire','ghost',()=>chantOpen(host,ex,back));
   mk('← Les exos','ghost',back);
 }
 /* exo guidé : une étape à la fois, chrono optionnel, pause possible */
-function chantSteps(host, ex, back, onDone){
+function chantSteps(host, ex, back, onDone, note){
   let i=0, left=0, tid=null;
   const stop=()=>{ if(tid){ clearInterval(tid); tid=null; } };
   const next=()=>{ stop(); if(i>=ex.steps.length-1){ Metro.stop(); return chantFinish(host,ex,back,onDone); } i++; draw(); };
   const draw=()=>{
     const st=ex.steps[i]; left=st.s||0;
-    host.innerHTML=`<div class="exhead"><div class="target" style="font-size:19px">${ex.icon} ${ex.t}</div>
+    host.innerHTML=`${note||''}<div class="exhead"><div class="target" style="font-size:19px">${ex.icon} ${ex.t}</div>
         <div class="sub">Étape ${i+1}/${ex.steps.length}<span class="chbadge${ex.mic?' mic':''}">${ex.mic?'🎤 micro':'🔇 sans micro'}</span></div></div>
       <div class="card" style="text-align:left"><div style="font-size:15px;line-height:1.6;color:#e7e9f2">${st.txt}</div>
         ${st.tip?`<div style="color:var(--dim);font-size:12.5px;margin-top:8px;line-height:1.5">💡 ${st.tip}</div>`:''}</div>
@@ -3162,17 +3221,17 @@ function chantCall(host, ex, back, onDone){
   };
   draw();
 }
-function chantOpen(host, ex, back, onDone){
+function chantOpen(host, ex, back, onDone, note){
   if(ex.run==='parcours') return voiceTunerRoom('parcours');
   host.innerHTML='';
-  if(ex.why){ const w=document.createElement('details'); w.style.cssText='margin:0 0 10px';
-    w.innerHTML=`<summary style="cursor:pointer;color:var(--dim);font-size:12.5px;font-weight:700">Pourquoi cet exo ?</summary>
-      <div style="margin-top:8px;font-size:13.5px;line-height:1.6;color:#c9cde0">${ex.why}</div>`; }
   if(ex.run==='sss') return chantSss(host,ex,back,onDone);
   if(ex.run==='sirene') return chantSirene(host,ex,back,onDone);
   if(ex.run==='messa') return chantMessa(host,ex,back,onDone);
   if(ex.run==='callresp') return chantCall(host,ex,back,onDone);
-  chantSteps(host,ex,back,onDone);
+  if(ex.run==='cycles') return chantCycles(host,ex,back,onDone,note);
+  if(ex.run==='vocalise') return chantVocalise(host,ex,back,onDone,note);
+  if(ex.run==='echo') return chantEcho(host,ex,back,onDone,note);
+  chantSteps(host,ex,back,onDone,note);
 }
 const CHANT_SEANCE=['paille','respi','hum','callresp','voyelle'];
 function chantSeance(host, back){
@@ -3191,20 +3250,251 @@ function chantSeance(host, back){
   };
   step();
 }
+/* ================================================================
+   LA ROUTINE DE 12 MIN + LE FOCUS DU JOUR (Thomas, 2026-09-13)
+   « Devenir nettement meilleur sans passer 1 h par jour à faire des vocalises. »
+   Cinq blocs courts enchaînés — souffle, coordination, placement, registres,
+   puis de la VRAIE musique — et un objectif différent chaque jour de la semaine.
+   On ne travaille pas toutes les qualités tous les jours : 10-15 min quotidiennes
+   pendant des mois battent une heure faite de temps en temps.
+   ================================================================ */
+const CHANT_FOCUS=[   /* index = jour de la semaine, 0 = dimanche */
+  {k:'libre', ico:'🎶', t:'Chant libre', s:'Aucun exercice imposé : chante ce que tu aimes, en entier.',
+   cons:'Aujourd’hui, pas de consigne technique : chante le morceau <b>en entier</b>, pour le plaisir. C’est ça qu’on entraîne le reste de la semaine.', ex:null},
+  {k:'just', ico:'🎯', t:'Justesse', s:'Le piano dit la vérité : joue, chante, vérifie.',
+   cons:'Focus <b>justesse</b> : après les trois nuances, chante la phrase <b>une note à la fois avec le piano</b> — joue, chante, vérifie, avance.', ex:'echo'},
+  {k:'aigu', ico:'⬆️', t:'Aigus', s:'On les gagne en allégeant, jamais en poussant.',
+   cons:'Focus <b>aigus</b> : prends la phrase <b>un ton plus haut</b> que d’habitude et chante-la <b>doucement</b>. Si ça serre, redescends — l’aigu se pose, il ne se lance pas.', ex:'aigus'},
+  {k:'puis', ico:'🔊', t:'Puissance', s:'Elle vient de la coordination, pas du volume.',
+   cons:'Focus <b>puissance</b> : chante la phrase en gardant les <b>côtes ouvertes</b> jusqu’au dernier mot. Cherche le son qui porte, pas le son qui crie.', ex:'appui'},
+  {k:'reg', ico:'🌀', t:'Registres / voix mixte', s:'Lisser le passage, là où la voix veut casser.',
+   cons:'Focus <b>registres</b> : repère la note de la phrase où ça veut casser, et passe-la <b>en allégeant</b> au lieu de forcer. Refais ce seul endroit cinq fois.', ex:'sirene'},
+  {k:'ryt', ico:'🥁', t:'Justesse + rythme', s:'Articuler vite et tomber juste, en même temps.',
+   cons:'Focus <b>rythme</b> : chante la phrase <b>sur un métronome</b>, en articulant à l’excès. Les consonnes tombent <b>avant</b> le temps, la voyelle <b>sur</b> le temps.', ex:'virelangue'},
+  {k:'int', ico:'🎭', t:'Interprétation', s:'Dire le texte avant de le chanter.',
+   cons:'Focus <b>interprétation</b> : <b>dis</b> la phrase comme une réplique, puis rechante-la avec exactement cette intention.', ex:'interp'},
+];
+const chantFocus=()=>CHANT_FOCUS[new Date().getDay()];
+const chantFocusHTML=F=>`<div class="chfoc">${F.ico} Focus du jour · <b>${F.t}</b><small>${F.cons}</small></div>`;
+/* 2 + 3 + 3 + 2 + 2 = 12 minutes */
+const CHANT_ROUTINE=['sz','trilgam','ngvoy','sirene','reel'];
+const chantRoutState=()=>{ const st=chantState(); if(!st.rout) st.rout={last:null,streak:0,total:0}; return st.rout; };
+const chantRoutToday=()=>chantRoutState().last===todayStr();
+function chantRoutDone(){
+  const r=chantRoutState(), t=todayStr();
+  if(r.last===t) return r;
+  const y=new Date(Date.now()-864e5).toISOString().slice(0,10);
+  r.streak=(r.last===y?(r.streak||0):0)+1; r.last=t; r.total=(r.total||0)+1;
+  save(); return r;
+}
+function chantRoutine(host, back){
+  const F=chantFocus(); let k=0;
+  const step=()=>{
+    if(k>=CHANT_ROUTINE.length){
+      const r=chantRoutDone(); award(20); save(); chime();
+      host.innerHTML=`<div class="exhead"><div class="target">🎙 12 min</div>
+          <div class="sub">Routine faite · <b style="color:var(--acc)">${r.streak} jour${r.streak>1?'s':''} d’affilée</b> · ${r.total} au total · +20 XP</div></div>
+        <p style="text-align:center;color:#c9cde0;font-size:13.5px;line-height:1.55;margin:6px 8px 12px">
+          Souffle, coordination, placement, registres, musique. <b>Dix à quinze minutes par jour pendant trois à six mois</b> te feront progresser bien plus qu’une heure de vocalises de temps en temps.</p>
+        ${chantFocusHTML(F)}`;
+      const mk=(t,cls,fn)=>{ const b=document.createElement('button'); b.className='btn'+(cls?' '+cls:''); b.textContent=t; b.onclick=fn; host.appendChild(b); };
+      if(F.ex){ const ex=chantEx(F.ex); if(ex) mk(`▶ Le focus du jour : ${ex.icon} ${ex.t} (${ex.min} min)`,'',()=>{ host.innerHTML=''; chantOpen(host,ex,back,null,chantFocusHTML(F)); }); }
+      mk('← Les exos','ghost',back);
+      return;
+    }
+    const ex=chantEx(CHANT_ROUTINE[k]);
+    chantOpen(host, ex, back, ()=>{ k++; step(); }, ex.id==='reel'?chantFocusHTML(F):'');
+    const h=document.createElement('div'); h.style.cssText='text-align:center;color:var(--dim);font-size:11.5px;margin-top:6px';
+    h.textContent=`Routine · bloc ${k+1}/${CHANT_ROUTINE.length} · ${ex.t}`; host.appendChild(h);
+  };
+  step();
+}
+/* ---- séries souffle/repos chronométrées (« sss » ×4, puis « zzz » ×4) ---- */
+function chantCycles(host, ex, back, onDone, note){
+  let si=0, rep=0, on=true, left=ex.cycles[0].on, tid=null;
+  const cur=()=>ex.cycles[si];
+  const bip=hi=>playNote(hi?84:72,.12,.18);
+  const stop=()=>{ if(tid){ clearInterval(tid); tid=null; } };
+  const advance=()=>{
+    const c=cur();
+    if(on){                                   /* fin d'un souffle → repos (ou fin de l'exo) */
+      if(rep>=c.n-1 && si>=ex.cycles.length-1){ stop(); return chantFinish(host,ex,back,onDone); }
+      on=false; left=c.off; bip(0);
+    } else {                                  /* fin du repos → souffle suivant */
+      on=true; rep++;
+      if(rep>=c.n){ rep=0; si++; }
+      left=cur().on; bip(1);
+    }
+    draw();                                   /* le chrono continue de tourner d'une phase à l'autre */
+  };
+  const draw=()=>{
+    const c=cur();
+    host.innerHTML=`${note||''}<div class="exhead"><div class="target" style="font-size:19px">${ex.icon} ${ex.t}</div>
+        <div class="sub">« <b>${c.lab}</b> » · souffle <b>${Math.min(rep+1,c.n)}/${c.n}</b><span class="chbadge">🔇 sans micro</span></div></div>
+      <div class="card" style="text-align:left"><div style="font-size:15px;line-height:1.6;color:#e7e9f2">${c.txt}</div>
+        ${c.tip?`<div style="color:var(--dim);font-size:12.5px;margin-top:8px;line-height:1.5">💡 ${c.tip}</div>`:''}</div>
+      <div class="chphase${on?' on':''}">${on?'Souffle · '+c.lab:'Repos — respire normalement'}</div>
+      <div class="chrono" id="chT">${Math.max(0,Math.ceil(left))}</div>
+      <div class="exrow" id="chR"></div>`;
+    const row=host.querySelector('#chR');
+    const b=document.createElement('button'); b.className='btn'; b.textContent=tid?'⏸ Pause':(left<c.on?'▶ Reprendre':'▶ Démarrer');
+    b.onclick=()=>{
+      if(tid){ stop(); b.textContent='▶ Reprendre'; return; }
+      b.textContent='⏸ Pause';
+      tid=setInterval(()=>{ left-=.25;
+        const el=host.querySelector('#chT'); if(el) el.textContent=Math.max(0,Math.ceil(left));
+        if(left<=0) advance();
+      },250);
+    };
+    row.appendChild(b);
+    const sk=document.createElement('button'); sk.className='btn ghost'; sk.textContent='Passer →';
+    sk.onclick=()=>advance(); row.appendChild(sk);
+    const bb=document.createElement('button'); bb.className='btn ghost'; bb.style.marginTop='0';
+    bb.textContent='← Les exos'; bb.onclick=()=>{ stop(); back(); }; host.appendChild(bb);
+  };
+  draw();
+}
+/* ---- vocalise guidée : l'app JOUE le motif, tu chantes par-dessus, ça monte
+   d'un demi-ton à chaque tour puis redescend (l'escalier des cours de chant) ---- */
+function chantVocalise(host, ex, back, onDone, note){
+  const pat=ex.pat, top=Math.max(...pat), bot=Math.min(...pat), beat=ex.beat||.4, gap=ex.gap||1.3;
+  const r=vgRange(); let lo=r.lo-bot, hi=r.hi-top;
+  if(hi<lo){ lo=hi=Math.round((r.lo+r.hi)/2-(top+bot)/2); }   /* tessiture plus courte que le motif : on centre */
+  let root=lo, dir=1, tours=0, tid=null, playing=false, cur=-1;
+  const stop=()=>{ if(tid){ clearTimeout(tid); tid=null; } playing=false; };
+  const light=i=>{ cur=i; host.querySelectorAll('.vocpat span').forEach((s,j)=>s.classList.toggle('on',j===i)); };
+  const turn=()=>{
+    pat.forEach((d,i)=>{ playNote(root+d, beat*.95, .36, i*beat); setTimeout(()=>{ if(playing) light(i); }, i*beat*1000); });
+    const total=pat.length*beat+gap;
+    tid=setTimeout(()=>{
+      tours++; light(-1);
+      let nr=root+dir;
+      if(nr>hi){ dir=-1; nr=root-1; }
+      if(nr<lo){ stop(); return passage(); }
+      root=nr; draw(); if(playing) turn();
+    }, total*1000);
+  };
+  const passage=()=>{
+    host.innerHTML=`${note||''}<div class="exhead"><div class="target">✓ passage</div>
+        <div class="sub">${tours} tour${tours>1?"s":""}, de ${noteOct(lo+bot)} à ${noteOct(hi+top)} et retour. ${ex.after||''}</div></div>`;
+    const mk=(t,cls,fn)=>{ const b=document.createElement('button'); b.className='btn'+(cls?' '+cls:''); b.textContent=t; b.onclick=fn; host.appendChild(b); };
+    mk('↻ Encore un passage','',()=>{ root=lo; dir=1; tours=0; playing=true; draw(); turn(); });
+    mk('Terminer ✓','ok',()=>chantFinish(host,ex,back,onDone));
+    mk('← Les exos','ghost',()=>{ stop(); back(); });
+  };
+  const draw=()=>{
+    const pos=hi>lo?Math.round((root-lo)/(hi-lo)*100):50;
+    host.innerHTML=`${note||''}<div class="exhead"><div class="target" style="font-size:19px">${ex.icon} ${ex.t}</div>
+        <div class="sub">${ex.cue||''}<span class="chbadge">🔇 sans micro</span></div></div>
+      <div class="vocsyl">${ex.syll}</div>
+      <div class="vocpat">${pat.map((d,i)=>`<span${i===cur?' class="on"':''}>${['1','♭2','2','♭3','3','4','♯4','5','♭6','6','♭7','7','8'][d]||d}</span>`).join('')}</div>
+      <div style="text-align:center;color:var(--dim);font-size:12.5px;margin:6px 0 2px">Départ <b style="color:var(--acc)">${noteOct(root)}</b> · tour ${tours+1} · ${dir>0?'ça monte':'ça redescend'}</div>
+      <div style="height:5px;border-radius:3px;background:var(--bg3);margin:8px 22px 2px"><div style="height:100%;width:${pos}%;border-radius:3px;background:var(--acc)"></div></div>
+      <div class="exrow" id="chR"></div>`;
+    const row=host.querySelector('#chR');
+    const b=document.createElement('button'); b.className='btn'; b.textContent=playing?'⏸ Pause':'▶ Démarrer';
+    b.onclick=()=>{ if(playing){ stop(); b.textContent='▶ Reprendre'; light(-1); } else { playing=true; b.textContent='⏸ Pause'; turn(); } };
+    row.appendChild(b);
+    const dn=document.createElement('button'); dn.className='btn ghost'; dn.textContent='⬇ Plus grave';
+    dn.onclick=()=>{ stop(); root=Math.max(lo-5,root-1); draw(); };
+    const up=document.createElement('button'); up.className='btn ghost'; up.textContent='⬆ Plus aigu';
+    up.onclick=()=>{ stop(); root=Math.min(hi+5,root+1); draw(); };
+    row.appendChild(dn); row.appendChild(up);
+    const f=document.createElement('button'); f.className='btn ok'; f.textContent='Terminer ✓';
+    f.onclick=()=>{ stop(); chantFinish(host,ex,back,onDone); }; host.appendChild(f);
+    const bb=document.createElement('button'); bb.className='btn ghost'; bb.style.marginTop='0';
+    bb.textContent='← Les exos'; bb.onclick=()=>{ stop(); back(); }; host.appendChild(bb);
+  };
+  draw();
+}
+/* ---- aller-retour piano ↔ voix : l'app joue, tu chantes, elle juge à l'aveugle ---- */
+function chantEcho(host, ex, back, onDone, note){
+  const N=8; let i=0, tries=0, first=0, busy=false, grace=0, cents=[], target=null, tn=null, last=null;
+  const pick=()=>{ let t=vgRef(0,0), n=0; while(last!=null && t===last && n++<8) t=vgRef(0,0); return last=t; };
+  const finish=()=>{
+    const avg=cents.length?Math.round(cents.reduce((a,c)=>a+c,0)/cents.length):null;
+    const st=chantState(); if(!st.echo) st.echo={best:null,hist:[]};
+    if(avg!=null){ st.echo.best=st.echo.best==null?avg:Math.min(st.echo.best,avg); st.echo.hist=(st.echo.hist||[]).concat([avg]).slice(-12); save(); }
+    if(tn&&tn.stop) tn.stop();
+    host.innerHTML=`${note||''}<div class="exhead"><div class="target">${first}/${N}</div>
+        <div class="sub">du premier coup${avg!=null?` · justesse moyenne <b>${centTxt(avg)}</b>`:''}${st.echo.best!=null?` · record ${centTxt(st.echo.best)}`:''}</div></div>
+      <p style="text-align:center;color:#c9cde0;font-size:13.5px;line-height:1.55;margin:6px 8px 12px">${
+        first>=7?'C’est de l’oreille, pas de la chance. Refais-en huit demain : c’est la répétition quotidienne qui l’installe.'
+        :first>=4?'Bonne moitié. Le réflexe qui paie : <b>écoute la note, tais-toi une seconde, PUIS chante</b> — la plupart des ratés viennent d’une attaque trop rapide.'
+        :'Normal si ça résiste. Reprends l’aller-retour <b>plus grave</b> : on entend beaucoup mieux ce qu’on chante sans effort.'}</p>`;
+    const mk=(t,cls,fn)=>{ const b=document.createElement('button'); b.className='btn'+(cls?' '+cls:''); b.textContent=t; b.onclick=fn; host.appendChild(b); };
+    mk(onDone?'Bloc suivant →':'Terminer ✓','ok',()=>chantFinish(host,ex,back,onDone));
+    mk('↻ Refaire','ghost',()=>chantEcho(host,ex,back,onDone,note));
+    mk('← Les exos','ghost',back);
+  };
+  const head=()=>{ const h=host.querySelector('#ecH');
+    if(h) h.innerHTML=`<b>${Math.min(i+1,N)}/${N}</b> · Écoute la note, <b>chante-la</b>, l’app juge quand tu la tiens.`; };
+  const nextNote=()=>{
+    busy=false; tries=0;
+    if(i>=N) return finish();
+    target=pick(); if(tn) tn.setTarget(target);
+    head(); playNote(target,1.5,.45); grace=performance.now()+1700;   /* ce qui est chanté PENDANT que l'app joue ne compte pas comme un raté */
+  };
+  const later=(ms)=>{ busy=true; setTimeout(()=>{ if(host.isConnected) nextNote(); },ms); };
+  host.innerHTML=`${note||''}<div class="exhead"><div class="target" style="font-size:19px">${ex.icon} ${ex.t}</div>
+      <div class="sub" id="ecH"><b>1/${N}</b> · Écoute la note, <b>chante-la</b>, l’app juge quand tu la tiens.</div></div>
+    <div class="fb" id="ecF" style="min-height:20px;margin:2px 0 0"></div>`;
+  const fb=host.querySelector('#ecF');
+  tn=singTuner({target:null, blind:true, hold:1000, tol:35,
+    onHit:c=>{ if(busy) return;
+      cents.push(c); if(tries===0) first++; tada();
+      fb.className='fb ok'; fb.textContent='✓ '+centTxt(c); i++; later(1000); },
+    onMiss:()=>{ if(busy || performance.now()<grace) return;
+      tries++;
+      if(tries===2){ fb.className='fb'; fb.innerHTML='Réécoute-la, <b>attends une seconde</b>, puis chante.'; playNote(target,1.5,.45); grace=performance.now()+1700; }
+      if(tries>=4){ fb.className='fb'; fb.textContent='On passe — celle-là ne veut pas venir.'; i++; later(1100); } }});
+  host.appendChild(tn);
+  const row=document.createElement('div'); row.className='exrow';
+  const b1=document.createElement('button'); b1.className='btn ghost'; b1.textContent='🔊 Rejouer la note';
+  b1.onclick=()=>{ if(target!=null) playNote(target,1.5,.45); };
+  const b2=document.createElement('button'); b2.className='btn ghost'; b2.textContent='Passer →';
+  b2.onclick=()=>{ if(busy) return; i++; nextNote(); };
+  row.appendChild(b1); row.appendChild(b2); host.appendChild(row);
+  const bb=document.createElement('button'); bb.className='btn ghost'; bb.style.marginTop='0';
+  bb.textContent='← Les exos'; bb.onclick=back; host.appendChild(bb);
+  setTimeout(()=>{ if(host.isConnected) nextNote(); },400);
+}
+const CH_JOURS=['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
 function chantRoom(){
   openCustom('🎙 Le chant',(inner)=>{
     let filt='tout';
     const body=document.createElement('div');
     const home=()=>{
-      body.innerHTML=`<p style="color:var(--dim);font-size:13.5px;line-height:1.55;margin:2px 0 10px">
-        Chanter, ce n’est pas que la justesse. Le <b style="color:var(--txt)">souffle</b>, l’<b style="color:var(--txt)">échauffement</b>, le <b style="color:var(--txt)">placement</b>, la <b style="color:var(--txt)">diction</b> et le <b style="color:var(--txt)">phrasé</b> se travaillent sans rien mesurer — ceux-là sont marqués <b>🔇 sans micro</b>. Les autres demandent le micro pour te dire ce que tu ne peux pas juger seul.</p>`;
+      const F=chantFocus(), r=chantRoutState(), fait=chantRoutToday();
+      body.innerHTML=`<div class="chrout">
+          <h4>🎙 La routine du jour · 12 min${fait?' <span style="color:var(--ok);font-size:11.5px;font-weight:700">✓ faite</span>':''}</h4>
+          <div style="font-size:13px;line-height:1.5;color:#c9cde0">Cinq blocs courts qui couvrent tout ce qui compte — et qui finissent par de la <b>vraie musique</b>. Douze minutes par jour pendant trois mois battent une heure de vocalises le dimanche.</div>
+          <div class="blocs">${CHANT_ROUTINE.map((id,i)=>{ const e=chantEx(id); return `<span>${i+1}. ${e.icon} ${e.t} · ${e.min}′</span>`; }).join('')}</div>
+          ${r.streak?`<div style="font-size:12px;color:var(--dim);margin-top:7px">🔥 Série : <b style="color:var(--acc)">${r.streak} jour${r.streak>1?'s':''} d’affilée</b> · ${r.total} routine${r.total>1?'s':''} au total</div>`:''}</div>`;
+      const go=document.createElement('button'); go.className='btn'; go.textContent=fait?'↻ Refaire la routine (12 min)':'▶ Faire la routine (12 min)';
+      go.onclick=()=>{ body.innerHTML=''; chantRoutine(body, home); }; body.appendChild(go);
+      const fx=document.createElement('div'); fx.className='chfoc';
+      fx.innerHTML=`${F.ico} ${CH_JOURS[new Date().getDay()]} · focus <b>${F.t}</b><small>${F.s}</small>`;
+      body.appendChild(fx);
+      if(F.ex){ const fe=chantEx(F.ex);
+        if(fe){ const fb=document.createElement('button'); fb.className='btn ghost'; fb.style.marginTop='0';
+          fb.textContent=`▶ L’exo du focus : ${fe.icon} ${fe.t} (${fe.min} min)`;
+          fb.onclick=()=>{ body.innerHTML=''; chantOpen(body, fe, home, null, chantFocusHTML(F)); }; body.appendChild(fb); } }
+      const sem=document.createElement('details'); sem.style.cssText='margin:10px 0 4px';
+      sem.innerHTML=`<summary style="cursor:pointer;color:var(--dim);font-size:12.5px;font-weight:700">La semaine — pourquoi un focus différent chaque jour</summary>
+        <div style="margin-top:8px;font-size:13px;line-height:1.6;color:#c9cde0">Tu n’as pas besoin de travailler toutes les qualités tous les jours : la routine fait le socle, le focus creuse <b>une</b> chose.</div>
+        <div style="margin-top:8px">${CHANT_FOCUS.map((f,i)=>`<div style="display:flex;gap:8px;padding:5px 0;border-bottom:1px solid var(--line);font-size:12.5px${i===new Date().getDay()?';color:var(--acc);font-weight:700':';color:var(--dim)'}"><span style="width:74px;flex:none">${CH_JOURS[i]}</span><span>${f.ico} ${f.t}</span></div>`).join('')}</div>`;
+      body.appendChild(sem);
+      const sep=document.createElement('div'); sep.className='chcat'; sep.textContent='Tous les exos, à la carte'; body.appendChild(sep);
+      body.insertAdjacentHTML('beforeend',`<p style="color:var(--dim);font-size:13px;line-height:1.55;margin:2px 0 10px">
+        Chanter, ce n’est pas que la justesse. Le <b style="color:var(--txt)">souffle</b>, l’<b style="color:var(--txt)">échauffement</b>, le <b style="color:var(--txt)">placement</b>, la <b style="color:var(--txt)">diction</b> et le <b style="color:var(--txt)">phrasé</b> se travaillent sans rien mesurer — marqués <b>🔇 sans micro</b>. Les autres demandent le micro pour te dire ce que tu ne peux pas juger seul.</p>`);
       const f=document.createElement('div'); f.className='selrow';
       [['tout','Tout'],['sans','🔇 Sans micro'],['avec','🎤 Avec micro']].forEach(([k,l])=>{
         const t=document.createElement('div'); t.className='tag'+(filt===k?' on':''); t.textContent=l;
         t.onclick=()=>{ filt=k; home(); }; f.appendChild(t); });
       body.appendChild(f);
       if(filt!=='avec'){
-        const s=document.createElement('button'); s.className='btn'; s.textContent='▶ La séance guidée (10 min, sans micro)';
+        const s=document.createElement('button'); s.className='btn ghost'; s.textContent='▶ La séance douce (10 min, sans micro)';
         s.onclick=()=>{ body.innerHTML=''; chantSeance(body, home); }; body.appendChild(s);
       }
       const list=CHANT.filter(e=>filt==='tout'||(filt==='sans'?!e.mic:e.mic));
@@ -3212,9 +3502,10 @@ function chantRoom(){
         const items=list.filter(e=>e.cat===cat); if(!items.length) return;
         const h=document.createElement('div'); h.className='chcat'; h.textContent=CHANT_CAT[cat]; body.appendChild(h);
         items.forEach(e=>{
-          const row=document.createElement('div'); row.className='vglv';
+          const row=document.createElement('div'); row.className='vglv'+(CHANT_ROUTINE.includes(e.id)?' cur':'');
           row.innerHTML=`<div class="n">${e.icon}</div><div class="tx"><b>${e.t}</b>
               <span class="chbadge${e.mic?' mic':''}">${e.mic?'🎤 micro':'🔇 sans micro'}</span>
+              ${CHANT_ROUTINE.includes(e.id)?'<span class="chbadge" style="background:rgba(245,184,64,.15);color:var(--acc)">routine</span>':''}
               <small>${e.why?e.why.replace(/<[^>]+>/g,'').slice(0,90)+'…':''}</small></div>
             <div class="st" style="font-size:12px;color:${chantDoneToday(e.id)?'var(--ok)':'var(--dim)'}">${chantDoneToday(e.id)?'✓':e.min+' min'}</div>`;
           row.onclick=()=>{ body.innerHTML=''; chantOpen(body, e, home); };

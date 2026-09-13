@@ -1,6 +1,6 @@
 // Piano Dojo — service worker : network-first, repli cache (100 % hors-ligne)
 // Network-first : en ligne tu as toujours la dernière version, hors-ligne le cache prend le relais.
-const CACHE = "piano-dojo-v10-chant";
+const CACHE = "piano-dojo-v11-routine";
 const ASSETS = ["./", "./index.html"];
 
 self.addEventListener("install", e => {
