@@ -382,6 +382,11 @@
   .pckb .pk.b small{font-size:9px;color:#b4b6c2}
   .pckb .pk.w:active{background:linear-gradient(#e9e9ee,#cfd0d6)}
   .pckb .pk.b:active{background:linear-gradient(#55555f,#26262c)}
+  /* pentas : notes déjà posées (lit) et notes trouvées (got) — avant .ok/.bad pour que le flash gagne */
+  .pckb .pk.w.lit{background:linear-gradient(#d7e4ff,#93b4f0)}
+  .pckb .pk.b.lit{background:linear-gradient(#4d6ba6,#243d68)}
+  .pckb .pk.w.got{background:linear-gradient(#cdf3dd,#79cfa0)}
+  .pckb .pk.b.got{background:linear-gradient(#2f9e62,#1c6b40)}
   .pckb .pk.w.ok{background:linear-gradient(#c9f5da,var(--ok))}
   .pckb .pk.b.ok{background:linear-gradient(#2f9e62,#1c6b40)}
   .pckb .pk.w.bad{background:linear-gradient(#ffb3bb,var(--bad))}
@@ -398,6 +403,16 @@
   .mfchip.add{border-color:var(--acc);color:var(--acc);background:rgba(245,184,64,.1)}
   .mfchip small{display:block;font-size:10px;font-weight:700;color:var(--dim)}
   .mfwhy{color:#c9cde0;font-size:13.5px;line-height:1.55;margin:10px 0 0}
+  /* LES PENTAS : grille degré/note (nombre de colonnes libre) + carte de conquête */
+  .pgrid{display:flex;gap:3px;background:var(--bg3);border:1px solid var(--line);border-radius:8px;padding:7px 4px;margin:8px 0;text-align:center}
+  .pgrid>div{flex:1;min-width:0}
+  .pgrid b{display:block;font-size:14px}
+  .pgrid span{display:block;font-size:11.5px;color:var(--dim);font-weight:700;margin-top:2px}
+  .pgrid .add b,.pgrid .add span{color:var(--acc)}
+  .pdots{display:flex;gap:3px;flex-wrap:wrap;margin-top:5px}
+  .pdots i{font-style:normal;font-size:10px;font-weight:800;padding:3px 5px;border-radius:6px;border:1px solid var(--line);background:var(--bg3);color:var(--dim);min-width:24px;text-align:center}
+  .pdots i.half{border-color:var(--acc);color:var(--acc)}
+  .pdots i.on{border-color:var(--ok);color:var(--ok);background:rgba(62,207,122,.1)}
   .mfphr{font-size:14.5px;font-weight:600;margin-top:4px;line-height:1.5}
   .mfphr b{color:var(--acc)}
   .mfphr span{color:var(--dim);font-size:12.5px;font-weight:500}
@@ -1196,6 +1211,10 @@ function pcKeyboard(onPick){
     k.classList.remove('ok','bad'); void k.offsetWidth; k.classList.add(cls);
     clearTimeout(k._t); k._t=setTimeout(()=>k.classList.remove(cls),320);
   };
+  /* marquage PERSISTANT (les pentas) : 'lit' = note déjà posée, 'got' = note trouvée.
+     Distinct de flash(), qui ne dure que 320 ms. */
+  wrap.mark=(pc,cls,on)=>{ const k=kb.querySelector(`[data-pc="${pc}"]`); if(k) k.classList.toggle(cls, on!==false); };
+  wrap.clearMarks=()=>kb.querySelectorAll('.pk').forEach(k=>k.classList.remove('lit','got'));
   return wrap;
 }
 
@@ -2242,6 +2261,7 @@ const CYCLE_ROT=[
   {ic:'🕹️', txt:'Cycle & armures : l\'Arcade (60 s)', fn:()=>goArcade()},
 ];
 const MODES_ROT=[
+  {ic:'🖐', txt:'Les pentas : donne-la sur le clavier', fn:()=>pentaRoom()},
   {ic:'🎭', txt:'Les modes : construis-en un, ou reconnais-le', fn:()=>dojoModes()},
   {ic:'🃏', txt:'Les modes : fiches + gymnastique', fn:()=>modesFiches()},
 ];
@@ -2258,6 +2278,8 @@ const SOUND_ROT=[
 const DAILY_DRILLS=[
   {req:null,  ic:'🗝', txt:'Sprint des gammes : 4 d\'affilée', fn:()=>dojoKeys()},
   {req:null,  ic:'🪜', txt:'Construis une gamme (au hasard)', fn:()=>dojoScale()},
+  {req:null,  ic:'🖐', txt:'Les pentas : les notes en plus', fn:()=>pentaAddsRoom()},
+  {req:null,  ic:'🎯', txt:'La penta sur un accord', fn:()=>pentaChordsRoom()},
   {req:null,  ic:'🎧', txt:'Juke-box : ta gamme sur un vrai morceau', fn:()=>jukeRoom()},
   {req:null,  ic:'🧠', txt:'Quiz : formats, modes & grilles', fn:()=>dojoTheoryQuiz()},
   {req:'m2l2', ic:'🎲', txt:'Joue une progression tirée au sort', fn:()=>dojoProg()},
@@ -2438,6 +2460,11 @@ const DRILLS=[
   {id:'juke', icon:'🎧', title:'LE JUKE-BOX — LES GAMMES EN VRAI', req:null,
    desc:()=>`${JUKE.length} vrais morceaux rangés <b>par gamme</b> (penta, dorien, mixolydien, lydien, phrygien, blues, mineur harmonique). L\'app tient la grille en boucle, ta gamme s\'allume en bleu, la note à viser en orange. <b style="color:var(--acc)">${jbCount()}/${JUKE.length}</b> joués.`,
    run:()=>jukeRoom()},
+  {id:'pentas', icon:'🖐', title:'LES PENTAS', req:null,
+   desc:()=>{ const t=pTotal(), c=PENTA_TYPES.length*12;
+     return 'Les <b>8 pentas</b> (majeure, mineure, blues mineur et majeur, dominante, suspendue, japonaises) : l\'app en demande une, <b>tu la joues sur le clavier</b>. Plus les <b>notes qu\'on ajoute</b> (penta → blues, penta → mode) et la penta <b>posée sur un accord</b>.'
+       +(t?` <b style="color:var(--ok)">${t}/${c}</b> cases allumées.`:' <b style="color:var(--acc)">Commence par la penta majeure.</b>'); },
+   run:()=>pentaRoom()},
   {id:'errs', icon:'🩹', title:'MES ERREURS', req:null,
    desc:()=>errCount()
      ? `<b style="color:var(--bad)">${errCount()}</b> point(s) que tu as raté(s) t'attendent. Une erreur ne sort de la liste qu'après <b>2 réussites</b> — c'est là que le progrès se fait, pas dans ce que tu sais déjà.`
@@ -8532,6 +8559,669 @@ function jukeSong(s){
     /* surlignage de la mesure en cours (via le hook posé une seule fois) */
     CoordPlayer.onBar=bar=>cells.forEach((c,i)=>c.classList.toggle('on', i===bar));
     overlay.scrollTop=0;
+  });
+}
+
+/* ================================================================
+   LES PENTAS — « donne-moi la penta, sur le clavier »
+   Demande de Thomas (2026-09-13) : un module où l'app réclame une penta
+   (majeure, mineure, blues, et les autres) et où il RÉPOND sur le clavier
+   d'une octave — plus le travail des notes qu'on AJOUTE à une penta
+   (penta → blues, penta → mode), et des pentas posées sur un accord.
+   Rien n'est stocké en dur : les notes sont calculées et orthographiées
+   (Sib majeur → Réb, jamais Do#), avec garde-fou anti-double-altération.
+   ================================================================ */
+const PENTA_BRIGHT=['Do','Réb','Ré','Mib','Mi','Fa','Fa#','Sol','Lab','La','Sib','Si'];
+const PENTA_DARK  =['Do','Do#','Ré','Mib','Mi','Fa','Fa#','Sol','Sol#','La','Sib','Si'];
+const PENTA_FAMS=[
+  ['socle',  '① Le socle — les deux que tu dois avoir dans les doigts'],
+  ['blues',  '② Le blues — la penta plus la note qui frotte'],
+  ['couleur','③ Les couleurs — quand la penta de base ne dit pas tout'],
+  ['exo',    '④ Les exotiques — cinq notes, un autre monde'],
+];
+const PENTA_TYPES=[
+  {id:'maj', ic:'🌞', fam:'socle', nom:'Penta majeure', court:'1 2 3 5 6', dark:false,
+   iv:[0,2,4,7,9], deg:[0,1,2,4,5], lab:['1','2','3','5','6'],
+   quoi:'La gamme majeure dont on a <b>jeté la 4 et la 7</b>. Ce sont précisément les deux notes qui frottent (la 4 vient buter contre la 3, la 7 contre la tonique) : une fois dehors, plus rien ne peut sonner faux.',
+   ou:'Sur un accord <b>majeur</b> ou <b>maj7</b>, et partout où ça doit sonner clair : pop, country, gospel, rock lumineux.',
+   astuce:'Do majeur sans Fa ni Si → <b>Do Ré Mi Sol La</b>. Si tu sais la gamme, tu sais la penta : c\'est une soustraction, pas une nouvelle liste.'},
+  {id:'min', ic:'🌑', fam:'socle', nom:'Penta mineure', court:'1 ♭3 4 5 ♭7', dark:true,
+   iv:[0,3,5,7,10], deg:[0,2,3,4,6], lab:['1','♭3','4','5','♭7'],
+   quoi:'Les <b>mêmes cinq touches</b> que la penta majeure située 3 demi-tons plus haut : penta mineure de La = penta majeure de Do. Ce qui change n\'est pas le matériel, c\'est la note sur laquelle tu te poses.',
+   ou:'Sur un <b>m7</b> ou un vamp mineur : rock, blues, soul, funk. C\'est la penta la plus jouée du monde.',
+   astuce:'Le raccourci : <b>penta mineure de X = penta majeure de X + 3 demi-tons</b> (La → Do, Mi → Sol, Ré → Fa).'},
+  {id:'blues', ic:'🩸', fam:'blues', nom:'Blues mineur', court:'1 ♭3 4 ♯4 5 ♭7', dark:true,
+   iv:[0,3,5,6,7,10], deg:[0,2,3,3,4,6], lab:['1','♭3','4','♯4','5','♭7'],
+   from:{pt:'min', add:[6]},
+   quoi:'La penta mineure <b>+ la blue note</b>, glissée entre la 4 et la 5. Six notes, une seule nouvelle.',
+   ou:'Le blues, le rock, tout ce qui doit avoir du grain — y compris sur un accord MAJEUR (c\'est là que le ♭3 contre le 3 fait le son).',
+   astuce:'Tenue, la blue note est une faute ; <b>en passant</b>, c\'est un style. Tu la traverses, tu ne t\'y assieds jamais.'},
+  {id:'bluesM', ic:'⛪️', fam:'blues', nom:'Blues majeur', court:'1 2 ♭3 3 5 6', dark:false,
+   iv:[0,2,3,4,7,9], deg:[0,1,2,2,4,5], lab:['1','2','♭3','3','5','6'],
+   from:{pt:'maj', add:[3]},
+   quoi:'La penta majeure <b>+ le ♭3</b>, collé juste sous la 3. Tu montes du ♭3 vers le 3 et tu tiens le 3.',
+   ou:'Le son gospel, country, Ray Charles, Stevie Wonder — sur un accord majeur ou un I7 de blues.',
+   astuce:'En Do : le <b>Mib → Mi</b>. C\'est ce demi-ton, et lui seul, qui fait « l\'accent » de tout ce répertoire.'},
+  {id:'dom', ic:'⚡️', fam:'couleur', nom:'Penta dominante', court:'1 2 3 5 ♭7', dark:false,
+   iv:[0,2,4,7,10], deg:[0,1,2,4,6], lab:['1','2','3','5','♭7'],
+   quoi:'La penta majeure dont la <b>6 devient ♭7</b>. Résultat : tu as la tierce MAJEURE et la septième MINEURE — l\'accord de 7 au complet, plus la 9.',
+   ou:'Sur un <b>accord 7</b> (dominante) : blues joué propre, funk, rock, le V d\'un ii–V–I.',
+   astuce:'Sur G7 : Sol La Si Ré Fa. Compare avec la penta majeure de Sol (qui a Mi) : c\'est le <b>Fa</b> qui dit « dominante ».'},
+  {id:'sus', ic:'🌫', fam:'couleur', nom:'Penta suspendue', court:'1 2 4 5 ♭7', dark:true,
+   iv:[0,2,5,7,10], deg:[0,1,3,4,6], lab:['1','2','4','5','♭7'],
+   quoi:'La penta <b>sans tierce</b> : ni majeure, ni mineure. Elle ne tranche pas, elle flotte. Autre façon de la voir : c\'est la penta mineure de la QUINTE, posée sur ta note (penta suspendue de Do = penta mineure de Sol).',
+   ou:'Sur un <b>sus4</b>, un vamp modal, une pédale. Le son McCoy Tyner / « quartes » du piano moderne.',
+   astuce:'Elle sert de passe-partout : sur un m7 comme sur un 7sus, elle ne se trompe jamais de mode puisqu\'elle n\'a pas de tierce.'},
+  {id:'insen', ic:'🎏', fam:'exo', nom:'In sen (japonaise)', court:'1 ♭2 4 5 ♭7', dark:true,
+   iv:[0,1,5,7,10], deg:[0,1,3,4,6], lab:['1','♭2','4','5','♭7'],
+   quoi:'La penta suspendue dont la 2 est <b>abaissée d\'un demi-ton</b>. Ce ♭2 collé à la tonique fait tout le dépaysement.',
+   ou:'Musique japonaise, bandes originales, passages « ailleurs ». Marche aussi sur un accord <b>7♭9</b>.',
+   astuce:'Joue-la sur Mi (Mi Fa La Si Ré) : ce sont que des blanches — le plus court chemin pour l\'entendre.'},
+  {id:'hira', ic:'🎐', fam:'exo', nom:'Hirajōshi', court:'1 2 ♭3 5 ♭6', dark:true,
+   iv:[0,2,3,7,8], deg:[0,1,2,4,5], lab:['1','2','♭3','5','♭6'],
+   quoi:'Une penta mineure dont la 4 et la ♭7 sont remplacées par la <b>2</b> et la <b>♭6</b> : deux demi-tons apparaissent (2→♭3 et 5→♭6), là où une penta n\'en a d\'habitude aucun.',
+   ou:'L\'accordage du koto. À poser sur un accord mineur quand tu veux que ça ne ressemble à rien de ce que tu joues d\'habitude.',
+   astuce:'Elle ne pardonne pas : ses deux demi-tons frottent vraiment. On y va note par note, pas en balayage.'},
+];
+/* --- orthographe : la lettre avance avec le degré, et jamais de double altération --- */
+function pentaSpell(rootName, iv, deg){
+  const rootPc=NAMEPC[rootName], rl=LET7.indexOf(rootName.replace(/[#b]$/,''));
+  const one=d0=>{ const li=((rl+d0)%7+7)%7;
+    const d=((rootPc+iv-LET7_PC[li])%12+18)%12-6;
+    return {d, n:LET7[li]+(d>0?'#'.repeat(d):'b'.repeat(-d))}; };
+  let r=one(deg);
+  if(Math.abs(r.d)>1){ const a=one(deg+1), b=one(deg-1); r = Math.abs(a.d)<=Math.abs(b.d)?a:b; }
+  return r.n;
+}
+const pType=id=>PENTA_TYPES.find(t=>t.id===id);
+const pRootName=(T,pc)=>(T.dark?PENTA_DARK:PENTA_BRIGHT)[pc];
+/* Si# est le ♯4 juste de Fa# blues, Fab le ♭3 juste de Réb… mais personne n'appelle
+   ces touches comme ça sur un blues. On garde l'orthographe exacte ET on rappelle la
+   touche entre parenthèses : « Si#/Do ». Affichage seulement — la logique reste en hauteurs. */
+const PALIAS={'Fab':'Mi','Dob':'Si','Mi#':'Fa','Si#':'Do'};
+const pShow=n=>PALIAS[n]?n+'/'+PALIAS[n]:n;
+const pNotes=(T,pc)=>{ const r=pRootName(T,pc); return T.iv.map((iv,i)=>pShow(pentaSpell(r,iv,T.deg[i]))); };
+const pPcs=(T,pc)=>T.iv.map(iv=>(pc+iv)%12);
+/* registre : la penta reste sous la main, jamais à cheval sur deux octaves */
+const pBase=pc=>60+pc-(pc>5?12:0);
+function pPlay(T,pc,desc){
+  const b=pBase(pc), seq=desc ? T.iv.concat([12]).slice().reverse() : T.iv.concat([12]);
+  seq.forEach((iv,i)=>playNote(b+iv,.5,.38,i*.32));
+}
+const PDEG_LAB={0:'1',1:'♭9',2:'9',3:'♭3',4:'3',5:'11',6:'♯11',7:'5',8:'♭13',9:'13',10:'♭7',11:'7'};
+
+/* ---------------- état : la carte de conquête ---------------- */
+function pentaSt(){
+  if(!S.penta) S.penta={map:{}, add:{}, chord:{}, best:{}, cfg:null};
+  const P=S.penta; P.map=P.map||{}; P.add=P.add||{}; P.chord=P.chord||{}; P.best=P.best||{};
+  return P;
+}
+const pCell=(tid,pc)=>(pentaSt().map[tid]||{})[pc]||0;
+function pHit(tid,pc,ok){
+  const M=pentaSt().map; if(!M[tid]) M[tid]={};
+  M[tid][pc] = ok ? Math.min(3,(M[tid][pc]||0)+1) : 0;   /* une faute remet la case à zéro */
+  save();
+}
+const pTypeDone=tid=>{ let n=0; for(let pc=0;pc<12;pc++) if(pCell(tid,pc)>=2) n++; return n; };
+const pTotal=()=>PENTA_TYPES.reduce((a,T)=>a+pTypeDone(T.id),0);
+const pAddDone=()=>PENTA_ADDS.filter((a,i)=>(pentaSt().add[i]||0)>=2).length;
+const pChordDone=()=>PENTA_CHORDS.filter((c,i)=>(pentaSt().chord[i]||0)>=2).length;
+
+/* ---------------- les notes qu'on AJOUTE ----------------
+   Le prolongement direct des fiches des modes : une penta que tu joues déjà,
+   une ou deux notes en plus, et tu tombes dans une autre maison. */
+const PENTA_ADDS=[
+  {base:'min', cible:'le BLUES MINEUR', add:[6], lab:['♯4'], deg:[3], nb:1,
+   why:'Une seule note, la <b>blue note</b>, glissée entre la 4 et la 5. Elle ne se tient pas : on la traverse.'},
+  {base:'maj', cible:'le BLUES MAJEUR', add:[3], lab:['♭3'], deg:[2], nb:1,
+   why:'Le <b>♭3</b> collé sous la 3 : tu montes de l\'un à l\'autre et tu tiens le 3. Tout le son gospel tient dans ce demi-ton.'},
+  {base:'maj', cible:'la GAMME MAJEURE (ionien)', add:[5,11], lab:['4','7'], deg:[3,6], nb:2,
+   why:'Tu remets exactement les deux notes que la penta avait jetées : la <b>7</b> qui tire vers la tonique, la <b>4</b> qui retombe sur la 3. Tu regagnes la tension.'},
+  {base:'maj', cible:'le MIXOLYDIEN (le son des accords 7)', add:[5,10], lab:['4','♭7'], deg:[3,6], nb:2,
+   why:'La <b>4</b>, et surtout la <b>♭7</b> au lieu de la 7 : la note qui monterait vers la tonique est abaissée d\'un demi-ton, l\'envie de résoudre disparaît. C\'est le son « dominante ».'},
+  {base:'maj', cible:'le LYDIEN (celui qui flotte)', add:[6,11], lab:['♯4','7'], deg:[3,6], nb:2,
+   why:'La <b>7</b>, et la 4 <b>haussée</b> d\'un demi-ton : la note qui posait l\'accord ne pose plus rien. Ça plane.'},
+  {base:'min', cible:'le MINEUR NATUREL (éolien)', add:[2,8], lab:['2','♭6'], deg:[1,5], nb:2,
+   why:'La <b>2</b> bouche le trou sous la ♭3, la <b>♭6</b> pèse juste au-dessus de la 5 et retombe dessus : c\'est la mélancolie du mineur.'},
+  {base:'min', cible:'le DORIEN (le mineur qui sourit)', add:[2,9], lab:['2','6'], deg:[1,5], nb:2,
+   why:'Même chose que l\'éolien, sauf la <b>6 MAJEURE</b> au lieu de la ♭6. Un demi-ton plus haut, et le mineur s\'éclaire (« So What »).'},
+  {base:'min', cible:'le PHRYGIEN (le son flamenco)', add:[1,8], lab:['♭2','♭6'], deg:[1,5], nb:2,
+   why:'La <b>♭2</b>, collée d\'un demi-ton au-dessus de la tonique, retombe dessus. C\'est elle, et rien d\'autre, qui fait l\'Espagne.'},
+];
+/* ---------------- les pentas posées sur un accord ----------------
+   Le débouché : une penta ne sert à rien tant qu'on ne sait pas SUR QUOI la poser. */
+const PENTA_CHORDS=[
+  {niv:1, ch:'Dm7',  root:2, civ:[0,3,7,10], pt:'min', off:0,
+   cons:'la penta <b>mineure</b> bâtie sur <b>sa fondamentale</b>',
+   why:'La plus sûre : chaque note est dans l\'accord ou juste à côté (1 ♭3 4 5 ♭7).'},
+  {niv:1, ch:'Cmaj7', root:0, civ:[0,4,7,11], pt:'maj', off:0,
+   cons:'la penta <b>majeure</b> bâtie sur <b>sa fondamentale</b>',
+   why:'La penta majeure a jeté la 4 — exactement la note qui frotterait contre la tierce d\'un maj7. Elle est faite pour cet accord.'},
+  {niv:1, ch:'G7',   root:7, civ:[0,4,7,10], pt:'dom', off:0,
+   cons:'la penta <b>dominante</b> bâtie sur <b>sa fondamentale</b>',
+   why:'Elle contient l\'accord entier (1 3 5 ♭7) plus la 9. Impossible de sonner à côté.'},
+  {niv:1, ch:'C7 — blues', root:0, civ:[0,4,7,10], pt:'blues', off:0, lab:{5:'4',6:'♭5'},
+   cons:'le <b>blues mineur</b> bâti sur <b>sa fondamentale</b>',
+   why:'Sur un accord MAJEUR, une penta mineure : le ♭3 frotte contre le 3 de l\'accord. Ailleurs c\'est une faute ; sur un blues, c\'est le son.'},
+  {niv:2, ch:'Dm7',  root:2, civ:[0,3,7,10], pt:'min', off:7,
+   cons:'la penta <b>mineure</b> bâtie sur <b>sa quinte</b>',
+   why:'Tu gardes 5 ♭7 1, et tu gagnes la 9 et la 11. Même sécurité que la penta de la fondamentale, plus de couleur.'},
+  {niv:2, ch:'Cmaj7', root:0, civ:[0,4,7,11], pt:'maj', off:7,
+   cons:'la penta <b>majeure</b> bâtie sur <b>sa quinte</b>',
+   why:'Sur Cmaj7, la penta de Sol donne 5 6 7 9 3 : la 9 et la 13 tombent toutes seules, sans que tu aies à y penser.'},
+  {niv:2, ch:'G7',   root:7, civ:[0,4,7,10], pt:'min', off:7,
+   cons:'la penta <b>mineure</b> bâtie sur <b>sa quinte</b>',
+   why:'Sur G7, la penta mineure de Ré : 5 ♭7 1 9 11. Le vieux truc des saxophonistes pour sonner moderne sans rien altérer.'},
+  {niv:2, ch:'Fmaj7♯11 — lydien', root:5, civ:[0,4,7,11,18], pt:'maj', off:2,
+   cons:'la penta <b>majeure</b> bâtie sur <b>sa seconde</b>',
+   why:'Sur Fa maj7♯11, la penta de Sol donne 9 3 ♯11 13 7 : tout le parfum lydien, sans une note de trop.'},
+  {niv:2, ch:'Csus4 / vamp modal', root:0, civ:[0,5,7,10], pt:'sus', off:0, lab:{5:'4'},
+   cons:'la penta <b>suspendue</b> bâtie sur <b>sa fondamentale</b>',
+   why:'Pas de tierce dans l\'accord, pas de tierce dans la gamme : rien ne peut contredire rien.'},
+  {niv:3, ch:'Am7♭5', root:9, civ:[0,3,6,10], pt:'min', off:3, lab:{6:'♭5'},
+   cons:'la penta <b>mineure</b> bâtie sur <b>sa tierce mineure</b>',
+   why:'Sur Am7♭5, la penta mineure de Do donne ♭3 ♭5 ♭13 ♭7 ♭9 : elle dessine l\'accord ET ses tensions. Le demi-diminué cesse d\'être un problème.'},
+  {niv:3, ch:'Cm7 — modal', root:0, civ:[0,3,7,10], pt:'min', off:7,
+   cons:'la penta <b>mineure</b> bâtie sur <b>sa quinte</b>',
+   why:'5 ♭7 1 9 11 : le son dorien/modal sans jouer la 6 — la couleur reste ouverte.'},
+  {niv:3, ch:'G7 — bluesy', root:7, civ:[0,4,7,10], pt:'bluesM', off:0,
+   cons:'le <b>blues majeur</b> bâti sur <b>sa fondamentale</b>',
+   why:'La tierce majeure de l\'accord est dans la gamme, et le ♭3 sert de note de passage vers elle. C\'est le blues « propre », celui des pianistes.'},
+];
+
+/* ================================================================
+   LA SALLE
+   ================================================================ */
+function pentaRoom(){
+  openCustom('🖐 Les pentas',(inner)=>{
+    const th=document.createElement('div'); th.className='theory';
+    th.innerHTML=`<p>Cinq notes. C'est tout ce qui sépare « je cherche mes notes » de « je joue ». Ici l'app te <b>demande une penta</b> et tu la donnes <b>sur le clavier</b> — pas en QCM, pas en la reconnaissant : en la produisant, note après note, dans l'ordre.</p>
+      <h3>Pourquoi cinq notes et pas sept</h3>
+      <p>Dans une gamme majeure, deux notes frottent contre leurs voisines (la 4 contre la 3, la 7 contre la tonique). La <b>penta majeure</b>, c'est la gamme sans ces deux-là : ce qui reste ne peut pas sonner faux. La <b>penta mineure</b>, ce sont les mêmes touches avec une autre maison. Le reste du module part de ces deux-là et y ajoute des notes.</p>
+      <div class="tip">💡 Trois portes : <b>donne la penta</b> (production pure), <b>les notes en plus</b> (penta → blues, penta → mode), <b>sur quel accord</b> (la penta devient de la musique).</div>`;
+    inner.appendChild(th);
+
+    const tot=pTotal(), cases=PENTA_TYPES.length*12;
+    const prog=document.createElement('div'); prog.className='card'; prog.style.borderColor='var(--acc)';
+    prog.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:baseline">
+        <b style="font-size:15px">🗺 Ta carte</b>
+        <span style="color:var(--acc);font-weight:800">${tot}/${cases} cases</span></div>
+      <div class="bigbar" style="margin:8px 0 10px"><i style="width:${Math.round(tot/cases*100)}%"></i></div>
+      <p style="color:var(--dim);font-size:12.5px;margin:0 0 8px;line-height:1.5">Une case = une penta sur une fondamentale. Elle s'allume après <b>2 réussites</b> ; une faute la remet à zéro. L'app te sert en priorité les cases éteintes.</p>
+      ${PENTA_TYPES.map(T=>{
+        const n=pTypeDone(T.id);
+        return `<div style="margin-top:9px"><div style="display:flex;justify-content:space-between;font-size:12.5px;font-weight:800">
+            <span>${T.ic} ${T.nom}</span><span style="color:${n===12?'var(--ok)':'var(--dim)'}">${n}/12</span></div>
+          <div class="pdots">${[0,1,2,3,4,5,6,7,8,9,10,11].map(pc=>{
+            const c=pCell(T.id,pc);
+            return `<i class="${c>=2?'on':c?'half':''}">${pRootName(T,pc)}</i>`; }).join('')}</div></div>`;
+      }).join('')}
+      <p style="color:var(--dim);font-size:12px;margin:10px 0 0">➕ Les notes en plus : <b style="color:${pAddDone()===PENTA_ADDS.length?'var(--ok)':'var(--acc)'}">${pAddDone()}/${PENTA_ADDS.length}</b> · 🎯 Sur un accord : <b style="color:${pChordDone()===PENTA_CHORDS.length?'var(--ok)':'var(--acc)'}">${pChordDone()}/${PENTA_CHORDS.length}</b></p>`;
+    inner.appendChild(prog);
+
+    [['🎹','Donne la penta','Une penta, une fondamentale : tu la joues sur le clavier, dans l\'ordre, montante ou descendante. Le cœur du module.',()=>pentaDrillRoom()],
+     ['➕','Les notes en plus','La penta est déjà posée sur le clavier — ajoute la ou les notes qui en font le blues, le dorien, le mixolydien, la gamme majeure…',()=>pentaAddsRoom()],
+     ['🎯','Sur quel accord ?','Un accord s\'affiche : joue la penta qui va dessus. Ensuite l\'app te montre ce que chaque note devient (9, ♯11, 13…).',()=>pentaChordsRoom()]
+    ].forEach(([ic,t,d,fn])=>{
+      const c=document.createElement('div'); c.className='card';
+      c.innerHTML=`<b style="font-size:16px">${ic} ${t}</b><p style="color:var(--dim);font-size:13px;margin:4px 0 0;line-height:1.5">${d}</p>`;
+      const b=document.createElement('button'); b.className='btn'+(ic==='🎹'?'':' ghost'); b.textContent='Lancer';
+      b.onclick=fn; c.appendChild(b); inner.appendChild(c);
+    });
+
+    /* ---- les recettes, dans la tonalité de ton choix ---- */
+    const ft=document.createElement('div'); ft.className='theory';
+    ft.innerHTML=`<h3 style="margin-top:22px">📖 Les recettes</h3>
+      <p>Chaque penta en <b>degrés</b> (la place de la note en partant de 1) et en <b>vraies notes</b>, dans la tonalité que tu choisis. Touche ▶ pour l'entendre.</p>`;
+    inner.appendChild(ft);
+    let fRoot = pentaSt().fRoot!=null ? pentaSt().fRoot : 0;
+    const rr=document.createElement('div'); rr.className='selrow';
+    PENTA_BRIGHT.forEach((nm,pc)=>{ const t=document.createElement('div'); t.className='tag'+(pc===fRoot?' on':'');
+      t.textContent=PENTA_DARK[pc]===nm?nm:nm+'/'+PENTA_DARK[pc];
+      t.onclick=()=>{ fRoot=pc; pentaSt().fRoot=pc; save(); rr.querySelectorAll('.tag').forEach(x=>x.classList.remove('on')); t.classList.add('on'); drawFiches(); };
+      rr.appendChild(t); });
+    inner.appendChild(rr);
+    const fbox=document.createElement('div'); inner.appendChild(fbox);
+    function drawFiches(){
+      fbox.innerHTML='';
+      PENTA_FAMS.forEach(([fam,titre])=>{
+        const h=document.createElement('div'); h.className='mfstep'; h.style.cssText='margin-top:16px;font-size:12.5px;color:var(--acc)';
+        h.textContent=titre; fbox.appendChild(h);
+        PENTA_TYPES.filter(T=>T.fam===fam).forEach(T=>{
+          const R=pRootName(T,fRoot), N=pNotes(T,fRoot), n=pTypeDone(T.id);
+          const src = T.from ? (()=>{ const B=pType(T.from.pt), BN=pNotes(B,fRoot);
+              const adds=T.from.add.map(iv=>{ const i=T.iv.indexOf(iv); return N[i]; });
+              return `<div class="mfstep">D'où elle vient</div>
+                <div style="color:#c9cde0;font-size:13.5px;line-height:1.55;margin-top:3px">${B.nom} de ${pRootName(B,fRoot)} (<b>${BN.join(' ')}</b>) <b style="color:var(--acc)">+ ${adds.join(' et ')}</b>.</div>`; })() : '';
+          const c=document.createElement('div'); c.className='card';
+          c.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
+              <b style="font-size:17px">${T.ic} ${T.nom} de ${R}</b>
+              <span style="color:${n===12?'var(--ok)':'var(--dim)'};font-size:12px;font-weight:800">${n}/12</span></div>
+            <div class="pgrid">${T.iv.map((iv,i)=>`<div><b>${T.lab[i]}</b><span>${N[i]}</span></div>`).join('')}</div>
+            <p style="color:#c9cde0;font-size:13.5px;line-height:1.55;margin:0">${T.quoi}</p>
+            ${src}
+            <div class="mfstep">Où ça se pose</div>
+            <div style="color:#c9cde0;font-size:13.5px;line-height:1.55;margin-top:3px">${T.ou}</div>
+            <div class="tip" style="margin-top:9px">💡 ${T.astuce}</div>
+            <div class="mfplay"><button class="btn ghost" data-p="up">▶ Montante</button><button class="btn ghost" data-p="down">▶ Descendante</button><button class="btn ghost" data-p="go">🎹 M'interroger</button></div>`;
+          c.onclick=e=>{ const b=e.target.closest('[data-p]'); if(!b) return;
+            if(b.dataset.p==='go'){ const P=pentaSt(); P.cfg={types:[T.id], roots:'12', dir:'up', n:5}; save(); pentaDrillRoom(); return; }
+            pPlay(T,fRoot,b.dataset.p==='down'); };
+          fbox.appendChild(c);
+        });
+      });
+    }
+    drawFiches();
+    overlay.scrollTop=0;
+  });
+}
+
+/* ---------------- tirage pondéré : ce que tu rates revient ---------------- */
+function pentaPick(C,n){
+  const roots = C.roots==='12' ? [0,1,2,3,4,5,6,7,8,9,10,11] : [0,2,4,5,7,9,11];
+  const pool=[];
+  (C.types.length?C.types:['maj']).forEach(tid=>{ const T=pType(tid); if(!T) return;
+    roots.forEach(pc=>{ const c=pCell(tid,pc); pool.push({T,pc,w:c>=2?1:(c===1?3:6)}); }); });
+  const out=[];
+  while(out.length<n && pool.length){
+    let tot=pool.reduce((a,x)=>a+x.w,0), r=Math.random()*tot, i=0;
+    while(i<pool.length-1 && r>pool[i].w){ r-=pool[i].w; i++; }
+    const p=pool.splice(i,1)[0];
+    out.push({T:p.T, pc:p.pc, dir: C.dir==='mix' ? (Math.random()<.5?'up':'down') : C.dir});
+  }
+  return out;
+}
+
+/* ================================================================
+   EXERCICE 1 — DONNE LA PENTA (production sur le clavier)
+   ================================================================ */
+function pentaDrillRoom(){
+  openCustom('🎹 Donne la penta',(inner)=>{
+    const P=pentaSt();
+    const C = P.cfg || (P.cfg={types:['maj','min'], roots:'blanches', dir:'up', n:5});
+    if(!C.types||!C.types.length) C.types=['maj'];
+    const wrap=document.createElement('div'); inner.appendChild(wrap);
+
+    const accueil=()=>{
+      wrap.innerHTML=`
+        <p style="color:var(--dim);font-size:14px;line-height:1.55;margin:2px 0 12px">
+          L'app annonce une penta et une fondamentale. Tu la joues <b style="color:var(--txt)">sur le clavier</b>, note après note, dans l'ordre.
+          La tonique est déjà posée : c'est la SUITE qu'on te demande. Une fausse note et tu repars de la tonique.</p>
+        <div class="mfstep">Les pentas travaillées</div>
+        <div class="chipwrap" id="pTypes" style="margin:6px 0 4px"></div>
+        <div class="mfstep">Les fondamentales</div>
+        <div class="chipwrap" id="pRoots" style="margin:6px 0 4px"></div>
+        <div class="mfstep">Le sens</div>
+        <div class="chipwrap" id="pDir" style="margin:6px 0 10px"></div>
+        <button class="btn" id="pGo">Lancer les ${C.n} pentas</button>
+        <button class="btn ghost" id="pBack">← Les pentas</button>`;
+      const tw=wrap.querySelector('#pTypes');
+      PENTA_TYPES.forEach(T=>{ const d=document.createElement('div');
+        d.className='chip'+(C.types.includes(T.id)?' cur':''); d.innerHTML=`${T.ic} ${T.nom}`;
+        d.onclick=()=>{ const i=C.types.indexOf(T.id);
+          if(i<0) C.types.push(T.id); else if(C.types.length>1) C.types.splice(i,1);
+          save(); accueil(); };
+        tw.appendChild(d); });
+      const rw=wrap.querySelector('#pRoots');
+      [['blanches','Les 7 blanches'],['12','Les 12 fondamentales']].forEach(([v,l])=>{
+        const d=document.createElement('div'); d.className='chip'+(C.roots===v?' cur':''); d.textContent=l;
+        d.onclick=()=>{ C.roots=v; save(); accueil(); }; rw.appendChild(d); });
+      const dw=wrap.querySelector('#pDir');
+      [['up','Montante ↑'],['down','Descendante ↓'],['mix','Mélangé']].forEach(([v,l])=>{
+        const d=document.createElement('div'); d.className='chip'+(C.dir===v?' cur':''); d.textContent=l;
+        d.onclick=()=>{ C.dir=v; save(); accueil(); }; dw.appendChild(d); });
+      wrap.querySelector('#pGo').onclick=()=>partie(pentaPick(C,C.n));
+      wrap.querySelector('#pBack').onclick=()=>pentaRoom();
+      overlay.scrollTop=0;
+    };
+
+    const partie=(QS)=>{
+      let qi=0; const res=[];
+      const poser=()=>{
+        if(qi>=QS.length) return bilan();
+        const q=QS[qi], T=q.T, pc=q.pc, desc=q.dir==='down';
+        const names=pNotes(T,pc), pcs=pPcs(T,pc), n=T.iv.length;
+        const seqN = desc ? [names[0]].concat(names.slice(1).reverse()) : names.slice();
+        const seqP = desc ? [pcs[0]].concat(pcs.slice(1).reverse()) : pcs.slice();
+        const seqI = desc ? [12].concat(T.iv.slice(1).reverse()) : T.iv.slice();
+        const seqL = desc ? [T.lab[0]].concat(T.lab.slice(1).reverse()) : T.lab.slice();
+        let idx=1, faults=0, t0=Date.now(), fini=false;
+        wrap.innerHTML=`
+          <div style="display:flex;justify-content:space-between;color:var(--dim);font-size:12px;font-weight:800;letter-spacing:1px;text-transform:uppercase">
+            <span>Penta ${qi+1}/${QS.length}</span><span id="pT">0.0 s</span></div>
+          <div style="text-align:center;margin:10px 0 2px">
+            <div style="color:var(--dim);font-size:12.5px;font-weight:800;text-transform:uppercase;letter-spacing:1px">${T.ic} ${T.nom} ${desc?'· descendante ↓':'· montante ↑'}</div>
+            <div style="font-size:46px;font-weight:900;line-height:1.15">${pRootName(T,pc)}</div></div>
+          <div class="noteslots" id="pSlots"></div>
+          <div class="fb" id="pFb" style="min-height:20px"></div>
+          <div id="pKb"></div>
+          <div id="pHelp"></div>`;
+        const slots=wrap.querySelector('#pSlots'), fb=wrap.querySelector('#pFb'), help=wrap.querySelector('#pHelp');
+        const timer=setInterval(()=>{ const e=wrap.querySelector('#pT'); if(e&&!fini) e.textContent=((Date.now()-t0)/1000).toFixed(1)+' s'; },100);
+        const draw=()=>{ slots.innerHTML='';
+          for(let i=0;i<n;i++){ const s=document.createElement('div'); s.className='sl';
+            if(i===0){ s.classList.add('ton'); s.textContent=seqN[0]; }
+            else if(i<idx){ s.classList.add('on'); s.textContent=seqN[i]; }
+            else s.textContent='·';
+            slots.appendChild(s); } };
+        const b0=pBase(pc);
+        const kb=pcKeyboard(p=>{
+          if(fini) return;
+          playNote(b0+((p-pc+12)%12) + (desc&&p===pc&&idx>0?12:0), .5);
+          if(p===seqP[idx]){
+            kb.flash(p,'ok'); idx++; draw();
+            kb.clearMarks();
+            if(faults>=3 && idx<n) kb.mark(seqP[idx],'lit',true);   /* l'aide suit la progression */
+            if(idx>=n) return reussi();
+            fb.className='fb'; fb.textContent=`Bien — note ${idx+1}/${n}.`;
+          } else {
+            kb.flash(p,'bad'); buzz(); faults++;
+            idx=1; draw(); kb.clearMarks();
+            fb.className='fb bad';
+            fb.textContent=`✗ ${PCKB_NAMES[p][0]} n'en est pas. On repart de la tonique.`;
+            if(faults===2) montrerFormule();
+            if(faults>=3){ kb.mark(seqP[idx],'lit',true); fb.textContent+=' La note attendue est allumée.'; }
+          }
+        });
+        wrap.querySelector('#pKb').appendChild(kb);
+        const row=document.createElement('div'); row.className='mfplay'; row.style.marginTop='2px';
+        row.innerHTML=`<button class="btn ghost" id="pTon">🔊 La tonique</button><button class="btn ghost" id="pForm">❔ La formule</button><button class="btn ghost" id="pSkip">Passer</button>`;
+        help.appendChild(row);
+        wrap.querySelector('#pTon').onclick=()=>playNote(desc?b0+12:b0,.8);
+        wrap.querySelector('#pForm').onclick=()=>montrerFormule();
+        wrap.querySelector('#pSkip').onclick=()=>{ fini=true; clearInterval(timer);
+          pHit(T.id,pc,false); res.push({T,pc,desc,faults:faults,secs:null,ok:false});
+          fb.className='fb bad'; fb.textContent='Passée : '+seqN.join(' ');
+          setTimeout(()=>{ qi++; poser(); },1400); };
+        function montrerFormule(){
+          if(wrap.querySelector('#pFormula')) return;
+          const d=document.createElement('div'); d.id='pFormula'; d.className='pgrid'; d.style.marginTop='8px';
+          d.innerHTML=seqL.map((l,i)=>`<div><b>${l}</b><span>${i<=0?seqN[0]:'·'}</span></div>`).join('');
+          help.insertBefore(d,row);
+        }
+        function reussi(){
+          fini=true; clearInterval(timer); tada();
+          const secs=Math.round((Date.now()-t0)/100)/10;
+          const clean=faults===0;
+          pHit(T.id,pc,clean);
+          res.push({T,pc,desc,faults,secs,ok:true});
+          if(clean){ const B=pentaSt().best, k=T.id;
+            if(B[k]==null||secs<B[k]){ B[k]=secs; save(); } }
+          fb.className='fb'; fb.innerHTML=`<b style="color:var(--ok)">✓ ${seqN.join(' ')}</b> — ${secs}s${faults?` · ${faults} reprise${faults>1?'s':''}`:' · sans faute'}`;
+          pPlay(T,pc,desc);
+          setTimeout(()=>{ qi++; poser(); }, 1500);
+        }
+        draw(); fb.className='fb'; fb.textContent='Commence par la note APRÈS la tonique.';
+        overlay.scrollTop=0;
+      };
+      const bilan=()=>{
+        const clean=res.filter(r=>r.ok&&!r.faults).length, xp=10+3*clean;
+        award(xp); dailyMark('penta'); save();
+        wrap.innerHTML=`
+          <div style="text-align:center;padding:14px 0">
+            <div style="font-size:52px;font-weight:900;line-height:1;color:${clean===res.length?'var(--ok)':clean>=3?'var(--acc)':'var(--txt)'}">${clean}/${res.length}</div>
+            <div style="color:var(--dim);font-size:13px;margin-top:6px">pentas données <b>sans une faute</b></div>
+            <div style="color:var(--ok);font-size:12px;margin-top:6px">+${xp} XP</div></div>
+          <div class="card"><b style="font-size:14px">Le détail</b>
+            <div style="margin-top:8px;display:flex;flex-direction:column;gap:6px">
+            ${res.map(r=>`<div style="font-size:13px;color:var(--dim);display:flex;justify-content:space-between;gap:8px">
+                <span>${r.ok&&!r.faults?'<b style="color:var(--ok)">✓</b>':'<b style="color:var(--bad)">•</b>'} ${r.T.nom} de ${pRootName(r.T,r.pc)} ${r.desc?'↓':'↑'}</span>
+                <span>${r.secs!=null?r.secs+'s':'passée'}${r.faults?` · ${r.faults} reprise${r.faults>1?'s':''}`:''}</span></div>`).join('')}</div>
+            ${clean<res.length?'<p style="color:var(--dim);font-size:12px;margin:10px 0 0">Les pentas ratées reviendront en priorité : leur case est retombée à zéro.</p>':''}</div>
+          <button class="btn" id="pAgain">↻ Cinq de plus</button>
+          <button class="btn ghost" id="pHome">← Les pentas</button>`;
+        wrap.querySelector('#pAgain').onclick=()=>partie(pentaPick(C,C.n));
+        wrap.querySelector('#pHome').onclick=()=>pentaRoom();
+        overlay.scrollTop=0;
+      };
+      poser();
+    };
+    accueil();
+  });
+}
+
+/* ================================================================
+   EXERCICE 2 — LES NOTES EN PLUS
+   ================================================================ */
+function pentaAddsRoom(){
+  openCustom('➕ Les notes en plus',(inner)=>{
+    const wrap=document.createElement('div'); inner.appendChild(wrap);
+    const ROOTS=[0,1,2,3,4,5,6,7,8,9,10,11];
+    const pick=n=>{
+      const pool=PENTA_ADDS.map((A,i)=>({A,i,w:(pentaSt().add[i]||0)>=2?1:((pentaSt().add[i]||0)===1?3:6)}));
+      const out=[];
+      while(out.length<n && pool.length){
+        let tot=pool.reduce((a,x)=>a+x.w,0), r=Math.random()*tot, k=0;
+        while(k<pool.length-1 && r>pool[k].w){ r-=pool[k].w; k++; }
+        const p=pool.splice(k,1)[0];
+        out.push({A:p.A, i:p.i, pc:ROOTS[Math.floor(Math.random()*ROOTS.length)]});
+      }
+      return out;
+    };
+    const accueil=()=>{
+      wrap.innerHTML=`
+        <p style="color:var(--dim);font-size:14px;line-height:1.55;margin:2px 0 12px">
+          Une penta est <b style="color:var(--txt)">déjà posée</b> sur le clavier (en bleu). L'app te dit où tu dois arriver — le blues, le dorien, le mixolydien, la gamme majeure… —
+          et tu cliques <b style="color:var(--txt)">uniquement la ou les notes à ajouter</b>. C'est la suite directe des fiches des modes : une penta, deux notes, une autre maison.</p>
+        <div class="card"><b style="font-size:14px">Les 8 ajouts</b>
+          <div style="margin-top:8px;display:flex;flex-direction:column;gap:5px">
+          ${PENTA_ADDS.map((A,i)=>{ const d=(pentaSt().add[i]||0);
+            return `<div style="font-size:13px;color:var(--dim)">${d>=2?'<b style="color:var(--ok)">✓</b>':d?'<b style="color:var(--acc)">◐</b>':'<b>·</b>'}
+              Penta ${A.base==='maj'?'majeure':'mineure'} <b style="color:var(--acc)">+ ${A.lab.join(' + ')}</b> → ${A.cible}</div>`; }).join('')}</div></div>
+        <button class="btn" id="aGo">Lancer les 5 questions</button>
+        <button class="btn ghost" id="aBack">← Les pentas</button>`;
+      wrap.querySelector('#aGo').onclick=()=>partie(pick(5));
+      wrap.querySelector('#aBack').onclick=()=>pentaRoom();
+      overlay.scrollTop=0;
+    };
+    const partie=QS=>{
+      let qi=0; const res=[];
+      const poser=()=>{
+        if(qi>=QS.length) return bilan();
+        const {A,i,pc}=QS[qi], B=pType(A.base), R=pRootName(B,pc);
+        const basePcs=pPcs(B,pc), baseNames=pNotes(B,pc);
+        const addPcs=A.add.map(iv=>(pc+iv)%12);
+        const addNames=A.add.map((iv,k)=>pShow(pentaSpell(R,iv,A.deg[k])));
+        let found=[], faults=0, fini=false;
+        wrap.innerHTML=`
+          <div style="color:var(--dim);font-size:12px;font-weight:800;letter-spacing:1px;text-transform:uppercase">Question ${qi+1}/${QS.length}</div>
+          <div style="text-align:center;margin:10px 0 2px">
+            <div style="color:var(--dim);font-size:13px">${B.ic} Penta ${A.base==='maj'?'majeure':'mineure'} de <b style="color:var(--txt)">${R}</b> — ${baseNames.join(' ')}</div>
+            <div style="font-size:16px;font-weight:800;line-height:1.4;margin-top:8px">Ajoute ${A.nb===1?'<b style="color:var(--acc)">la note</b>':'<b style="color:var(--acc)">les 2 notes</b>'} qui en font</div>
+            <div style="font-size:24px;font-weight:900;line-height:1.25;color:var(--acc)">${A.cible} de ${R}</div></div>
+          <div class="fb" id="aFb" style="min-height:20px"></div>
+          <div id="aKb"></div>
+          <div id="aHelp"></div>`;
+        const fb=wrap.querySelector('#aFb');
+        const b0=pBase(pc);
+        const kb=pcKeyboard(p=>{
+          if(fini) return;
+          playNote(b0+((p-pc+12)%12),.5);
+          if(basePcs.includes(p)){ fb.className='fb'; fb.textContent='Celle-là y est déjà — c\'est une note de la penta.'; return; }
+          const k=addPcs.indexOf(p);
+          if(k>=0 && !found.includes(p)){
+            found.push(p); kb.flash(p,'ok'); kb.mark(p,'got',true);
+            if(found.length>=addPcs.length) return reussi();
+            fb.className='fb'; fb.textContent=`✓ ${addNames[k]} — il en reste ${addPcs.length-found.length}.`;
+          } else if(k>=0){ fb.className='fb'; fb.textContent='Déjà trouvée.'; }
+          else {
+            kb.flash(p,'bad'); buzz(); faults++;
+            fb.className='fb bad'; fb.textContent=`✗ ${PCKB_NAMES[p][0]} ne fait pas ${A.cible}.`;
+            if(faults>=2){ const miss=addPcs.find(x=>!found.includes(x));
+              fb.textContent+=` Indice : la note cherchée est ${A.lab[addPcs.indexOf(miss)]} de ${R}.`; }
+          }
+        });
+        wrap.querySelector('#aKb').appendChild(kb);
+        basePcs.forEach(p=>kb.mark(p,'lit',true));
+        const row=document.createElement('div'); row.className='mfplay'; row.style.marginTop='2px';
+        row.innerHTML=`<button class="btn ghost" id="aPlay">▶ La penta</button><button class="btn ghost" id="aSkip">Passer</button>`;
+        wrap.querySelector('#aHelp').appendChild(row);
+        wrap.querySelector('#aPlay').onclick=()=>pPlay(B,pc,false);
+        wrap.querySelector('#aSkip').onclick=()=>{ fini=true; pentaSt().add[i]=0; save();
+          res.push({A,pc,R,ok:false,faults}); fb.className='fb bad';
+          fb.textContent='Passée : il fallait ajouter '+addNames.join(' et ')+'.';
+          setTimeout(()=>{ qi++; poser(); },1700); };
+        function reussi(){
+          fini=true; tada();
+          const clean=faults===0;
+          pentaSt().add[i]= clean ? Math.min(3,(pentaSt().add[i]||0)+1) : 0; save();
+          res.push({A,pc,R,ok:true,faults});
+          /* la gamme obtenue, remise dans l'ordre, en vraies notes */
+          const all=basePcs.map((p,k)=>({p, iv:B.iv[k], n:baseNames[k], lab:B.lab[k], add:false}))
+            .concat(addPcs.map((p,k)=>({p, iv:A.add[k], n:addNames[k], lab:'+ '+A.lab[k], add:true})))
+            .sort((x,y)=>x.iv-y.iv);
+          fb.className='fb'; fb.innerHTML=`<b style="color:var(--ok)">✓ ${A.cible} de ${R}</b>`;
+          const d=document.createElement('div'); d.className='card'; d.style.borderColor='var(--ok)';
+          d.innerHTML=`<div class="pgrid">${all.map(x=>`<div class="${x.add?'add':''}"><b>${x.n}</b><span>${x.lab}</span></div>`).join('')}</div>
+            <p style="color:#c9cde0;font-size:13.5px;line-height:1.55;margin:0">${A.why}</p>`;
+          wrap.querySelector('#aHelp').insertBefore(d,row);
+          const b=pBase(pc); all.concat([{iv:12,n:''}]).forEach((x,k)=>playNote(b+x.iv,.5,.38,k*.3));
+          setTimeout(()=>{ qi++; poser(); }, 2600);
+        }
+        fb.className='fb'; fb.textContent='Le bleu = la penta. Clique seulement ce qui manque.';
+        overlay.scrollTop=0;
+      };
+      const bilan=()=>{
+        const clean=res.filter(r=>r.ok&&!r.faults).length, xp=8+3*clean;
+        award(xp); dailyMark('penta'); save();
+        wrap.innerHTML=`<div style="text-align:center;padding:14px 0">
+            <div style="font-size:52px;font-weight:900;line-height:1;color:${clean===res.length?'var(--ok)':'var(--txt)'}">${clean}/${res.length}</div>
+            <div style="color:var(--dim);font-size:13px;margin-top:6px">ajouts trouvés du premier coup</div>
+            <div style="color:var(--ok);font-size:12px;margin-top:6px">+${xp} XP</div></div>
+          <div class="card"><div style="display:flex;flex-direction:column;gap:6px">
+            ${res.map(r=>`<div style="font-size:13px;color:var(--dim)">${r.ok&&!r.faults?'<b style="color:var(--ok)">✓</b>':'<b style="color:var(--bad)">•</b>'}
+              ${r.A.cible} de ${r.R} — <b style="color:var(--acc)">+ ${r.A.lab.join(' + ')}</b></div>`).join('')}</div></div>
+          <button class="btn" id="aAgain">↻ Cinq de plus</button>
+          <button class="btn ghost" id="aHome">← Les pentas</button>`;
+        wrap.querySelector('#aAgain').onclick=()=>partie(pick(5));
+        wrap.querySelector('#aHome').onclick=()=>pentaRoom();
+        overlay.scrollTop=0;
+      };
+      poser();
+    };
+    accueil();
+  });
+}
+
+/* ================================================================
+   EXERCICE 3 — SUR QUEL ACCORD
+   ================================================================ */
+function pentaChordsRoom(){
+  openCustom('🎯 La penta sur un accord',(inner)=>{
+    const wrap=document.createElement('div'); inner.appendChild(wrap);
+    const pick=n=>{
+      const pool=PENTA_CHORDS.map((C,i)=>({C,i,w:(pentaSt().chord[i]||0)>=2?1:((pentaSt().chord[i]||0)===1?3:6)}));
+      const out=[];
+      while(out.length<n && pool.length){
+        let tot=pool.reduce((a,x)=>a+x.w,0), r=Math.random()*tot, k=0;
+        while(k<pool.length-1 && r>pool[k].w){ r-=pool[k].w; k++; }
+        out.push(pool.splice(k,1)[0]);
+      }
+      return out;
+    };
+    const accueil=()=>{
+      wrap.innerHTML=`
+        <p style="color:var(--dim);font-size:14px;line-height:1.55;margin:2px 0 12px">
+          Un accord s'affiche, avec la <b style="color:var(--txt)">recette</b> : « la penta mineure bâtie sur sa quinte », par exemple.
+          À toi de trouver <b style="color:var(--txt)">sur quelle note</b> elle se construit et de la jouer sur le clavier — la tonique comprise, cette fois.
+          Ensuite l'app te montre ce que chaque note devient au-dessus de l'accord (9, ♯11, 13…).</p>
+        <div class="card"><b style="font-size:14px">Les ${PENTA_CHORDS.length} recettes</b>
+          <div style="margin-top:8px;display:flex;flex-direction:column;gap:5px">
+          ${PENTA_CHORDS.map((C,i)=>{ const d=(pentaSt().chord[i]||0);
+            return `<div style="font-size:13px;color:var(--dim)">${d>=2?'<b style="color:var(--ok)">✓</b>':d?'<b style="color:var(--acc)">◐</b>':'<b>·</b>'}
+              <b style="color:var(--txt)">${C.ch}</b> → ${C.cons} <span style="opacity:.6">· niveau ${C.niv}</span></div>`; }).join('')}</div></div>
+        <button class="btn" id="cGo">Lancer les 5 accords</button>
+        <button class="btn ghost" id="cBack">← Les pentas</button>`;
+      wrap.querySelector('#cGo').onclick=()=>partie(pick(5));
+      wrap.querySelector('#cBack').onclick=()=>pentaRoom();
+      overlay.scrollTop=0;
+    };
+    const partie=QS=>{
+      let qi=0; const res=[];
+      const poser=()=>{
+        if(qi>=QS.length) return bilan();
+        const {C,i}=QS[qi], T=pType(C.pt), pc=(C.root+C.off)%12;
+        const names=pNotes(T,pc), pcs=pPcs(T,pc), n=T.iv.length;
+        let idx=0, faults=0, fini=false;
+        wrap.innerHTML=`
+          <div style="color:var(--dim);font-size:12px;font-weight:800;letter-spacing:1px;text-transform:uppercase">Accord ${qi+1}/${QS.length} · niveau ${C.niv}</div>
+          <div style="text-align:center;margin:10px 0 2px">
+            <div style="font-size:40px;font-weight:900;line-height:1.15">${C.ch}</div>
+            <div style="font-size:14.5px;line-height:1.5;margin-top:6px;color:#c9cde0">Joue ${C.cons}.</div></div>
+          <div class="noteslots" id="cSlots"></div>
+          <div class="fb" id="cFb" style="min-height:20px"></div>
+          <div id="cKb"></div>
+          <div id="cHelp"></div>`;
+        const slots=wrap.querySelector('#cSlots'), fb=wrap.querySelector('#cFb');
+        const draw=()=>{ slots.innerHTML='';
+          for(let k=0;k<n;k++){ const s=document.createElement('div'); s.className='sl';
+            if(k<idx){ s.classList.add(k===0?'ton':'on'); s.textContent=names[k]; } else s.textContent='·';
+            slots.appendChild(s); } };
+        const chordMidis=C.civ.map(x=>48+C.root+x);
+        const b0=pBase(pc);
+        const kb=pcKeyboard(p=>{
+          if(fini) return;
+          playNote(b0+((p-pc+12)%12),.5);
+          if(p===pcs[idx]){
+            kb.flash(p,'ok'); idx++; draw();
+            if(idx>=n) return reussi();
+            fb.className='fb'; fb.textContent = idx===1 ? 'Bonne fondamentale — continue la penta.' : `Bien — note ${idx+1}/${n}.`;
+          } else {
+            kb.flash(p,'bad'); buzz(); faults++; idx=0; draw();
+            fb.className='fb bad';
+            fb.textContent = `✗ ${PCKB_NAMES[p][0]} — on repart du début.`;
+            if(faults===2) fb.textContent+=` Rappel : ${C.cons.replace(/<[^>]+>/g,'')}.`;
+            if(faults>=3) fb.textContent+=` La fondamentale de la penta est ${pRootName(T,pc)}.`;
+          }
+        });
+        wrap.querySelector('#cKb').appendChild(kb);
+        const row=document.createElement('div'); row.className='mfplay'; row.style.marginTop='2px';
+        row.innerHTML=`<button class="btn ghost" id="cPlay">🔊 L'accord</button><button class="btn ghost" id="cSkip">Passer</button>`;
+        wrap.querySelector('#cHelp').appendChild(row);
+        wrap.querySelector('#cPlay').onclick=()=>playChord(chordMidis,1.8);
+        wrap.querySelector('#cSkip').onclick=()=>{ fini=true; pentaSt().chord[i]=0; save();
+          res.push({C,T,pc,ok:false,faults}); fb.className='fb bad';
+          fb.textContent='Passée : '+T.nom+' de '+pRootName(T,pc)+' — '+names.join(' ');
+          setTimeout(()=>{ qi++; poser(); },1900); };
+        function reussi(){
+          fini=true; tada();
+          const clean=faults===0;
+          pentaSt().chord[i]= clean ? Math.min(3,(pentaSt().chord[i]||0)+1) : 0; save();
+          res.push({C,T,pc,ok:true,faults});
+          fb.className='fb'; fb.innerHTML=`<b style="color:var(--ok)">✓ ${T.nom} de ${pRootName(T,pc)}</b>`;
+          const d=document.createElement('div'); d.className='card'; d.style.borderColor='var(--ok)';
+          d.innerHTML=`<div style="font-size:12px;color:var(--dim);font-weight:800;text-transform:uppercase;letter-spacing:.5px">Ce que chaque note devient sur ${C.ch}</div>
+            <div class="pgrid">${names.map((nm,k)=>{ const semi=((pcs[k]-C.root)%12+12)%12;
+              const lab=(C.lab&&C.lab[semi])||PDEG_LAB[semi], hot=['9','♭9','11','♯11','13','♭13'].includes(lab);
+              return `<div class="${hot?'add':''}"><b>${nm}</b><span>${lab}</span></div>`; }).join('')}</div>
+            <p style="color:#c9cde0;font-size:13.5px;line-height:1.55;margin:0">${C.why}</p>`;
+          wrap.querySelector('#cHelp').insertBefore(d,row);
+          playChord(chordMidis,2.4);
+          setTimeout(()=>pPlay(T,pc,false),260);
+          setTimeout(()=>{ qi++; poser(); }, 3000);
+        }
+        draw(); fb.className='fb'; fb.textContent='Trouve d\'abord la fondamentale de la penta.';
+        overlay.scrollTop=0;
+      };
+      const bilan=()=>{
+        const clean=res.filter(r=>r.ok&&!r.faults).length, xp=12+3*clean;
+        award(xp); dailyMark('penta'); save();
+        wrap.innerHTML=`<div style="text-align:center;padding:14px 0">
+            <div style="font-size:52px;font-weight:900;line-height:1;color:${clean===res.length?'var(--ok)':'var(--txt)'}">${clean}/${res.length}</div>
+            <div style="color:var(--dim);font-size:13px;margin-top:6px">pentas posées sans hésiter</div>
+            <div style="color:var(--ok);font-size:12px;margin-top:6px">+${xp} XP</div></div>
+          <div class="card"><div style="display:flex;flex-direction:column;gap:6px">
+            ${res.map(r=>`<div style="font-size:13px;color:var(--dim)">${r.ok&&!r.faults?'<b style="color:var(--ok)">✓</b>':'<b style="color:var(--bad)">•</b>'}
+              <b style="color:var(--txt)">${r.C.ch}</b> → ${r.T.nom} de ${pRootName(r.T,r.pc)}</div>`).join('')}</div></div>
+          <button class="btn" id="cAgain">↻ Cinq de plus</button>
+          <button class="btn ghost" id="cHome">← Les pentas</button>`;
+        wrap.querySelector('#cAgain').onclick=()=>partie(pick(5));
+        wrap.querySelector('#cHome').onclick=()=>pentaRoom();
+        overlay.scrollTop=0;
+      };
+      poser();
+    };
+    accueil();
   });
 }
 
