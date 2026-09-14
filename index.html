@@ -2319,6 +2319,8 @@ function dailyProgram(){
   /* ---- INTENSE : le débouché musical + l'oreille (son point faible) ---- */
   P.push({key:'impro', ic:'🎹', txt:'Impro guidée : la gamme en musique', fn:()=>improRoom()});
   P.push({key:'ear', ic:'👂', txt:'Oreille : majeur ou mineur ?', fn:()=>dojoEar()});
+  {const p=mgNext();
+   P.push({key:'mg', ic:'🤚', txt:'Main gauche : '+p.nom+(mgDone(p.id)?' (série 2)':''), fn:()=>mgDrill(p.id)});}
   if(lvl==='intense') return P;
 
   /* ---- FORGE : le travail d'accords (un seul créneau, tournant) + la révision ---- */
@@ -2465,6 +2467,12 @@ const DRILLS=[
      return 'Les <b>8 pentas</b> (majeure, mineure, blues mineur et majeur, dominante, suspendue, japonaises) : l\'app en demande une, <b>tu la joues sur le clavier</b>. Plus les <b>notes qu\'on ajoute</b> (penta → blues, penta → mode) et la penta <b>posée sur un accord</b>.'
        +(t?` <b style="color:var(--ok)">${t}/${c}</b> cases allumées.`:' <b style="color:var(--acc)">Commence par la penta majeure.</b>'); },
    run:()=>pentaRoom()},
+  {id:'mg', icon:'🤚', title:'LA MAIN GAUCHE', req:null,
+   desc:()=>{ const n=mgSealed(), t=MG_PATS.length;
+     return 'Tu fais 1-5-8 depuis le début et ça tourne en rond ? <b>Voilà ce qu\'on met à la place.</b> '
+       +`<b>${t} mains gauches</b> (dixième brisée, charleston, walking, stride, shell 1-7…), l\'escalier qui les classe de la plus simple à la plus riche, le choix guidé selon ton morceau, et 9 fiches de théorie de la basse — tout écoutable en A/B.`
+       +(n?` <b style="color:var(--ok)">${n}/${t}</b> posés.`:' <b style="color:var(--acc)">Commence par l\'Escalier.</b>'); },
+   run:()=>mgRoom()},
   {id:'errs', icon:'🩹', title:'MES ERREURS', req:null,
    desc:()=>errCount()
      ? `<b style="color:var(--bad)">${errCount()}</b> point(s) que tu as raté(s) t'attendent. Une erreur ne sort de la liste qu'après <b>2 réussites</b> — c'est là que le progrès se fait, pas dans ce que tu sais déjà.`
@@ -9224,6 +9232,1019 @@ function pentaChordsRoom(){
     accueil();
   });
 }
+
+/* ================================================================
+   LA MAIN GAUCHE — le vocabulaire
+   ----------------------------------------------------------------
+   Réponse à une question précise : « à la place de 1-5-8, quoi ? ».
+   Un pattern = une fonction gen(c) qui rend des ÉVÉNEMENTS
+   {o: demi-tons au-dessus de la basse, b: temps, d: durée en temps, v: volume}.
+   Tout est calculé depuis l'accord (tierce/septième réelles) => un pattern
+   marche dans les 12 tonalités et sur maj/min/7/m7/maj7 sans table.
+   ================================================================ */
+function mgSt(){ if(!S.mg) S.mg={done:{}, seen:{}, grid:'pop', root:0, bpm:72, esc:0, choix:null}; return S.mg; }
+const MG_FAMS=[
+  ['socle',  '🪨 Le socle',            'Ce que tu fais déjà. Une note, deux notes : ça tient, ça ne raconte rien. Point de départ obligatoire — et point de départ seulement.'],
+  ['rythme', '🥁 Faire respirer',      'Mêmes notes, autre rythme. C’est le levier le moins cher et le plus efficace : tu n’apprends aucune note nouvelle et ça sonne trois fois plus vivant.'],
+  ['couler', '🌊 Faire couler',        'La main gauche arrête de frapper et se met à onduler. C’est ici qu’apparaît la <b>dixième</b> — la vraie réponse à « comment enrichir sans que ça devienne de la boue ».'],
+  ['relier', '🪜 Relier',              'Jusqu’ici chaque accord vivait dans sa case. Ces patterns fabriquent une <b>ligne</b> : la basse quitte l’accord pour aller chercher le suivant. C’est le saut de niveau audible.'],
+  ['style',  '🎩 Les styles',          'Des mains gauches identifiables au bout de deux secondes. Une par famille de musique — le même accord, un autre monde.'],
+  ['jazz',   '🐚 Le jazz moderne',     'La gauche cesse d’être un métronome grave et devient une <b>voix</b> : elle porte la 3e et la 7e, celles qui disent la couleur.']
+];
+/* tierce / septième réelles de l’accord */
+const MG_I3 = t => (t==='min'||t==='m7'||t==='m6'||t==='m11'||t==='m13'||t==='madd9'||t==='mMaj7') ? 3 : 4;
+const MG_I7 = t => (t==='maj7'||t==='maj13'||t==='mMaj7'||t==='maj7s11') ? 11
+                 : (t==='dom7'||t==='m7'||t==='dom13'||t==='m13'||t==='d7s9'||t==='d9sus4'||t==='m11') ? 10 : null;
+/* La basse ne saute pas d’une octave : chaque mesure prend l’octave la plus PROCHE de la mesure
+   précédente (ce que fait un bassiste). Conséquence : la note d’approche vise la vraie note
+   suivante, et l’intervalle « accord suivant » se calcule en brut, sans repliement. */
+const MGfold = o => { while(o>6) o-=12; while(o<-6) o+=12; return o; };
+/* Registre de la main gauche : Do2–Si2, toujours. Stable, et c'est là que jouent les pianistes.
+   Une descente (Do · Do/Si · Do/La · Do/Sol) se déclare explicitement avec oct:-1 sur la mesure. */
+const mgBass = (pc, oct) => 36 + (pc%12) + 12*(oct||0);
+const mgBassLine = prog => prog.map(ch => mgBass((ch.bass!=null?ch.bass:ch.root), ch.oct));
+
+const MG_PATS=[
+/* ---------------- LE SOCLE ---------------- */
+{id:'plantee', ic:'🪨', nom:'La fondamentale plantée', fam:'socle', niv:1,
+ tempo:['lent','moyen','vif'], rh:['melodie','impro'], style:['pop','jazz','classique','gospel'],
+ recette:'La fondamentale, tenue toute la mesure. Rien d’autre.',
+ quoi:'Le degré zéro — et ce n’est pas une insulte : quand ta droite est chargée (mélodie + accord, ou impro), c’est souvent la <b>bonne</b> réponse.',
+ quand:'Quand la main droite raconte quelque chose. Une basse muette laisse toute la place.',
+ erreur:'La garder par défaut pendant tout le morceau. Plantée pendant 3 minutes = berceuse involontaire.',
+ ecoute:'L’accord ne bouge pas : c’est ta droite qui doit occuper le terrain.',
+ gen:c=>[{o:0,b:0,d:3.8,v:.46}]},
+
+{id:'octave', ic:'🧱', nom:'L’octave', fam:'socle', niv:1,
+ tempo:['lent','moyen','vif'], rh:['melodie','impro','tient'], style:['pop','gospel','classique'],
+ recette:'Fondamentale + la même note une octave au-dessus, ensemble.',
+ quoi:'Deux fois la même note : zéro information harmonique en plus, mais un <b>corps</b> que la note seule n’a pas. L’octave ne peut jamais sonner faux.',
+ quand:'Ballade, intro, moment solennel. Et partout où tu hésites sur la couleur : l’octave ne se trompe jamais.',
+ erreur:'Croire que c’est « plus riche ». C’est plus <b>gros</b>, pas plus riche. La richesse viendra de la tierce (voir la dixième).',
+ ecoute:'Le grave prend de l’ampleur, l’accord reste exactement le même.',
+ gen:c=>[{o:0,b:0,d:3.8,v:.46},{o:12,b:0,d:3.8,v:.30}]},
+
+{id:'cinq', ic:'↔️', nom:'L’aller-retour 1–5', fam:'socle', niv:1,
+ tempo:['moyen','vif'], rh:['tient','melodie'], style:['pop','blues','classique'],
+ recette:'1 – 5 – 1 – 5, une note par temps.',
+ quoi:'La quinte est la note la plus neutre de l’accord : elle ne porte ni le nom (fondamentale) ni le genre (tierce). Tu peux donc alterner sans jamais changer l’harmonie.',
+ quand:'Country, variété, rock lent, tout ce qui a besoin d’un balancement régulier.',
+ erreur:'Jouer 1–5 <b>en même temps</b> que la droite plaque : deux blocs qui tombent ensemble = pas de respiration. Décale.',
+ ecoute:'Ça balance, mais ça reste plat : aucune note ne raconte où l’on va.',
+ gen:c=>[0,7,0,7].map((o,i)=>({o,b:i,d:.9,v:.44}))},
+
+{id:'a158', ic:'🌀', nom:'L’arpège 1–5–8', fam:'socle', niv:2,
+ tempo:['lent','moyen'], rh:['tient','melodie'], style:['pop','classique'],
+ recette:'1 – 5 – 8 – 5, une note par temps.',
+ quoi:'Le pattern que tu connais déjà. Sa force : <b>ni tierce ni couleur</b>, donc il marche tel quel sur les majeurs ET les mineurs. Sa limite est exactement la même : il ne dit jamais la couleur de l’accord.',
+ quand:'Ballade, générique, accompagnement de voix. Tempo lent à moyen.',
+ erreur:'En faire son unique main gauche. C’est le plafond de verre : la suite du module existe pour le crever.',
+ ecoute:'Do majeur et Do mineur sonnent <b>identiques</b> à la main gauche. C’est là qu’est le manque.',
+ gen:c=>[0,7,12,7].map((o,i)=>({o,b:i,d:.9,v:.44}))},
+
+{id:'pouls', ic:'🥁', nom:'Le pouls en octaves', fam:'socle', niv:2,
+ tempo:['moyen','vif'], rh:['impro','melodie'], style:['pop','blues','gospel'],
+ recette:'Octaves de la fondamentale, une par temps, sans relâche.',
+ quoi:'La main gauche devient une <b>batterie</b>. Aucune harmonie, que du moteur.',
+ quand:'Rock, soul, tout ce qui doit avancer. Excellent sous une impro main droite : le pouls tient le tempo à ta place.',
+ erreur:'Accélérer. C’est le pattern qui révèle le plus vite un tempo qui dérape — métronome obligatoire.',
+ ecoute:'Le morceau pousse en avant. Ça marche même sans changer une seule note de l’accord.',
+ gen:c=>{const e=[];for(let i=0;i<4;i++){e.push({o:0,b:i,d:.85,v:.44});e.push({o:12,b:i,d:.85,v:.26});}return e;}},
+
+/* ---------------- FAIRE RESPIRER ---------------- */
+{id:'oompah', ic:'🎪', nom:'Basse–accord (la pompe)', fam:'rythme', niv:2,
+ tempo:['moyen','vif'], rh:['melodie','impro','rien'], style:['pop','jazz','classique'],
+ recette:'Temps 1 et 3 : la basse, seule et grave. Temps 2 et 4 : l’accord, au milieu du clavier.',
+ quoi:'La main gauche fait <b>deux métiers</b> en alternance : elle annonce (basse) puis elle remplit (accord). À elle seule, elle contient déjà tout l’accompagnement.',
+ quand:'Quand ta droite joue la mélodie et n’a pas le temps de tenir l’accord. C’est la main gauche du chanteur qui s’accompagne.',
+ erreur:'Mettre l’accord trop bas. Sous Do3, un accord serré devient de la boue — monte-le au milieu du clavier.',
+ ecoute:'Tu entends un pianiste complet alors que la droite ne fait que chanter.',
+ gen:c=>{const ch=[12,12+c.i3,19]; return [{o:0,b:0,d:.9,v:.46},{o:7,b:2,d:.9,v:.42}]
+   .concat(ch.map(o=>({o,b:1,d:.8,v:.24})), ch.map(o=>({o,b:3,d:.8,v:.24})));}},
+
+{id:'valse', ic:'💃', nom:'La valse (3 temps)', fam:'rythme', niv:2, ts:3,
+ tempo:['moyen','vif'], rh:['melodie','rien'], style:['classique','pop'],
+ recette:'Temps 1 : la basse. Temps 2 et 3 : l’accord.',
+ quoi:'La même pompe, en trois temps. Un morceau à trois temps sans cette main gauche sonne toujours bancal.',
+ quand:'Tout ce qui est en 3/4 ou en 6/8 : valse, boléro, ballade irlandaise, beaucoup de chansons françaises.',
+ erreur:'Accentuer les temps 2 et 3 aussi fort que le 1. La valse, c’est <b>BOUM</b>-tchi-tchi, pas boum-boum-boum.',
+ ecoute:'Le morceau tourne au lieu d’avancer en ligne droite.',
+ gen:c=>{const ch=[12,12+c.i3,19]; return [{o:0,b:0,d:.9,v:.48}]
+   .concat(ch.map(o=>({o,b:1,d:.8,v:.22})), ch.map(o=>({o,b:2,d:.8,v:.22})));}},
+
+{id:'charleston', ic:'⚡', nom:'La charleston', fam:'rythme', niv:3,
+ tempo:['moyen','vif'], rh:['melodie','impro','rien'], style:['jazz','gospel','pop'],
+ recette:'Basse sur le temps 1. Accord sur le <b>« et » du 2</b> — entre le 2 et le 3. Puis silence.',
+ quoi:'LE rythme d’accompagnement du jazz. Deux gestes par mesure, dont un <b>à contretemps</b> : c’est le décalage qui crée le swing, pas les notes.',
+ quand:'Dès que tu veux que ça respire au lieu de marteler. Marche sur du jazz, de la soul, de la pop.',
+ erreur:'Poser l’accord sur le 2 (sur le temps) au lieu du « et » du 2. Compte à voix haute : 1 – 2 – <b>ET</b> – 3 – 4.',
+ ecoute:'Le silence devient un événement. La mesure a l’air pleine avec deux gestes seulement.',
+ gen:c=>{const sev=c.i7!=null?12+c.i7:19; return [{o:0,b:0,d:.9,v:.46},
+   {o:12,b:1.5,d:1.8,v:.24},{o:12+c.i3,b:1.5,d:1.8,v:.26},{o:sev,b:1.5,d:1.8,v:.24}];}},
+
+{id:'deuxquatre', ic:'👏', nom:'La basse tient, l’accord claque sur 2 et 4', fam:'rythme', niv:2,
+ tempo:['moyen','vif'], rh:['melodie','impro','rien'], style:['pop','gospel','blues'],
+ recette:'La fondamentale est tenue toute la mesure. L’accord claque, court, sur les temps 2 et 4.',
+ quoi:'Le contretemps du backbeat, dans une seule main. La basse soutient ; l’accord frappe là où frappe la caisse claire.',
+ quand:'Soul, gospel, pop. Excellent quand tu joues seul et que le morceau manque de batterie.',
+ erreur:'Laisser l’accord sonner long. Sur 2 et 4, c’est <b>court et sec</b> — lâche les touches.',
+ ecoute:'Un batteur imaginaire est apparu.',
+ gen:c=>{const ch=[12,12+c.i3,19]; return [{o:0,b:0,d:3.8,v:.46}]
+   .concat(ch.map(o=>({o,b:1,d:.35,v:.24})), ch.map(o=>({o,b:3,d:.35,v:.24})));}},
+
+{id:'anticipe', ic:'⏩', nom:'L’anticipation', fam:'rythme', niv:3, mod:true,
+ tempo:['lent','moyen','vif'], rh:['tient','melodie','impro'], style:['pop','jazz','latin','gospel'],
+ recette:'Fondamentale sur le temps 1. Sur le « et » du 4, tu joues <b>déjà la basse de l’accord suivant</b>.',
+ quoi:'Un truc de professionnel qui ne coûte <b>aucune note nouvelle</b> : la basse arrive une croche avant le changement d’accord. Le morceau semble tirer vers l’avant.',
+ quand:'Partout. C’est l’ajout le plus rentable de toute cette liste.',
+ erreur:'Anticiper aussi à la main droite. Si les deux mains anticipent, il n’y a plus de décalage — donc plus d’effet.',
+ ecoute:'Compare avec « la fondamentale plantée » : même notes, et pourtant ça pousse.',
+ gen:c=>[{o:0,b:0,d:3.2,v:.46},{o:c.nxt-c.b,b:3.5,d:.6,v:.40,lab:'→ suivant'}]},
+
+/* ---------------- FAIRE COULER ---------------- */
+{id:'dixieme', ic:'🌈', nom:'La dixième brisée', fam:'couler', niv:3,
+ tempo:['lent','moyen'], rh:['melodie','impro','tient','rien'], style:['pop','jazz','gospel','classique'],
+ recette:'1 – 10 – 5 – 10. La « 10 », c’est la <b>tierce montée d’une octave</b>.',
+ quoi:'<b>La réponse directe à « quoi à la place de 1-5-8 ».</b> Le 1-5-8 ne dit jamais si l’accord est majeur ou mineur ; la dixième, si. Et comme elle est haute, elle ne fait pas de boue : la tierce serrée dans le grave est sale, la même tierce une octave plus haut est magnifique.',
+ quand:'Ballade, pop, jazz lent, gospel. Dès que tu veux que ta gauche dise la couleur.',
+ erreur:'Jouer la tierce <b>dans</b> l’octave du grave (1–3 serré). C’est exactement ce qui rend ta main gauche boueuse. La tierce, c’est en haut.',
+ ecoute:'Do majeur et Do mineur ne sonnent plus pareil à la main gauche. Ta gauche s’est mise à parler.',
+ gen:c=>[{o:0,b:0,d:.95,v:.46},{o:12+c.i3,b:1,d:.95,v:.30},{o:7,b:2,d:.95,v:.42},{o:12+c.i3,b:3,d:.95,v:.30}]},
+
+{id:'alberti', ic:'🎻', nom:'L’Alberti', fam:'couler', niv:3, lift:12,
+ tempo:['moyen','vif'], rh:['melodie'], style:['classique','pop'],
+ recette:'1 – 5 – 3 – 5, en croches, sans arrêt.',
+ quoi:'La main gauche de Mozart. Le grave est <b>bas–haut–milieu–haut</b> : l’oreille entend un tapis continu, pas quatre notes.',
+ quand:'Classique, comptine, pop très douce. Toujours au-dessus de Do3, jamais dans les graves.',
+ erreur:'La jouer trop bas : à cet endroit la tierce est incluse, donc ça devient sale sous Do3. Monte la main.',
+ ecoute:'Un tapis roulant sous la mélodie. Aucune des quatre notes ne s’entend individuellement.',
+ gen:c=>{const s=[0,7,c.i3,7],e=[];for(let i=0;i<8;i++)e.push({o:s[i%4],b:i*.5,d:.45,v:.28});return e;}},
+
+{id:'arpege8', ic:'🌊', nom:'L’arpège large', fam:'couler', niv:3,
+ tempo:['lent','moyen'], rh:['melodie','tient','rien'], style:['pop','classique','gospel'],
+ recette:'1 – 5 – 8 – 10 – 12 – 10 – 8 – 5, en croches : une vague qui monte puis redescend.',
+ quoi:'Le 1-5-8 étendu jusqu’à la dixième et la douzième. Même geste, presque deux octaves de terrain : la main gauche devient une harpe.',
+ quand:'Ballade lente, intro, moment suspendu. Demande une main souple et un pédalier.',
+ erreur:'Jouer vite. Cet arpège vit à 60-75 BPM ; au-delà, il devient une bouillie et tu perds la vague.',
+ ecoute:'La mesure entière est remplie sans qu’aucune note ne dure. C’est le contraire exact de l’octave tenue.',
+ gen:c=>{const s=[0,7,12,12+c.i3,19,12+c.i3,12,7],e=[];for(let i=0;i<8;i++)e.push({o:s[i],b:i*.5,d:.5,v:.32});return e;}},
+
+/* ---------------- RELIER ---------------- */
+{id:'passage', ic:'🪜', nom:'La note de passage', fam:'relier', niv:3,
+ tempo:['moyen','vif'], rh:['tient','melodie'], style:['pop','blues','jazz','classique'],
+ recette:'1 – 5 – puis <b>deux notes qui visent l’accord suivant</b> en montant (ou en descendant) par degrés.',
+ quoi:'Les deux dernières notes n’appartiennent plus à l’accord : elles servent de <b>chemin</b>. Elles durent un instant, elles résolvent, personne ne les entend comme des fautes.',
+ quand:'Dès que tu changes d’accord toutes les mesures ou toutes les deux mesures. C’est le premier pas vers la walking bass.',
+ erreur:'Choisir la note de passage au hasard. Elle doit <b>arriver</b> sur la basse suivante, d’un demi-ton ou d’un ton. Si tu ne sais pas où tu vas, rejoue la fondamentale.',
+ ecoute:'Les accords ne sont plus des cases : ils se tiennent par la main.',
+ gen:c=>{const n=c.nxt-c.b, st=n>=0?1:-1;
+   return [{o:0,b:0,d:.9,v:.46},{o:7,b:1,d:.9,v:.42},
+           {o:n-2*st,b:2,d:.9,v:.38,lab:'→'},{o:n-st,b:3,d:.9,v:.38,lab:'→'}];}},
+
+{id:'chrom', ic:'🎯', nom:'L’approche chromatique', fam:'relier', niv:2, mod:true,
+ tempo:['lent','moyen','vif'], rh:['tient','melodie','impro'], style:['jazz','blues','pop'],
+ recette:'La basse tient trois temps. Sur la dernière croche, une note à un <b>demi-ton</b> sous la basse suivante.',
+ quoi:'Une seule note ajoutée sur toute la mesure — et l’arrivée devient inévitable. Le demi-ton est la plus forte attraction de toute la musique occidentale.',
+ quand:'Partout, tout le temps, y compris sous une main gauche plantée. Le meilleur rapport effet/effort du module.',
+ erreur:'Approcher par le haut alors que la basse suivante est au-dessus. Choisis le côté : tu arrives toujours <b>vers</b> la note, jamais en la dépassant.',
+ ecoute:'Une seule croche, et le changement d’accord devient une porte qui s’ouvre.',
+ gen:c=>{const n=c.nxt-c.b; return [{o:0,b:0,d:3.2,v:.46},{o:n-(n>=0?1:-1),b:3.5,d:.5,v:.40,lab:'→'}];}},
+
+{id:'descente', ic:'🪂', nom:'La basse qui descend (line cliché)', fam:'relier', niv:4, grid:'static',
+ tempo:['lent','moyen'], rh:['tient','melodie'], style:['pop','jazz','classique'],
+ recette:'L’accord ne change pas. La basse descend : 1 – 7 – ♭7 – 6, une note toutes les deux temps.',
+ quoi:'L’accord reste immobile pendant que la basse fabrique une <b>ligne descendante</b>. C’est le tour de passe-passe de « Something », « Michelle », « Stairway », « Something Stupid ». Une seule main change, et l’harmonie semble bouger.',
+ quand:'Sur un accord qui dure longtemps. Une mesure sur la même harmonie sans ce truc, c’est une mesure gâchée.',
+ erreur:'Descendre au-delà de la 6e. Après, on n’entend plus l’accord de départ — il faut changer d’accord pour de vrai.',
+ ecoute:'Quatre accords différents… alors que la main droite n’a pas bougé d’un doigt.',
+ gen:c=>{const p=(c.bar%2===0)?[0,-1]:[-2,-3];
+   return [{o:p[0],b:0,d:1.9,v:.46},{o:p[1],b:2,d:1.9,v:.44}];}},
+
+{id:'walking', ic:'🚶', nom:'La walking bass', fam:'relier', niv:5,
+ tempo:['moyen','vif'], rh:['tient','impro'], style:['jazz','blues'],
+ recette:'Quatre noires : 1 – 3 – 5 – <b>approche</b> (un demi-ton sous la basse suivante).',
+ quoi:'La basse marche en noires régulières et relie chaque accord au suivant. Ce n’est plus un accompagnement, c’est une <b>deuxième voix</b>.',
+ quand:'Jazz, blues, swing. Tempo moyen : au-delà de 160 BPM, ça devient un métier.',
+ erreur:'Vouloir la faire <b>en même temps</b> que des accords riches à droite. Une chose à la fois : d’abord la walking seule, longtemps.',
+ ecoute:'Il y a un contrebassiste dans la pièce. Et tu es tout seul.',
+ gen:c=>{const n=c.nxt-c.b;
+   let ap=n-1; if(((ap%12)+12)%12===7) ap=n+1;      /* l'approche ne répète pas la quinte déjà jouée */
+   return [{o:0,b:0,d:.9,v:.46},{o:c.i3,b:1,d:.9,v:.42},{o:7,b:2,d:.9,v:.42},{o:ap,b:3,d:.9,v:.42,lab:'→'}];}},
+
+{id:'pedale', ic:'⚓', nom:'La pédale', fam:'relier', niv:4, poids:-1.5,
+ tempo:['lent','moyen','vif'], rh:['tient','melodie','impro'], style:['pop','jazz','gospel','classique'],
+ recette:'La basse <b>refuse de bouger</b> : elle répète la tonique pendant que les accords changent au-dessus.',
+ quoi:'L’inverse de tout le reste : la tension vient de ce que la basse ne suit plus. Les accords passent, la note reste — ça crée un frottement qui grandit, puis une libération quand la basse repart.',
+ quand:'Intro, fin, pont, montée avant un refrain. À doses courtes : 2 à 4 mesures.',
+ erreur:'La tenir 16 mesures. Une pédale qui ne se résout jamais n’est plus une pédale, c’est une panne.',
+ ecoute:'Les mêmes accords, mais suspendus. Et le retour de la vraie basse fait un effet de soulagement.',
+ gen:c=>[{o:c.ped-c.b,b:0,d:1.9,v:.44,lab:'⚓'},{o:c.ped-c.b,b:2,d:1.9,v:.40,lab:'⚓'}]},
+
+/* ---------------- LES STYLES ---------------- */
+{id:'boogie', ic:'🚂', nom:'Le boogie shuffle', fam:'style', niv:4,
+ tempo:['moyen','vif'], rh:['impro','melodie','rien'], style:['blues'],
+ recette:'1 – 5 – 6 – 5, en croches <b>swinguées</b> (longue-courte), deux fois par mesure.',
+ quoi:'La 6e ajoutée est ce qui fait le son boogie-woogie. Variante classique sur une dominante : 1 – 5 – 6 – ♭7. Sur un accord <b>mineur</b>, la 6e majeure n’a rien à y faire — l’app met la ♭7 à la place (c’est la basse du blues mineur).',
+ quand:'Blues, rock’n’roll, boogie. Et seulement là : sur une ballade, c’est un camion dans un salon.',
+ erreur:'Jouer les croches <b>égales</b>. Sans le swing (longue-courte), ce n’est plus du boogie, c’est un exercice.',
+ ecoute:'Le train démarre. Aucune main droite nécessaire pour que ce soit de la musique.',
+ gen:c=>{const six=(c.i3===3)?10:9, s=[0,7,six,7,0,7,six,7], e=[];
+   for(let i=0;i<8;i++){const b=Math.floor(i/2)+(i%2?.66:0); e.push({o:s[i],b,d:.4,v:.42});} return e;}},
+
+{id:'stride', ic:'🎩', nom:'Le stride', fam:'style', niv:5,
+ tempo:['moyen','vif'], rh:['melodie','impro','rien'], style:['jazz'],
+ recette:'Temps 1 : la basse, <b>très</b> grave. Temps 2 : l’accord, au milieu. Temps 3 : la quinte, grave. Temps 4 : l’accord.',
+ quoi:'La pompe, mais avec un <b>grand écart</b> : la main saute d’une octave et demie, quatre fois par mesure. C’est la main gauche de Fats Waller et d’Art Tatum — et c’est un exercice d’adresse autant que de musique.',
+ quand:'Jazz ancien, ragtime, standards joués seul. Aussi : quand tu veux que ta seule main gauche fasse tout l’orchestre.',
+ erreur:'Regarder la main gauche. Il faut apprendre le <b>saut</b> à l’aveugle, lentement, sinon tu ne joueras jamais la mélodie en même temps.',
+ ecoute:'Un orchestre entier dans une seule main. Et un muscle que tu n’as pas encore.',
+ gen:c=>{const sev=c.i7!=null?12+c.i7:19,ch=[12,12+c.i3,sev];
+   return [{o:-12,b:0,d:.9,v:.46},{o:-5,b:2,d:.9,v:.42}]
+     .concat(ch.map(o=>({o,b:1,d:.7,v:.22})), ch.map(o=>({o,b:3,d:.7,v:.22})));}},
+
+{id:'bossa', ic:'🌴', nom:'La bossa (2-feel)', fam:'style', niv:4,
+ tempo:['moyen'], rh:['melodie','tient'], style:['latin','jazz'],
+ recette:'Fondamentale sur le 1, quinte sur le 3, et la basse de l’accord suivant <b>anticipée</b> sur le « et » du 4.',
+ quoi:'La basse brésilienne : deux notes par mesure, et une anticipation qui fait tout le balancement. Dépouillé, et pourtant impossible à confondre.',
+ quand:'Bossa, samba lente, jazz latin. Aussi excellent pour ralentir une chanson pop.',
+ erreur:'Jouer quatre notes par mesure. La bossa est en <b>2</b> : plus tu ajoutes, plus tu perds le style.',
+ ecoute:'Le balancement vient d’une seule croche décalée. Enlève-la : la plage disparaît.',
+ gen:c=>[{o:0,b:0,d:1.4,v:.44},{o:7,b:2,d:1.4,v:.40},{o:c.nxt-c.b,b:3.5,d:.5,v:.38,lab:'→ suivant'}]},
+
+{id:'gospel', ic:'⛪', nom:'Les octaves roulées', fam:'style', niv:4,
+ tempo:['lent','moyen'], rh:['melodie','impro','rien'], style:['gospel','blues'],
+ recette:'1 – 8 – 5 – 8, en croches, avec une <b>note d’appui</b> un demi-ton sous la fondamentale juste avant le temps 4.',
+ quoi:'La main gauche gospel : l’octave roulée fait le tapis, et la petite note glissée (un demi-ton en dessous, très brève) donne le côté « église ».',
+ quand:'Gospel, soul, blues lent. Sur du R&B, c’est immédiat.',
+ erreur:'Appuyer sur la note glissée. Elle doit être <b>écrasée</b>, presque inaudible — c’est un ornement, pas une note.',
+ ecoute:'Le petit dérapage avant le temps 4 : c’est lui, tout le style.',
+ gen:c=>[{o:0,b:0,d:.45,v:.46},{o:12,b:.5,d:.45,v:.30},{o:7,b:1.5,d:.45,v:.40},
+         {o:12,b:2,d:.45,v:.28},{o:-1,b:2.85,d:.14,v:.30,lab:'≈'},{o:0,b:3,d:.9,v:.44}]},
+
+/* ---------------- LE JAZZ MODERNE ---------------- */
+{id:'shell17', ic:'🐚', nom:'Le shell 1–7 / 1–3', fam:'jazz', niv:4,
+ tempo:['lent','moyen','vif'], rh:['impro','melodie'], style:['jazz','gospel'],
+ recette:'Deux notes : la fondamentale en bas, et <b>en alternance</b> la 7e puis la 3e une dizième au-dessus. Sur un accord à trois sons (pas de 7e écrite), l’app prend la <b>6</b> sur un majeur et la <b>♭7</b> sur un mineur — les deux notes qui ne trahissent jamais la tonalité.',
+ quoi:'Les deux notes qui disent tout : la fondamentale (le nom) et la 3e ou la 7e (la couleur). La quinte est jetée, elle ne sert à rien. Et l’alternance 7-3-7-3 fait que les voix <b>glissent</b> d’un accord à l’autre au lieu de sauter.',
+ quand:'Tous les standards, et dès que ta main droite improvise. C’est la main gauche par défaut du jazz.',
+ erreur:'Mettre les deux notes trop près dans le grave. La note du haut se pose au-dessus de Do3 : c’est une dixième, pas une tierce serrée.',
+ ecoute:'Deux notes seulement, et l’accord est plus clairement dit qu’avec quatre.',
+ gen:c=>{const top=(c.bar%2===0)?c.sev:c.i3;
+   return [{o:0,b:0,d:3.8,v:.46},{o:12+top,b:0,d:3.6,v:.28}];}},
+
+{id:'dixieme37', ic:'🖐', nom:'La dixième tenue (1 + 10)', fam:'jazz', niv:3,
+ tempo:['lent','moyen'], rh:['melodie','impro'], style:['jazz','pop','gospel'],
+ recette:'Fondamentale et dixième (la tierce, une octave plus haut), tenues ensemble.',
+ quoi:'Deux notes, tout l’espace, zéro boue : c’est l’accord <b>ouvert</b>. La main droite peut ensuite poser ce qu’elle veut dessus, il n’y aura jamais de collision.',
+ quand:'Ballade, jazz, pop. Quand ta droite joue riche et que ta gauche doit se faire discrète sans être vide.',
+ erreur:'Ne pas arriver à l’écartement (une dixième, c’est large). Solution légitime : la <b>briser</b> — basse puis dixième. Personne n’entend la différence.',
+ ecoute:'C’est aéré. Compare avec l’accord complet plaqué en bas : la différence est spectaculaire.',
+ gen:c=>[{o:0,b:0,d:3.8,v:.46},{o:12+c.i3,b:0,d:3.6,v:.28}]},
+
+{id:'rootless', ic:'🎈', nom:'Sans fondamentale (3 et 7)', fam:'jazz', niv:5, lift:12,
+ tempo:['lent','moyen','vif'], rh:['impro','melodie'], style:['jazz'],
+ recette:'La gauche joue <b>la 3e et la 7e</b>, au milieu du clavier. Pas de fondamentale du tout. (Accord à trois sons : 6 sur un majeur, ♭7 sur un mineur.)',
+ quoi:'Le voicing des pianistes de jazz <b>en groupe</b> : le contrebassiste dit la fondamentale, donc la répéter est du gaspillage. Il reste les deux notes qui décident de la couleur.',
+ quand:'Avec un bassiste. Seul, ça flotte — et c’est exactement le test : joue-le seul, tu entends ce qui manque.',
+ erreur:'L’adopter en jeu solo. Sans basse, l’harmonie devient ambiguë. Solo : garde une fondamentale quelque part.',
+ ecoute:'Ça flotte. Rajoute une fondamentale grave en pensée : tout se remet en place.',
+ gen:c=>[{o:c.i3,b:0,d:3.6,v:.30},{o:c.sev,b:0,d:3.6,v:.30}]}
+];
+const mgPat = id => MG_PATS.find(p=>p.id===id);
+
+/* ---------------- grilles de travail ---------------- */
+const MG_GRIDS=[
+  {id:'pop',   nom:'La pop',        sub:'C · G · Am · F',            tonic:0, prog:[{root:0},{root:7},{root:9,type:'min'},{root:5}]},
+  {id:'soul',  nom:'Le mineur',     sub:'Am · F · C · G',            tonic:9, prog:[{root:9,type:'min'},{root:5},{root:0},{root:7}]},
+  {id:'jazz',  nom:'Le ii–V–I',     sub:'Dm7 · G7 · Cmaj7 · Cmaj7',  tonic:0, prog:[{root:2,type:'m7'},{root:7,type:'dom7'},{root:0,type:'maj7'},{root:0,type:'maj7'}]},
+  {id:'blues', nom:'Le blues',      sub:'C7 · F7 · C7 · G7',         tonic:0, prog:[{root:0,type:'dom7'},{root:5,type:'dom7'},{root:0,type:'dom7'},{root:7,type:'dom7'}]},
+  {id:'static',nom:'Un seul accord',sub:'C sur 4 mesures',           tonic:0, prog:[{root:0},{root:0},{root:0},{root:0}]}
+];
+const mgGrid = id => MG_GRIDS.find(g=>g.id===id)||MG_GRIDS[0];
+/* transpose une grille dans la tonalité choisie */
+function mgProg(gid, root){
+  const g=mgGrid(gid);
+  return {tonic:(g.tonic+root)%12, prog:g.prog.map(c=>({root:(c.root+root)%12, type:c.type, bass:c.bass!=null?(c.bass+root)%12:null}))};
+}
+
+/* ---------------- patterns de démonstration (théorie seulement) ---------------- */
+const MG_XPAT={
+  boue:   {gen:c=>[{o:0,b:0,d:3.8,v:.44},{o:c.i3,b:0,d:3.8,v:.34},{o:7,b:0,d:3.8,v:.34}]},
+  tierce: {gen:c=>[{o:0,b:0,d:3.8,v:.46},{o:c.i3,b:0,d:3.8,v:.32}]},
+  quinte: {gen:c=>[{o:0,b:0,d:3.8,v:.46},{o:7,b:0,d:3.8,v:.32}]},
+  plein:  {gen:c=>{const sev=c.i7!=null?c.i7:null,iv=[0,c.i3,7].concat(sev!=null?[sev]:[]);
+            return iv.map(o=>({o,b:0,d:3.8,v:.30}));}},
+  deuxpar:{gen:c=>[{o:0,b:0,d:1.9,v:.46},{o:7,b:2,d:1.9,v:.42}]},
+  quatrepar:{gen:c=>[0,7,0,7].map((o,i)=>({o,b:i,d:.9,v:.44}))},
+  rien:   {gen:()=>[]}
+};
+const mgRes = id => mgPat(id)||MG_XPAT[id];
+
+/* ---------------- lecture ---------------- */
+const MGP={tok:0, timer:null, on:false, kb:null, btn:null};
+function mgStop(){
+  MGP.tok++; MGP.on=false;
+  if(MGP.timer){ clearTimeout(MGP.timer); MGP.timer=null; }
+  if(MGP.kb) MGP.kb.kbd.querySelectorAll('.key.hint').forEach(k=>k.classList.remove('hint'));
+  document.querySelectorAll('.mgplaying').forEach(b=>{ b.classList.remove('mgplaying'); if(b.dataset.lab) b.textContent=b.dataset.lab; });
+}
+function mgLight(kb, midi, atMs, durMs, tok){
+  setTimeout(()=>{ if(MGP.tok!==tok) return;
+    const k=kb.keyEl(midi); if(!k) return;
+    k.classList.add('hint');
+    setTimeout(()=>{ if(MGP.tok===tok) k.classList.remove('hint'); }, Math.max(120,durMs));
+  }, atMs);
+}
+/* joue un cycle complet de la grille à partir de "when" (secondes) — rend sa durée */
+function mgCycle(pat, cfg, when, tok){
+  const ts=pat.ts||4, beat=60/cfg.bpm;
+  const BL=mgBassLine(cfg.prog);
+  let t=when;
+  cfg.prog.forEach((ch,i)=>{
+    const type=ch.type||'maj';
+    const i3=MG_I3(type), i7=MG_I7(type);
+    const c={b:BL[i], t:type, i3:i3, i7:i7, i6:9,
+             sev:(i7!=null?i7:(i3===3?10:9)),   /* accord à 3 sons : ♭7 sur un mineur, 6 sur un majeur */
+             nxt:BL[(i+1)%BL.length], ped:mgBass(cfg.tonic), bar:i, root:ch.root};
+    pat.gen(c).forEach(ev=>{
+      const m=c.b+(pat.lift||0)+ev.o, at=t+ev.b*beat, dur=beat*(ev.d||1)*.95;
+      if(m>=21&&m<=96){
+        playNote(m, dur, ev.v||.4, at);
+        if(cfg.kb) mgLight(cfg.kb, m, at*1000, dur*1000, tok);
+      }
+    });
+    /* main droite */
+    if(cfg.rh&&cfg.rh!=='none'){
+      const v = ch.rhNotes ? ch.rhNotes.slice() : voicingFor(ch.root, type).map(m=>m+12);
+      if(cfg.rh==='hold') v.forEach((m,k)=>playNote(m, beat*(ts-.2), .26, t+k*.012));
+      else if(cfg.rh==='comp'){ [0,2.5].forEach(b=>v.forEach((m,k)=>playNote(m, beat*1.3, .24, t+b*beat+k*.012))); }
+    }
+    t+=beat*ts;
+  });
+  if(cfg.melody) cfg.melody.forEach(x=>playNote(x.n, beat*(x.d||.5)*.95, .30, when+x.b*beat));
+  return t-when;
+}
+/* joue une fois (ou en boucle si cfg.loop) ; btn = bouton à basculer en "stop" */
+function mgRun(patId, cfg, btn){
+  const pat=mgRes(patId); if(!pat) return;
+  ac(); mgStop();
+  const tok=++MGP.tok; MGP.on=true; MGP.kb=cfg.kb||null;
+  if(btn){ if(!btn.dataset.lab) btn.dataset.lab=btn.textContent; btn.classList.add('mgplaying'); btn.textContent='⏹ Arrêter'; MGP.btn=btn; }
+  const cycle=()=>{
+    if(MGP.tok!==tok) return;
+    const d=mgCycle(pat, cfg, .08, tok);
+    if(cfg.loop) MGP.timer=setTimeout(cycle, d*1000-60);
+    else MGP.timer=setTimeout(()=>{ if(MGP.tok===tok) mgStop(); }, d*1000+300);
+  };
+  cycle();
+}
+/* bouton de lecture prêt à l'emploi */
+function mgBtn(label, patId, cfg, cls){
+  const b=document.createElement('button');
+  b.className='btn'+(cls==null?' ghost':(cls?' '+cls:''));
+  b.textContent=label; b.dataset.lab=label;
+  b.onclick=()=>{ if(b.classList.contains('mgplaying')){ mgStop(); return; } mgRun(patId, cfg, b); };
+  return b;
+}
+/* rangée de boutons A/B */
+function mgRow(list, base){
+  const r=document.createElement('div'); r.className='mfplay';
+  list.forEach(d=>r.appendChild(mgBtn(d.lab, d.pat, Object.assign({}, base, d.cfg||{}), d.cls)));
+  return r;
+}
+
+/* ---------------- degrés lisibles ---------------- */
+function mgDeg(o,c){
+  const s=((o%12)+12)%12;
+  const N={0:'1',1:'♭9',2:'9',3:'♭3',4:'3',5:'4',6:'♭5',7:'5',8:'♭6',9:'6',10:'♭7',11:'7'};
+  let n=N[s];
+  if(o>=12){ if(s===c.i3) n='10'; else if(s===7) n='12'; else if(s===0) n='8'; else n=n+'↑'; }
+  else if(o<0) n=n+'↓';
+  return n;
+}
+/* le texte de la main gauche, mesure par mesure, dans la tonalité choisie */
+function mgLines(patId, cfg){
+  const pat=mgRes(patId); if(!pat) return [];
+  const BL=mgBassLine(cfg.prog);
+  return cfg.prog.map((ch,i)=>{
+    const type=ch.type||'maj';
+    const i3=MG_I3(type), i7=MG_I7(type);
+    const c={b:BL[i], t:type, i3:i3, i7:i7, i6:9,
+             sev:(i7!=null?i7:(i3===3?10:9)),
+             nxt:BL[(i+1)%BL.length], ped:mgBass(cfg.tonic), bar:i, root:ch.root};
+    const ev=pat.gen(c).slice().sort((a,b)=>a.b-b.b||a.o-b.o);
+    const groups=[]; let cur=null;
+    ev.forEach(e=>{ if(!cur||Math.abs(e.b-cur.b)>.01){ cur={b:e.b, os:[], labs:[]}; groups.push(cur); }
+      cur.os.push(e.o); cur.labs.push(e.lab||null); });
+    return {
+      accord: chordName(ch.root, type) + (ch.bass!=null&&ch.bass!==ch.root?'/'+NOTE[ch.bass]:''),
+      geste: groups.map(g=>({
+        t: g.b,
+        deg: (g.labs[0] && g.labs.every(l=>l===g.labs[0])) ? g.labs[0]
+             : g.os.length>=3 ? 'accord'
+             : g.os.map(o=>mgDeg(o,c)).join('+'),
+        notes: g.os.map(o=>NOTE[(c.b+(pat.lift||0)+o+120)%12]).join('+')
+      }))
+    };
+  });
+}
+
+/* ---------------- progression ---------------- */
+function mgDone(id){ return mgSt().done[id]||0; }
+function mgBump(id,ok){
+  const M=mgSt();
+  M.done[id] = ok ? Math.min(2,(M.done[id]||0)+1) : 0;
+  save(); return M.done[id];
+}
+const mgSealed = () => MG_PATS.filter(p=>mgDone(p.id)>=2).length;
+const mgTouched = () => MG_PATS.filter(p=>mgDone(p.id)>0).length;
+const mgFamDone = f => MG_PATS.filter(p=>p.fam===f&&mgDone(p.id)>=2).length;
+const mgFamTot  = f => MG_PATS.filter(p=>p.fam===f).length;
+
+/* ---------------- réglages partagés (grille · tonalité · tempo) ---------------- */
+function mgSettings(onChange){
+  const M=mgSt();
+  const box=document.createElement('div'); box.className='card';
+  box.innerHTML=`<b style="font-size:14px">⚙️ Le terrain</b>
+    <p style="color:var(--dim);font-size:12.5px;margin:4px 0 8px;line-height:1.5">Tout ce que tu écoutes ici se joue sur <b>cette</b> grille, dans <b>cette</b> tonalité, à <b>ce</b> tempo. Change-les : les patterns se recalculent.</p>`;
+  const g=document.createElement('div'); g.className='selrow';
+  MG_GRIDS.forEach(G=>{ const t=document.createElement('div'); t.className='tag'+(M.grid===G.id?' on':'');
+    t.innerHTML=`${G.nom}<small style="display:block;opacity:.65;font-size:10px">${G.sub}</small>`;
+    t.onclick=()=>{ M.grid=G.id; save(); mgStop(); onChange&&onChange(); };
+    g.appendChild(t); });
+  box.appendChild(g);
+  const r=document.createElement('div'); r.className='selrow';
+  for(let pc=0;pc<12;pc++){ const t=document.createElement('div'); t.className='tag'+(M.root===pc?' on':'');
+    t.textContent=NOTE[pc];
+    t.onclick=()=>{ M.root=pc; save(); mgStop(); onChange&&onChange(); };
+    r.appendChild(t); }
+  box.appendChild(r);
+  const tp=document.createElement('div'); tp.style.cssText='display:flex;align-items:center;gap:10px;margin-top:8px';
+  tp.innerHTML=`<button class="btn ghost small" data-d="-6" style="width:44px">−</button>
+    <div style="flex:1;text-align:center"><b style="font-size:19px;color:var(--acc)" id="mgBpm">${M.bpm}</b> <small style="color:var(--dim)">BPM</small></div>
+    <button class="btn ghost small" data-d="6" style="width:44px">+</button>`;
+  tp.querySelectorAll('[data-d]').forEach(b=>b.onclick=()=>{
+    M.bpm=Math.max(46,Math.min(180,M.bpm+ +b.dataset.d)); save();
+    tp.querySelector('#mgBpm').textContent=M.bpm; mgStop(); });
+  box.appendChild(tp);
+  return box;
+}
+/* la config de lecture courante (avec clavier optionnel) */
+function mgCfg(extra){
+  const M=mgSt(), P=mgProg(M.grid, M.root);
+  return Object.assign({prog:P.prog, tonic:P.tonic, bpm:M.bpm, rh:'hold'}, extra||{});
+}
+function mgCfgFor(pat, extra){
+  const M=mgSt();
+  const P=mgProg(pat&&pat.grid==='static'?'static':M.grid, M.root);
+  return Object.assign({prog:P.prog, tonic:P.tonic, bpm:M.bpm, rh:'hold'}, extra||{});
+}
+/* clavier d'affichage (lecture seule) */
+function mgKeyboard(){
+  const kb=buildKeyboard(24,72,()=>{});
+  kb.style.margin='10px 0 2px';
+  return kb;
+}
+
+/* ================================================================
+   LA SALLE
+   ================================================================ */
+function mgRoom(){
+  mgStop();
+  openCustom('🤚 La main gauche',(inner)=>{
+    const M=mgSt();
+    const th=document.createElement('div'); th.className='theory';
+    th.innerHTML=`<p>Tu sais faire <b>1–5–8</b>. Tu l’as fait sur toutes tes chansons, et tu as raison de trouver que ça tourne en rond : ce pattern ne dit <b>jamais</b> si l’accord est majeur ou mineur. Il ne peut pas t’emmener plus loin.</p>
+      <h3>Enrichir une main gauche, ça veut dire quoi exactement</h3>
+      <p>Pas « jouer plus de notes ». Quatre leviers, et un seul concerne les notes :</p>
+      <ul>
+        <li><b>Le rythme</b> — mêmes notes, autre placement. Le moins cher, le plus efficace. (La charleston, l’anticipation.)</li>
+        <li><b>Le registre et l’espacement</b> — les mêmes notes plus loin l’une de l’autre. C’est ce qui sépare « boueux » de « ouvert ». (La dixième.)</li>
+        <li><b>Les notes</b> — remplacer la quinte neutre par la tierce ou la septième, celles qui disent la couleur. (Le shell 1–7.)</li>
+        <li><b>Le mouvement</b> — la basse quitte l’accord pour aller chercher le suivant. (Note de passage, walking, basse qui descend.)</li>
+      </ul>
+      <div class="tip">💡 Le raccourci le plus rentable de toute cette salle : remplace le <b>8</b> de ton 1-5-8 par la <b>dixième</b> (= la tierce, une octave plus haut). Une note change, et ta main gauche se met à dire la couleur de l’accord. Va écouter la marche 5 de l’Escalier.</div>`;
+    inner.appendChild(th);
+
+    /* carte */
+    const seal=mgSealed(), tot=MG_PATS.length;
+    const map=document.createElement('div'); map.className='card'; map.style.borderColor='var(--acc)';
+    map.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:baseline">
+        <b style="font-size:15px">🗺 Ton vocabulaire</b>
+        <span style="color:var(--acc);font-weight:800">${seal}/${tot} posés</span></div>
+      <div class="bigbar" style="margin:8px 0 10px"><i style="width:${Math.round(seal/tot*100)}%"></i></div>
+      <p style="color:var(--dim);font-size:12.5px;margin:0 0 8px;line-height:1.5">Un pattern est <b>posé</b> quand tu l’as tenu dans <b>2 séries de 3 tonalités tirées au sort</b>. Écouter ne compte pas — seules tes mains comptent.</p>
+      ${MG_FAMS.map(([f,nom])=>{
+        const n=mgFamDone(f), t=mgFamTot(f);
+        return `<div style="margin-top:8px"><div style="display:flex;justify-content:space-between;font-size:12.5px;font-weight:800">
+            <span>${nom}</span><span style="color:${n===t?'var(--ok)':'var(--dim)'}">${n}/${t}</span></div>
+          <div class="pdots">${MG_PATS.filter(p=>p.fam===f).map(p=>{
+            const c=mgDone(p.id);
+            return `<i class="${c>=2?'on':c?'half':''}" title="${p.nom}">${p.ic}</i>`;}).join('')}</div></div>`;
+      }).join('')}`;
+    inner.appendChild(map);
+
+    inner.appendChild(mgSettings(()=>{}));
+
+    [['🪜','L’ESCALIER','La même grille, dix marches — de la fondamentale plantée à la main gauche de pianiste. Chaque marche : ce qui change, ce que ça coûte, et le A/B avec la précédente. <b>Commence ici.</b>',()=>mgEsc(),true],
+     ['📚','LE VOCABULAIRE','Les '+MG_PATS.length+' patterns en '+MG_FAMS.length+' familles. Chacun : la recette en degrés, quand l’utiliser, l’erreur classique, et les notes exactes dans ta tonalité.',()=>mgVocab()],
+     ['🧭','LE CHOIX','Trois questions (tempo, ce que fait ta droite, le son visé) et l’app te sort les trois mains gauches qui conviennent — avec le pourquoi.',()=>mgChoix()],
+     ['🏋️','LE DRILL','Un pattern, trois tonalités tirées au sort. C’est ici que ça rentre dans les mains — et c’est la seule porte qui fait avancer la carte.',()=>mgDrill()],
+     ['📖','LA THÉORIE DE LA BASSE','Pourquoi la dixième sonne et la tierce serrée fait de la boue, ce qu’est vraiment un accord slash, la pédale, le line cliché, le mouvement contraire, le rythme harmonique. Neuf fiches, toutes écoutables.',()=>mgTheorie()]
+    ].forEach(([ic,t,d,fn,prim])=>{
+      const c=document.createElement('div'); c.className='card';
+      c.innerHTML=`<b style="font-size:16px">${ic} ${t}</b><p style="color:var(--dim);font-size:13px;margin:4px 0 0;line-height:1.5">${d}</p>`;
+      const b=document.createElement('button'); b.className='btn'+(prim?'':' ghost'); b.textContent='Ouvrir';
+      b.onclick=fn; c.appendChild(b); inner.appendChild(c);
+    });
+    overlay.scrollTop=0;
+  });
+}
+
+/* ================================================================
+   L'ESCALIER
+   ================================================================ */
+const MG_ESC=[
+  {pat:'plantee', t:'Tu plantes la fondamentale', ch:'Rien. C’est le point de départ de tout le monde.', co:'Zéro. Et ça s’entend.'},
+  {pat:'octave',  t:'Tu ajoutes l’octave',        ch:'Du <b>corps</b> dans le grave. Aucune information nouvelle.', co:'Un doigt de plus. Aucun risque.'},
+  {pat:'cinq',    t:'La quinte entre en jeu',     ch:'Ça <b>bouge</b>. La quinte est neutre : elle ne change pas l’accord.', co:'Il faut jouer en rythme. Le métronome commence à compter.'},
+  {pat:'a158',    t:'Ton 1–5–8 actuel',           ch:'Une vraie ondulation. <b>C’est ici que tu es aujourd’hui.</b>', co:'Indépendance des mains. Tu l’as déjà payée.'},
+  {pat:'dixieme', t:'Le 8 devient une DIXIÈME',   ch:'<b>La marche décisive.</b> Une note change (la tierce à la place de l’octave) et ta main gauche dit enfin majeur ou mineur. Compare avec la marche 4 : c’est le même geste.', co:'Un écart un peu plus grand, et il faut savoir où est la tierce. Rien d’autre.'},
+  {pat:'charleston', t:'Le rythme prend le pouvoir', ch:'Deux gestes par mesure au lieu de quatre, dont un à contretemps — et c’est plus vivant que les quatre. <b>Le rythme bat les notes.</b>', co:'Il faut compter le « et » du 2. Deux jours de travail lent.'},
+  {pat:'chrom',   t:'Une croche pour relier',     ch:'Un demi-ton sous la basse suivante, sur la dernière croche. Les accords arrêtent d’être des cases.', co:'Il faut savoir où va l’accord suivant. Donc lire la grille en avance.'},
+  {pat:'passage', t:'La basse fabrique un chemin',ch:'Deux notes de passage : la main gauche devient une <b>ligne</b>, pas une série de points.', co:'Vraie difficulté : viser juste. C’est le seuil où la théorie devient nécessaire.'},
+  {pat:'shell17', t:'La 7e entre dans la gauche', ch:'La quinte est jetée, la 3e et la 7e alternent. Deux notes qui disent l’accord mieux que quatre. <b>Le son adulte.</b>', co:'Il faut connaître 3 et 7 de chaque accord, instantanément. C’est le vrai travail.'},
+  {pat:'stride',  t:'La gauche joue l’orchestre', ch:'Basse grave et accord au milieu, en alternance : à elle seule, ta main gauche contient tout l’accompagnement.', co:'Le saut, à l’aveugle. Des semaines. C’est un muscle, pas une idée.'}
+];
+function mgEsc(){
+  mgStop();
+  openCustom('🪜 L’escalier',(inner)=>{
+    const M=mgSt();
+    const th=document.createElement('div'); th.className='theory';
+    th.innerHTML=`<p><b>Une seule grille, dix mains gauches.</b> Monte marche par marche et écoute ce que chacune ajoute. La marche 4, c’est là où tu es. La marche 5 est celle qui change tout — et elle ne coûte presque rien.</p>
+      <div class="tip">💡 Écoute toujours la marche précédente juste après. Ce qui compte n’est pas « est-ce que c’est joli », c’est <b>« qu’est-ce qui a changé »</b>.</div>`;
+    inner.appendChild(th);
+    inner.appendChild(mgSettings(()=>mgEsc()));
+    const kb=mgKeyboard(); inner.appendChild(kb);
+
+    MG_ESC.forEach((m,i)=>{
+      const p=mgRes(m.pat), P=mgPat(m.pat);
+      const c=document.createElement('div'); c.className='card';
+      if(i===3) c.style.borderColor='var(--dim)';
+      if(i===4) c.style.borderColor='var(--acc)';
+      c.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
+          <b style="font-size:15px">${P?P.ic:'🎹'} Marche ${i+1} — ${m.t}</b>
+          ${i===3?'<small style="color:var(--dim);font-weight:800">TOI, AUJOURD’HUI</small>':''}
+          ${i===4?'<small style="color:var(--acc);font-weight:800">LA MARCHE CLÉ</small>':''}</div>
+        <div style="font-size:12.5px;color:var(--dim);margin:5px 0 0"><b style="color:var(--acc)">La recette</b> — ${P?P.recette:''}</div>
+        <div style="font-size:13px;color:#c9cde0;line-height:1.55;margin-top:6px"><b style="color:var(--txt)">Ce qui change :</b> ${m.ch}</div>
+        <div style="font-size:13px;color:#c9cde0;line-height:1.55;margin-top:4px"><b style="color:var(--txt)">Ce que ça coûte :</b> ${m.co}</div>`;
+      const row=mgRow([
+        {lab:'▶ Écouter', pat:m.pat, cls:'', cfg:{kb, loop:false}},
+        {lab:'🔁 En boucle', pat:m.pat, cfg:{kb, loop:true}},
+        i>0?{lab:'↩ La marche d’avant', pat:MG_ESC[i-1].pat, cfg:{kb}}:null,
+        {lab:'🤚 Main gauche seule', pat:m.pat, cfg:{kb, rh:'none'}}
+      ].filter(Boolean), mgCfgFor(p));
+      c.appendChild(row);
+      const go=document.createElement('button'); go.className='btn ghost'; go.textContent='🏋️ La travailler';
+      go.onclick=()=>mgDrill(m.pat); c.appendChild(go);
+      inner.appendChild(c);
+    });
+    const end=document.createElement('div'); end.className='theory';
+    end.innerHTML=`<h3>Après la marche 10</h3>
+      <p>L’escalier s’arrête ici parce qu’au-delà, ce n’est plus une question de pattern : c’est <b>choisir</b> — quel geste, à quel endroit du morceau, et quand ne rien jouer du tout. C’est exactement ce que fait <b>Le choix</b>, et c’est ce que tes mains décideront toutes seules une fois les patterns posés.</p>`;
+    inner.appendChild(end);
+    const b=document.createElement('button'); b.className='btn ghost'; b.textContent='← La main gauche';
+    b.onclick=()=>mgRoom(); inner.appendChild(b);
+    overlay.scrollTop=0;
+  });
+}
+
+/* ================================================================
+   LE VOCABULAIRE
+   ================================================================ */
+function mgVocab(famOnly){
+  mgStop();
+  openCustom('📚 Le vocabulaire',(inner)=>{
+    const th=document.createElement('div'); th.className='theory';
+    th.innerHTML=`<p>${MG_PATS.length} mains gauches. Tu n’as pas besoin des ${MG_PATS.length} : tu as besoin d’en <b>posséder cinq ou six</b>, et de savoir laquelle sortir. Les fiches donnent la recette en degrés (donc valable dans les 12 tonalités) et les <b>vraies notes</b> dans la tonalité choisie.</p>
+      <div class="tip">💡 Ordre conseillé : la dixième brisée, la charleston, l’approche chromatique, le shell 1–7. Avec ces quatre-là tu tiens 90 % des chansons.</div>`;
+    inner.appendChild(th);
+    inner.appendChild(mgSettings(()=>mgVocab(famOnly)));
+    const kb=mgKeyboard(); inner.appendChild(kb);
+
+    MG_FAMS.forEach(([f,nom,intro])=>{
+      if(famOnly&&famOnly!==f) return;
+      const h=document.createElement('div'); h.className='theory';
+      h.innerHTML=`<h3 style="margin-top:20px">${nom}</h3><p style="font-size:13px">${intro}</p>`;
+      inner.appendChild(h);
+      MG_PATS.filter(p=>p.fam===f).forEach(p=>{
+        const cfg=mgCfgFor(p,{kb}), lines=mgLines(p.id,cfg), c=mgDone(p.id);
+        const card=document.createElement('div'); card.className='card';
+        if(c>=2) card.style.borderColor='var(--ok)';
+        card.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
+            <b style="font-size:16px">${p.ic} ${p.nom}</b>
+            <small style="color:${c>=2?'var(--ok)':'var(--dim)'};font-weight:800">${c>=2?'✓ posé':c?'1/2':'niv. '+p.niv}</small></div>
+          <div class="formula" style="margin:7px 0 8px">${p.recette}</div>
+          <p style="color:#c9cde0;font-size:13.5px;line-height:1.55;margin:0">${p.quoi}</p>
+          <div class="mfstep">Quand le sortir</div>
+          <div style="color:#c9cde0;font-size:13.5px;line-height:1.55;margin-top:3px">${p.quand}</div>
+          <div class="mfstep">L’erreur classique</div>
+          <div style="color:#c9cde0;font-size:13.5px;line-height:1.55;margin-top:3px">${p.erreur}</div>
+          <div class="mfstep">Ce que tu dois entendre</div>
+          <div style="color:#c9cde0;font-size:13.5px;line-height:1.55;margin-top:3px">${p.ecoute}</div>
+          <div class="mfstep">Les vraies notes${p.grid==='static'?' (sur un accord tenu)':''}</div>
+          <div style="color:var(--dim);font-size:11.5px;margin:0 0 5px">Degré au-dessus, note en dessous. <b>→</b> = note d’approche (elle n’est pas dans l’accord, elle vise le suivant) · <b>⚓</b> = pédale · <b>≈</b> = note écrasée.</div>
+          <div class="mggrid">${lines.map(L=>`<div><b>${L.accord}</b>${L.geste.map(g=>
+              `<span><i>${g.deg}</i>${g.notes}</span>`).join('')}</div>`).join('')}</div>`;
+        card.appendChild(mgRow([
+          {lab:'▶ Deux mains', pat:p.id, cls:''},
+          {lab:'🤚 Gauche seule', pat:p.id, cfg:{rh:'none'}},
+          {lab:'🔁 Boucle (joue avec)', pat:p.id, cfg:{loop:true, rh:'none'}}
+        ], cfg));
+        const go=document.createElement('button'); go.className='btn ghost'; go.textContent=c>=2?'↻ Le revérifier':'🏋️ Le poser (3 tonalités)';
+        go.onclick=()=>mgDrill(p.id); card.appendChild(go);
+        inner.appendChild(card);
+      });
+    });
+    const b=document.createElement('button'); b.className='btn ghost'; b.textContent='← La main gauche';
+    b.onclick=()=>mgRoom(); inner.appendChild(b);
+    overlay.scrollTop=0;
+  });
+}
+
+/* ================================================================
+   LE CHOIX — quel pattern pour cette chanson
+   ================================================================ */
+const MG_Q=[
+  {k:'tempo', q:'Le morceau va à quelle vitesse ?',
+   opts:[['lent','Lent — ballade, 60-80 BPM'],['moyen','Moyen — 85-120 BPM'],['vif','Vif — ça avance, 120 BPM et plus']]},
+  {k:'rh', q:'Ta main droite fait quoi, pendant ce temps ?',
+   opts:[['tient','Elle tient l’accord, c’est tout'],['melodie','Elle joue la mélodie (ou je chante par-dessus)'],['impro','Elle improvise'],['rien','Rien encore — je veux que la gauche fasse le boulot']]},
+  {k:'style', q:'Le son que tu vises ?',
+   opts:[['pop','Pop / variété / chanson'],['jazz','Jazz'],['blues','Blues / rock'],['latin','Bossa / latin'],['gospel','Gospel / soul'],['classique','Classique / berceuse']]}
+];
+function mgChoix(){
+  mgStop();
+  openCustom('🧭 Le choix',(inner)=>{
+    const M=mgSt(); const ans=M.choix||{};
+    const th=document.createElement('div'); th.className='theory';
+    th.innerHTML=`<p>Un bon pianiste ne connaît pas plus de patterns que toi : il <b>choisit</b> plus vite. Trois questions, et l’app te donne les trois mains gauches qui tiennent la route — avec la raison.</p>`;
+    inner.appendChild(th);
+    const out=document.createElement('div');
+    MG_Q.forEach(Q=>{
+      const c=document.createElement('div'); c.className='card';
+      c.innerHTML=`<b style="font-size:14px">${Q.q}</b>`;
+      const r=document.createElement('div'); r.className='selrow'; r.style.marginTop='8px';
+      Q.opts.forEach(([v,l])=>{ const t=document.createElement('div'); t.className='tag'+(ans[Q.k]===v?' on':'');
+        t.textContent=l;
+        t.onclick=()=>{ ans[Q.k]=v; M.choix=ans; save(); mgStop(); mgChoix(); };
+        r.appendChild(t); });
+      c.appendChild(r); inner.appendChild(c);
+    });
+    inner.appendChild(out);
+    if(ans.tempo&&ans.rh&&ans.style){
+      const scored=MG_PATS.filter(p=>!p.mod).map(p=>{
+        let s=0, why=[];
+        if(p.tempo.includes(ans.tempo)) { s+=2; } else { s-=2; why.push('tempo limite'); }
+        if(p.rh.includes(ans.rh)) { s+=3; }
+        if(p.style.includes(ans.style)) { s+=3; } else { s-=1; }
+        s += p.niv*.6;                               /* quand il convient, le plus riche passe devant */
+        s -= Math.max(0,p.niv-3)*1.2;                /* mais la difficulté se paie */
+        if(p.fam==='socle') s-=1.5;                  /* le socle est le conseil par défaut : il ne gagne que faute de mieux */
+        s += (p.poids||0);                           /* réglage fin : ce qui ne se joue que 2 mesures ne gagne pas */
+        if(mgDone(p.id)>=2) s+=1;                    /* ce que tu possèdes déjà passe devant */
+        return {p,s,why};
+      }).sort((a,b)=>b.s-a.s).slice(0,3);
+      const kb=mgKeyboard();
+      const h=document.createElement('div'); h.className='theory';
+      h.innerHTML=`<h3 style="margin-top:18px">Tes trois mains gauches</h3>
+        <p style="font-size:13px">Dans l’ordre : la plus sûre d’abord. Écoute-les sur ta grille, garde celle qui te plaît, et travaille-la au drill.</p>`;
+      inner.appendChild(h);
+      inner.appendChild(mgSettings(()=>mgChoix()));
+      inner.appendChild(kb);
+      scored.forEach((x,i)=>{
+        const p=x.p, cfg=mgCfgFor(p,{kb});
+        const c=document.createElement('div'); c.className='card'; if(i===0) c.style.borderColor='var(--acc)';
+        c.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:baseline">
+            <b style="font-size:16px">${i+1}. ${p.ic} ${p.nom}</b>
+            <small style="color:var(--dim);font-weight:800">${mgDone(p.id)>=2?'✓ tu l’as':'niv. '+p.niv}</small></div>
+          <div class="formula" style="margin:7px 0 8px">${p.recette}</div>
+          <p style="color:#c9cde0;font-size:13.5px;line-height:1.55;margin:0"><b style="color:var(--txt)">Pourquoi lui ici :</b> ${p.quand}</p>
+          ${x.why.length?`<p style="color:var(--bad);font-size:12.5px;margin:6px 0 0">⚠️ ${x.why.join(' · ')} — ralentis ou choisis le suivant.</p>`:''}`;
+        c.appendChild(mgRow([
+          {lab:'▶ Écouter', pat:p.id, cls:i===0?'':'ghost'},
+          {lab:'🔁 Boucle', pat:p.id, cfg:{loop:true, rh:'none'}}
+        ], cfg));
+        const go=document.createElement('button'); go.className='btn ghost'; go.textContent='🏋️ Le travailler';
+        go.onclick=()=>mgDrill(p.id); c.appendChild(go);
+        inner.appendChild(c);
+      });
+      /* les deux modificateurs : ils ne remplacent aucune main gauche, ils s'ajoutent à n'importe laquelle */
+      const mods=MG_PATS.filter(p=>p.mod);
+      const mc=document.createElement('div'); mc.className='card'; mc.style.borderColor='var(--purple)';
+      mc.innerHTML=`<b style="font-size:15px">➕ Et par-dessus, quelle que soit ton choix</b>
+        <p style="color:var(--dim);font-size:12.5px;margin:5px 0 8px;line-height:1.5">Ces deux-là ne remplacent aucune main gauche : ils se <b>superposent</b>. Une seule note ajoutée, et n’importe lequel des trois patterns ci-dessus prend dix ans d’expérience.</p>
+        ${mods.map(p=>`<div style="margin-top:7px"><b style="font-size:14px">${p.ic} ${p.nom}</b>
+          <div style="color:#c9cde0;font-size:12.5px;line-height:1.5;margin-top:2px">${p.recette}</div></div>`).join('')}`;
+      mc.appendChild(mgRow(mods.map((p,i)=>({lab:'▶ '+p.nom, pat:p.id, cls:i===0?'':'ghost'})), mgCfg({})));
+      inner.appendChild(mc);
+      const rz=document.createElement('button'); rz.className='btn ghost'; rz.textContent='↻ Changer mes réponses';
+      rz.onclick=()=>{ M.choix=null; save(); mgChoix(); }; inner.appendChild(rz);
+    }
+    const b=document.createElement('button'); b.className='btn ghost'; b.textContent='← La main gauche';
+    b.onclick=()=>mgRoom(); inner.appendChild(b);
+    overlay.scrollTop=0;
+  });
+}
+
+/* ================================================================
+   LE DRILL — poser un pattern dans trois tonalités
+   ================================================================ */
+/* le pattern à travailler en priorité : jamais vu > entamé > le plus simple */
+function mgNext(){
+  const pool=MG_PATS.map(p=>({p, w: mgDone(p.id)===0 ? 6 : mgDone(p.id)===1 ? 3 : 1}));
+  const order=['dixieme','charleston','chrom','shell17','oompah','passage','anticipe'];
+  pool.forEach(x=>{ const i=order.indexOf(x.p.id); if(i>-1) x.w+= (order.length-i); x.w -= x.p.niv*.3; });
+  pool.sort((a,b)=>b.w-a.w);
+  return pool[0].p;
+}
+function mgDaily(){ mgDrill(mgNext().id); }
+function mgDrill(patId){
+  mgStop();
+  const M=mgSt();
+  let P = mgPat(patId) || mgNext();
+  M.lastPat=P.id; save();
+  openCustom('🏋️ '+P.nom,(inner)=>{
+    let keys=[], idx=0, res=[];
+    const wrap=document.createElement('div'); inner.appendChild(wrap);
+
+    function accueil(){
+      mgStop(); wrap.innerHTML='';
+      const th=document.createElement('div'); th.className='theory';
+      th.innerHTML=`<p><b>${P.ic} ${P.nom}</b> — ${P.recette}</p>
+        <p style="font-size:13px;color:#c9cde0">${P.quoi}</p>
+        <h3>Le test</h3>
+        <p>L’app tire <b>trois tonalités au hasard</b> sur les douze. Pour chacune : elle te donne la grille et les notes exactes, elle tient la boucle, et tu joues la main gauche par-dessus — <b>quatre tours sans t’arrêter</b>.</p>
+        <p>Un pattern que tu ne sais que dans une tonalité n’est pas un pattern : c’est une position de doigts. Le test est là pour la différence.</p>
+        <div class="tip">⚠️ Personne ne t’écoute : c’est toi qui valides. Le critère honnête, celui qui ne triche pas : <b>tu peux dire à voix haute le degré que tu joues</b> (« 1… 10… 5… 10 ») pendant que tu le joues. Si tu ne peux pas, c’est « pas encore ».</div>`;
+      wrap.appendChild(th);
+      const sel=document.createElement('div'); sel.className='card';
+      sel.innerHTML=`<b style="font-size:14px">Changer de pattern</b>`;
+      const r=document.createElement('div'); r.className='selrow'; r.style.marginTop='8px';
+      MG_PATS.forEach(p=>{ const t=document.createElement('div'); t.className='tag'+(p.id===P.id?' on':'');
+        t.innerHTML=`${p.ic} ${p.nom}${mgDone(p.id)>=2?' ✓':''}`;
+        t.onclick=()=>{ P=p; M.lastPat=p.id; save(); accueil(); }; r.appendChild(t); });
+      sel.appendChild(r); wrap.appendChild(sel);
+      wrap.appendChild(mgSettings(()=>accueil()));
+      const go=document.createElement('button'); go.className='btn'; go.textContent='🎲 Tirer trois tonalités';
+      go.onclick=()=>{
+        const all=[0,1,2,3,4,5,6,7,8,9,10,11];
+        keys=[]; while(keys.length<3){ const k=all.splice(Math.floor(Math.random()*all.length),1)[0]; keys.push(k); }
+        idx=0; res=[]; poser();
+      };
+      wrap.appendChild(go);
+      const bk=document.createElement('button'); bk.className='btn ghost'; bk.textContent='← La main gauche';
+      bk.onclick=()=>mgRoom(); wrap.appendChild(bk);
+      overlay.scrollTop=0;
+    }
+
+    function poser(){
+      mgStop(); wrap.innerHTML='';
+      const root=keys[idx];
+      const G=mgGrid(P.grid==='static'?'static':M.grid);
+      const Pr=mgProg(P.grid==='static'?'static':M.grid, root);
+      const kb=mgKeyboard();
+      const cfg={prog:Pr.prog, tonic:Pr.tonic, bpm:M.bpm, rh:'hold', kb};
+      const lines=mgLines(P.id,cfg);
+
+      const head=document.createElement('div'); head.className='card'; head.style.borderColor='var(--acc)';
+      head.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:baseline">
+          <b style="font-size:15px">Tonalité ${idx+1}/3</b>
+          <span style="color:var(--acc);font-weight:800;font-size:20px">${NOTE[root]}</span></div>
+        <p style="color:var(--dim);font-size:12.5px;margin:6px 0 0;line-height:1.5">${G.nom} · ${lines.map(L=>L.accord).join(' → ')}</p>`;
+      wrap.appendChild(head);
+
+      const notes=document.createElement('div'); notes.className='card';
+      notes.innerHTML=`<b style="font-size:14px">🤚 Ce que joue ta main gauche</b>
+        <div class="mggrid" style="margin-top:8px">${lines.map(L=>`<div><b>${L.accord}</b>${L.geste.map(g=>
+          `<span><i>${g.deg}</i>${g.notes}</span>`).join('')}</div>`).join('')}</div>
+        <p style="color:var(--dim);font-size:12px;margin:8px 0 0;line-height:1.5">En haut le <b>degré</b> (ce qu’il faut retenir), en dessous la <b>note</b> (ce que tu joues ici). Le degré voyage dans les 12 tonalités, la note non.</p>`;
+      wrap.appendChild(notes);
+      wrap.appendChild(kb);
+
+      const play=document.createElement('div'); play.className='card';
+      play.innerHTML=`<b style="font-size:14px">▶ Écoute, puis joue par-dessus</b>`;
+      play.appendChild(mgRow([
+        {lab:'▶ Deux mains', pat:P.id, cls:''},
+        {lab:'🤚 Gauche seule', pat:P.id, cfg:{rh:'none'}},
+        {lab:'🔁 Accords en boucle (tu joues la gauche)', pat:'rien', cfg:{loop:true, rh:'comp'}},
+        {lab:'🔁 Tout en boucle', pat:P.id, cfg:{loop:true}}
+      ], cfg));
+      play.appendChild(metroWidget(M.bpm));
+      wrap.appendChild(play);
+
+      const judge=document.createElement('div'); judge.className='card';
+      judge.innerHTML=`<b style="font-size:14px">Quatre tours sans t’arrêter — verdict</b>
+        <p style="color:var(--dim);font-size:12.5px;margin:5px 0 8px;line-height:1.5">Tenu = tempo stable, aucun arrêt, et tu peux nommer les degrés en jouant. Une hésitation compte comme « pas encore » : c’est le seul moyen que la carte veuille dire quelque chose.</p>`;
+      const ok=document.createElement('button'); ok.className='btn'; ok.textContent='✓ Tenu, quatre tours';
+      const ko=document.createElement('button'); ko.className='btn ghost'; ko.textContent='✗ Pas encore';
+      ok.onclick=()=>{ res.push(true); suite(); };
+      ko.onclick=()=>{ res.push(false); suite(); };
+      judge.appendChild(ok); judge.appendChild(ko); wrap.appendChild(judge);
+      overlay.scrollTop=0;
+    }
+
+    function suite(){ mgStop(); idx++; if(idx<3) poser(); else bilan(); }
+
+    function bilan(){
+      mgStop(); wrap.innerHTML='';
+      const n=res.filter(Boolean).length, before=mgDone(P.id);
+      let after=before, msg='', tone='var(--dim)';
+      if(n===3){ after=mgBump(P.id,true); tone='var(--ok)';
+        msg = after>=2 ? `<b>${P.nom} est posé.</b> Il fait partie de ton vocabulaire : tu peux le sortir sans y penser, dans n’importe quelle tonalité. Passe au suivant.`
+                       : `Première série propre. Il en faut <b>une deuxième</b>, un autre jour, sur trois autres tonalités — c’est le temps qui scelle, pas la performance.`;
+        award(after>=2?30:15);
+      } else if(n===2){ msg='Deux sur trois. La carte ne bouge pas — et c’est normal : la tonalité que tu as ratée est exactement celle qui te manque. Refais la série.'; tone='var(--acc)'; award(5); }
+      else { if(before>0){ mgBump(P.id,false); msg='Moins de deux sur trois : la case repart à zéro. Ce n’est pas une punition, c’est une mesure — ce pattern n’est pas encore dans tes mains, il est dans tes yeux.'; }
+             else msg='Pas encore. Reprends le pattern au ralenti dans UNE seule tonalité, jusqu’à ce que tes doigts n’aient plus besoin de la fiche. Reviens après.'; tone='var(--bad)'; }
+      const c=document.createElement('div'); c.className='card'; c.style.borderColor=tone;
+      c.innerHTML=`<b style="font-size:17px">${n}/3 tonalités tenues</b>
+        <p style="color:#c9cde0;font-size:13.5px;line-height:1.6;margin:8px 0 0">${msg}</p>
+        <p style="color:var(--dim);font-size:12.5px;margin:8px 0 0">${keys.map((k,i)=>`${NOTE[k]} ${res[i]?'✓':'✗'}`).join(' · ')}</p>`;
+      wrap.appendChild(c);
+      dailyMark('mg');
+      const again=document.createElement('button'); again.className='btn'; again.textContent='↻ Une autre série';
+      again.onclick=()=>accueil(); wrap.appendChild(again);
+      const nx=document.createElement('button'); nx.className='btn ghost'; nx.textContent='➡️ Le pattern suivant à travailler';
+      nx.onclick=()=>mgDrill(mgNext().id); wrap.appendChild(nx);
+      const bk=document.createElement('button'); bk.className='btn ghost'; bk.textContent='← La main gauche';
+      bk.onclick=()=>mgRoom(); wrap.appendChild(bk);
+      overlay.scrollTop=0;
+    }
+    accueil();
+  });
+}
+
+/* ================================================================
+   LA THÉORIE DE LA BASSE
+   ================================================================ */
+const MG_TH=[
+{id:'nomme', ic:'🎯', t:'La basse nomme l’accord',
+ html:`<p>Une expérience en trois secondes. La main droite ne bouge <b>pas</b> : elle tient <b>Do–Mi</b>, deux notes, tout du long. Seule la basse change.</p>
+   <ul><li>Basse <b>Do</b> → Do–Do–Mi = <b>Do majeur</b> (la quinte n’est même pas nécessaire).</li>
+   <li>Basse <b>La</b> → La–Do–Mi = <b>La mineur</b>.</li>
+   <li>Basse <b>Fa</b> → Fa–Do–Mi = <b>Fa majeur 7</b> (fondamentale, quinte, 7e majeure).</li></ul>
+   <p>Même main droite, trois accords. <b>C’est la basse qui décide.</b> Conséquence pratique immense : ta main gauche n’est pas un accompagnement décoratif, c’est elle qui nomme l’harmonie — donc la note que tu y mets n’est jamais neutre, et la changer est déjà une réharmonisation.</p>
+   <p>Corollaire : la main droite <b>n’a pas besoin</b> de rejouer la fondamentale. Elle est déjà dite. Ça libère un doigt, souvent deux — et c’est exactement la place où mettre une 9e ou une 7e.</p>`,
+ demos:[{lab:'▶ Une main droite (Do–Mi), trois basses', pat:'plantee', prog:[
+    {root:0,rhNotes:[60,64]},{root:9,type:'min',rhNotes:[60,64]},{root:5,type:'maj7',rhNotes:[60,64]},{root:0,rhNotes:[60,64]}]}]},
+
+{id:'boue', ic:'🌫', t:'La règle de la boue',
+ html:`<p>Pourquoi ton accord sonne « sale » quand tu le plaques en bas ? Ce n’est ni ton piano ni tes doigts : c’est de la <b>physique</b>.</p>
+   <h3>Ce qui se passe vraiment</h3>
+   <p>Chaque note grave est accompagnée d’une pile d’harmoniques serrés. Quand deux notes basses sont proches (une tierce, une seconde), leurs harmoniques tombent dans la même <b>bande critique</b> de l’oreille : le cerveau n’arrive plus à les séparer et interprète le mélange comme de la rugosité. Plus tu descends, plus la bande critique est large en musique — donc plus il faut <b>écarter</b>.</p>
+   <div class="formula">Sous Do3 : rien de plus serré qu’une quinte.</div>
+   <p>En pratique : dans le grave, fondamentale seule, octave, ou quinte. Le serré (tierces, septièmes collées, accords à quatre sons plaqués) se joue <b>au milieu</b> du clavier — à partir de Do3, et confortablement au-dessus.</p>
+   <p>C’est la raison technique pour laquelle la suite existe : si on veut la tierce dans la main gauche (et on la veut, c’est elle qui donne la couleur), il faut la mettre <b>une octave plus haut</b>. Ça s’appelle une dixième.</p>`,
+ demos:[{lab:'▶ L’accord plaqué en bas (boueux)', pat:'boue', prog:[{root:0},{root:0},{root:5},{root:5}], rh:'none'},
+        {lab:'▶ La même chose ouverte (1 + 10)', pat:'dixieme37', prog:[{root:0},{root:0},{root:5},{root:5}], rh:'none'},
+        {lab:'▶ Et la quinte seule (sûr, mais sans couleur)', pat:'quinte', prog:[{root:0},{root:0},{root:5},{root:5}], rh:'none'}]},
+
+{id:'dixieme', ic:'🌈', t:'La dixième — l’intervalle qui règle tout',
+ html:`<p>Une <b>dixième</b>, c’est une tierce à laquelle on a ajouté une octave. Sur Do : la tierce est Mi (juste au-dessus), la dixième est le <b>Mi de l’octave suivante</b>. Mêmes notes, mêmes noms, et pourtant deux mondes.</p>
+   <h3>Pourquoi c’est le point d’équilibre</h3>
+   <ul>
+     <li><b>Elle dit la couleur.</b> Majeur ou mineur : c’est la tierce qui tranche, donc la dixième aussi. Ton 1-5-8 ne le fait pas.</li>
+     <li><b>Elle ne fait pas de boue.</b> La note du haut est au-dessus de Do3 : on est sorti de la zone dangereuse.</li>
+     <li><b>Elle laisse la place.</b> Entre la basse et la dixième il y a un grand trou : ta main droite peut y poser ce qu’elle veut sans jamais cogner.</li>
+   </ul>
+   <h3>Si ta main est trop petite</h3>
+   <p>Une dixième, c’est large — beaucoup de pianistes ne l’attrapent pas d’un coup. La solution n’est pas de renoncer : c’est de la <b>briser</b>. Tu joues la basse, puis la dixième un instant après. Avec la pédale, l’oreille entend exactement la même chose. C’est même plus joli : ça crée un mouvement.</p>
+   <div class="tip">💡 Le test : joue ton 1-5-8 sur Do mineur, puis sur Do majeur. C’est pareil. Refais-le avec la dixième : tout a changé. C’est ça, enrichir.</div>`,
+ demos:[{lab:'▶ 1–5–8 (ton pattern actuel)', pat:'a158', prog:[{root:0},{root:0,type:'min'},{root:0},{root:0,type:'min'}], rh:'none'},
+        {lab:'▶ La dixième brisée (même grille)', pat:'dixieme', prog:[{root:0},{root:0,type:'min'},{root:0},{root:0,type:'min'}], rh:'none'},
+        {lab:'▶ La dixième tenue', pat:'dixieme37', prog:[{root:0},{root:0,type:'min'},{root:0},{root:0,type:'min'}], rh:'none'}]},
+
+{id:'slash', ic:'🔀', t:'Renversements et accords slash : tu choisis ta basse',
+ html:`<p><b>C/E</b> se lit « Do sur Mi » : l’accord de Do, mais avec un <b>Mi</b> à la basse. Ce n’est pas un accord nouveau — ce sont les mêmes notes, avec une autre note en bas. On appelle ça un <b>renversement</b> quand la basse appartient à l’accord, et un accord <b>slash</b> en général.</p>
+   <h3>Ce que ça sert, concrètement</h3>
+   <p>À fabriquer une <b>ligne de basse</b> au lieu d’une série de sauts. Prends la grille la plus jouée du monde : Do – Sol – Lam – Fa. La basse fait Do → Sol → La → Fa : deux grands sauts. Maintenant joue <b>Sol/Si</b> à la place de Sol : la basse fait Do → <b>Si</b> → La → Fa. Elle <b>descend par degrés</b>. Même harmonie, et le morceau a soudain l’air composé.</p>
+   <div class="formula">Le bon renversement = celui qui fait marcher la basse au lieu de la faire sauter.</div>
+   <h3>La règle de décision</h3>
+   <ul><li>Tu veux du <b>solide</b> (début, fin, refrain) → fondamentale à la basse.</li>
+   <li>Tu veux que ça <b>coule</b> (couplet, enchaînement) → choisis la basse la plus proche de la précédente.</li>
+   <li>Tu veux du <b>suspendu</b> → une basse qui n’est pas la fondamentale. C’est instable, ça demande une suite.</li></ul>`,
+ demos:[{lab:'▶ Basse qui saute (Do–Sol–La–Fa)', pat:'plantee', prog:[{root:0},{root:7},{root:9,type:'min'},{root:5}]},
+        {lab:'▶ Basse qui marche (Do–Si–La–Fa)', pat:'plantee', prog:[{root:0},{root:7,bass:11,oct:-1},{root:9,type:'min',oct:-1},{root:5}]},
+        {lab:'▶ Encore mieux : Do–Si–La–Sol', pat:'plantee', prog:[{root:0},{root:7,bass:11,oct:-1},{root:9,type:'min',oct:-1},{root:0,bass:7,oct:-1}]}]},
+
+{id:'pedale', ic:'⚓', t:'La pédale : quand la basse refuse de bouger',
+ html:`<p>Une <b>pédale</b>, c’est une note grave tenue ou répétée pendant que les accords changent au-dessus. Le nom vient de l’orgue : le pied garde la même touche, les mains continuent.</p>
+   <h3>Pourquoi ça marche</h3>
+   <p>Parce que l’oreille attend que la basse suive l’harmonie. Quand elle ne suit pas, il se crée un <b>frottement</b> qui grandit à chaque accord — une tension pure, gratuite, qui ne demande aucune note compliquée. Et quand la basse repart enfin, la libération est énorme.</p>
+   <p>Deux pédales classiques : la <b>pédale de tonique</b> (la note de la tonalité — effet de suspension, d’attente), et la <b>pédale de dominante</b> (la quinte de la tonalité — effet de montée, d’imminence : c’est ce qu’on entend sous les quatre mesures avant le dernier refrain de la moitié des chansons pop).</p>
+   <div class="tip">⚠️ Le dosage fait tout : 2 à 4 mesures. Au-delà, l’oreille s’habitue, la tension retombe, et il ne reste qu’une basse qui a oublié de bouger.</div>`,
+ demos:[{lab:'▶ Basse normale', pat:'plantee', prog:[{root:0},{root:5},{root:7},{root:9,type:'min'}], tonic:0},
+        {lab:'▶ Pédale de tonique (Do en bas, tout du long)', pat:'pedale', prog:[{root:0},{root:5},{root:7},{root:9,type:'min'}], tonic:0},
+        {lab:'▶ Pédale de dominante (Sol en bas)', pat:'pedale', prog:[{root:0},{root:5},{root:7},{root:9,type:'min'}], tonic:7}]},
+
+{id:'cliche', ic:'🪂', t:'Le line cliché : une voix qui descend sous un accord immobile',
+ html:`<p>Le tour de magie le plus rentable de l’harmonie populaire. L’accord ne change pas ; <b>une seule voix</b> descend d’un demi-ton à la fois. L’oreille croit entendre quatre accords différents.</p>
+   <h3>Version basse</h3>
+   <div class="formula">Do · Do/Si · Do/La (=Lam7) · Do/Sol</div>
+   <p>La basse descend Do – Si – La – Sol pendant que la main droite tient le même accord. C’est « Something », « Michelle », « Stairway to Heaven », la moitié des ballades.</p>
+   <h3>Version voix intérieure</h3>
+   <div class="formula">Lam · Lam(maj7) · Lam7 · Lam6</div>
+   <p>Ici la basse ne bouge pas : c’est une note <b>à l’intérieur</b> de l’accord qui descend, La – Sol♯ – Sol – Fa♯. Même principe, effet bien plus trouble. C’est « Michelle » à nouveau, « Something Stupid », les génériques de films noirs, tout le James Bond.</p>
+   <div class="tip">💡 Repère-le sur une chanson : si un accord dure longtemps et que « quelque chose bouge » sans que l’harmonie change vraiment, c’est un line cliché neuf fois sur dix.</div>`,
+ demos:[{lab:'▶ Version basse (Do · Do/Si · Lam7 · Do/Sol)', pat:'plantee', prog:[{root:0},{root:0,bass:11,oct:-1},{root:0,bass:9,oct:-1},{root:0,bass:7,oct:-1}]},
+        {lab:'▶ Version voix intérieure (Lam · Lam∆7 · Lam7 · Lam6)', pat:'plantee', prog:[{root:9,type:'min'},{root:9,type:'mMaj7'},{root:9,type:'m7'},{root:9,type:'m6'}]},
+        {lab:'▶ Et en dixième brisée', pat:'dixieme', prog:[{root:0},{root:0,bass:11,oct:-1},{root:0,bass:9,oct:-1},{root:0,bass:7,oct:-1}]}]},
+
+{id:'contraire', ic:'↕️', t:'Le mouvement contraire',
+ html:`<p>Deux voix qui bougent dans la <b>même</b> direction, c’est de l’épaisseur. Deux voix qui bougent en sens <b>opposés</b>, c’est de la musique : l’oreille perçoit deux personnages, pas un bloc.</p>
+   <p>La recette de pianiste : quand ta main droite <b>monte</b> vers le point culminant de la phrase, fais <b>descendre</b> ta basse. L’écart s’ouvre, l’intensité grimpe sans que tu joues plus fort.</p>
+   <div class="formula">Droite qui monte + gauche qui descend = tension qui monte à volume égal</div>
+   <p>C’est aussi la sortie de secours quand un enchaînement sonne pauvre : garde les mêmes accords, inverse la direction d’une des deux mains. Neuf fois sur dix, ça suffit.</p>`,
+ demos:[{lab:'▶ Les deux voix descendent (plat)', pat:'plantee', rh:'none',
+         prog:[{root:0},{root:0,bass:11,oct:-1},{root:0,bass:9,oct:-1},{root:0,bass:7,oct:-1}],
+         melody:[{n:84,b:0,d:3.6},{n:83,b:4,d:3.6},{n:81,b:8,d:3.6},{n:79,b:12,d:3.6}]},
+        {lab:'▶ Gauche qui descend, droite qui monte', pat:'plantee', rh:'none',
+         prog:[{root:0},{root:0,bass:11,oct:-1},{root:0,bass:9,oct:-1},{root:0,bass:7,oct:-1}],
+         melody:[{n:76,b:0,d:3.6},{n:77,b:4,d:3.6},{n:79,b:8,d:3.6},{n:84,b:12,d:3.6}]},
+        {lab:'▶ Le même, avec les accords', pat:'plantee',
+         prog:[{root:0},{root:0,bass:11,oct:-1},{root:0,bass:9,oct:-1},{root:0,bass:7,oct:-1}],
+         melody:[{n:76,b:0,d:3.6},{n:77,b:4,d:3.6},{n:79,b:8,d:3.6},{n:84,b:12,d:3.6}]}]},
+
+{id:'rythmeh', ic:'⏱', t:'Le rythme harmonique',
+ html:`<p>Le <b>rythme harmonique</b>, c’est la vitesse à laquelle les accords changent. On n’y pense jamais, et c’est pourtant l’un des trois ou quatre paramètres qui décident si un morceau respire ou étouffe.</p>
+   <h3>Les trois vitesses</h3>
+   <ul>
+     <li><b>Lent</b> (un accord toutes les 2 ou 4 mesures) : il y a de la place. C’est là que la main gauche doit s’animer — line cliché, arpèges, walking. Sinon c’est le vide.</li>
+     <li><b>Moyen</b> (un accord par mesure) : le standard. Une main gauche simple suffit ; le changement d’accord fait déjà l’événement.</li>
+     <li><b>Rapide</b> (deux accords ou plus par mesure) : ne rajoute rien. L’harmonie bouge déjà. Une basse plantée ou un shell, et tais-toi.</li>
+   </ul>
+   <div class="formula">Plus l’harmonie bouge, moins la main gauche doit bouger. Et inversement.</div>
+   <p>C’est une règle de <b>budget</b> : l’oreille ne peut suivre qu’une quantité limitée d’événements par seconde. Chaque changement d’accord en consomme. Chaque note de main gauche aussi.</p>
+   <h3>Où placer le changement</h3>
+   <p>Sur le <b>temps 1</b>, par défaut. Et si tu veux que ça pousse : une croche <b>avant</b> — la basse du nouvel accord arrive sur le « et » du 4. C’est l’anticipation, et c’est le truc le plus copié de la musique populaire.</p>`,
+ demos:[{lab:'▶ Lent : un accord toutes les 2 mesures', pat:'a158', prog:[{root:0},{root:0},{root:5},{root:5}]},
+        {lab:'▶ Moyen : un accord par mesure', pat:'a158', prog:[{root:0},{root:7},{root:9,type:'min'},{root:5}]},
+        {lab:'▶ Lent + main gauche qui s’anime (la bonne réponse)', pat:'descente', prog:[{root:0},{root:0},{root:0},{root:0}]},
+        {lab:'▶ L’anticipation', pat:'anticipe', prog:[{root:0},{root:7},{root:9,type:'min'},{root:5}]}]},
+
+{id:'partage', ic:'⚖️', t:'Le partage : qui a le droit de bouger',
+ html:`<p>La faute la plus fréquente des pianistes autodidactes n’est pas une fausse note : c’est <b>deux mains qui font la même chose en même temps</b>. Elles se marchent dessus, et le résultat est brouillon alors que chaque main, seule, est correcte.</p>
+   <div class="formula">Une seule main bouge à la fois. L’autre tient.</div>
+   <h3>Comment ça se décide</h3>
+   <ul>
+     <li>Ta droite joue une <b>mélodie</b> → ta gauche peut s’animer (pompe, arpège, walking).</li>
+     <li>Ta droite <b>improvise</b> → ta gauche se fait toute petite : shell, dixième tenue, pouls. Jamais de walking sous une impro, au début.</li>
+     <li>Ta droite <b>tient</b> l’accord → ta gauche a tout l’espace. C’est le bon moment pour les patterns riches.</li>
+     <li>Les deux veulent bouger → alors <b>alternez</b> : la gauche remplit les trous de la droite. C’est ce qu’on appelle jouer en question–réponse, et c’est ce que font tous les bons accompagnateurs.</li>
+   </ul>
+   <p>Corollaire moins évident : quand ça sonne mal, la réponse n’est presque jamais « ajoute ». C’est <b>« enlève d’une main »</b>.</p>`,
+ demos:[{lab:'▶ Les deux mains bougent (encombré)', pat:'arpege8', prog:[{root:0},{root:7},{root:9,type:'min'},{root:5}], rh:'comp'},
+        {lab:'▶ La gauche bouge, la droite tient', pat:'arpege8', prog:[{root:0},{root:7},{root:9,type:'min'},{root:5}], rh:'hold'},
+        {lab:'▶ La droite bouge, la gauche tient', pat:'dixieme37', prog:[{root:0},{root:7},{root:9,type:'min'},{root:5}], rh:'comp'}]}
+];
+function mgTheorie(){
+  mgStop();
+  openCustom('📖 La théorie de la basse',(inner)=>{
+    const M=mgSt();
+    const th=document.createElement('div'); th.className='theory';
+    th.innerHTML=`<p>Neuf fiches. Elles ne parlent pas de doigts : elles expliquent <b>pourquoi</b> certaines mains gauches sonnent et d’autres non. Une fois ces neuf choses comprises, tu peux inventer tes propres patterns au lieu de collectionner ceux des autres.</p>
+      <div class="tip">💡 Tout est écoutable, et presque tout est en A/B : c’est la <b>comparaison</b> qui enseigne, pas le texte.</div>`;
+    inner.appendChild(th);
+    MG_TH.forEach(F=>{
+      const c=document.createElement('div'); c.className='card';
+      c.innerHTML=`<b style="font-size:16px">${F.ic} ${F.t}</b>
+        <div class="theory" style="padding:0;margin-top:6px">${F.html}</div>`;
+      const base={tonic:0, bpm:Math.min(M.bpm,92), rh:'hold'};
+      c.appendChild(mgRow(F.demos.map((d,i)=>({lab:d.lab, pat:d.pat, cls:i===0?'':'ghost',
+        cfg:{prog:d.prog, tonic:d.tonic!=null?d.tonic:0, rh:d.rh!=null?d.rh:'hold', melody:d.melody}})), base));
+      inner.appendChild(c);
+    });
+    const b=document.createElement('button'); b.className='btn ghost'; b.textContent='← La main gauche';
+    b.onclick=()=>mgRoom(); inner.appendChild(b);
+    overlay.scrollTop=0;
+  });
+}
+
+/* ---------------- styles de la salle ---------------- */
+(function(){
+  const s=document.createElement('style');
+  s.textContent=`
+  .mggrid{display:flex;flex-direction:column;gap:6px}
+  .mggrid>div{display:flex;align-items:center;gap:5px;flex-wrap:wrap;background:var(--bg3);border:1px solid var(--line);border-radius:9px;padding:6px 8px}
+  .mggrid>div>b{min-width:58px;font-size:12.5px;color:var(--acc)}
+  .mggrid span{display:inline-flex;flex-direction:column;align-items:center;gap:1px;font-size:11px;color:var(--txt);background:var(--bg2);border-radius:6px;padding:3px 6px;min-width:36px;line-height:1.25}
+  .mggrid span i{font-style:normal;font-weight:800;color:var(--acc);font-size:11.5px}
+  .btn.mgplaying{border-color:var(--acc);color:var(--acc)}
+  `;
+  document.head.appendChild(s);
+})();
 
 /* ---------------- init ---------------- */
 updateHeader(); render();
