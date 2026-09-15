@@ -582,7 +582,7 @@ const LEVELS = [
 ];
 
 /* ---------------- état / sauvegarde ---------------- */
-const DEFAULT_STATE = {xp:0, done:{}, prog:{}, streak:0, lastDay:null, earBest:0, daily:null, hist:{}, best:{}, labels:false, songs:{}, songsHand:{}, songsLH:{}, bilan:null, bilanRewarded:false, errs:{}, errLog:{}, earStats:{}, noteStats:{}, rhythmStats:{}, defi:{}, intensity:'forge'};
+const DEFAULT_STATE = {xp:0, done:{}, prog:{}, streak:0, lastDay:null, earBest:0, daily:null, hist:{}, best:{}, labels:false, songs:{}, songsHand:{}, songsLH:{}, bilan:null, bilanRewarded:false, errs:{}, errLog:{}, earStats:{}, noteStats:{}, rhythmStats:{}, defi:{}, intensity:'forge', sonOpt:true};
 const USER='Thomas';
 /* restauration de progression via ?restore=<base64> (transfert d'appareil / d'origine) */
 (function(){ try{
@@ -619,6 +619,11 @@ function award(xp){
   if(after!==before) setTimeout(()=>toast('🥋 Nouveau grade : '+after),1400);
 }
 function updateHeader(){ document.getElementById('streakBadge').textContent='🔥 '+S.streak; }
+/* « Parfois je n'ai pas l'opportunité d'écouter » : tout ce qui se répond
+   AVEC LES OREILLES devient facultatif — jamais imposé par la séance ni par
+   le parcours, mais toujours accessible les jours où le son est possible. */
+const sonOpt = () => S.sonOpt !== false;
+const CASQUE = '<span class="csq">🎧</span>';
 const todayStr=()=>new Date().toISOString().slice(0,10);
 
 /* ---------------- Maîtrise : paliers étalés dans le temps ----------------
@@ -659,7 +664,7 @@ function dailyMark(key){
   const d=ensureDaily();
   if(d.done[key]) return;
   d.done[key]=true; save();
-  const prog=dailyProgram();
+  const prog=dailyProgram().filter(t=>!t.opt);        /* une ligne facultative ne bloque pas le bonus */
   if(!d.bonus && prog.every(t=>d.done[t.key])){
     d.bonus=true; save();
     const xp=10*prog.length;
@@ -1619,7 +1624,7 @@ Exemple <b>C mineur</b> : C, compte 3 → Eb, compte 4 → G. <b>C–Eb–G</b>.
     ]}},
 ]},
 { id:'m7', title:'Module 6 · L\'oreille', lessons:[
-  { id:'m7l1', icon:'👂', title:'Majeur ou mineur ?', sub:'Entendre avant de savoir', xp:80,
+  { id:'m7l1', icon:'👂', title:'Majeur ou mineur ?', sub:'Entendre avant de savoir', xp:80, sound:true,
     theory:`
 <p>Dernier étage de la fusée : <b>l'oreille</b>. Tout ce que tu as appris avec les yeux et la logique, ton oreille doit l'apprendre aussi — c'est elle qui te permettra de jouer ce que tu entends, de repérer une progression dans une chanson, de te corriger seul.</p>
 <h3>L'exercice</h3>
@@ -1632,7 +1637,7 @@ Exemple <b>C mineur</b> : C, compte 3 → Eb, compte 4 → G. <b>C–Eb–G</b>.
 </ul>
 <div class="warn">Ne clique pas au hasard pour finir vite : chaque réponse au pif entraîne ton oreille à ne pas écouter. Mieux vaut 10 vraies écoutes que 30 clics.</div>`,
     ex:{type:'ear', kinds:['maj','min'], count:10, pass:8, sub:'Objectif : 8/10 minimum.'}},
-  { id:'m7l2', icon:'🏆', title:'BOSS FINAL : l\'oreille sans filet', sub:'majeur ou mineur, toutes tonalités', xp:120,
+  { id:'m7l2', icon:'🏆', title:'BOSS FINAL : l\'oreille sans filet', sub:'majeur ou mineur, toutes tonalités', xp:120, sound:true,
     theory:`
 <p>Boss final du parcours. L'app joue un accord <b>majeur ou mineur</b> sur une tonalité tirée au hasard : à toi de trancher, sans repère préalable en tête. C'est le vrai test de ton oreille sur la couleur la plus fondamentale.</p>
 <h3>Ta méthode</h3>
@@ -1831,8 +1836,11 @@ function render(){
 
 /* ---------------- Parcours ---------------- */
 function nextLesson(){
-  return ALL_LESSONS.find(l=>!S.done[l.id]) || null;
+  /* les leçons d'oreille ne sont jamais « la prochaine » quand l'écoute est
+     facultative : elles restent ouvertes dans la liste, avec leur casque. */
+  return ALL_LESSONS.find(l=>!S.done[l.id] && !(l.sound && sonOpt())) || null;
 }
+const lessonsOreille = () => ALL_LESSONS.filter(l=>!S.done[l.id] && l.sound && sonOpt()).length;
 
 /* ---------------- LE COACH ----------------
    Croise le bilan (où tu es faible), les erreurs en attente et ton palier
@@ -1849,6 +1857,7 @@ function weakSpot(){
   let best=null;
   WEAK_MAP.forEach(m=>{
     if(m.req && !S.done[m.req]) return;              // pas encore débloqué : on n'envoie pas dans le mur
+    if(m.key==='oreille' && sonOpt()) return;        // l'écoute est facultative : on n'en fait pas LA consigne
     const sc=S.bilan.axes[m.key];
     if(sc==null) return;
     if(!best || sc<best.score) best={...m, score:sc};
@@ -2280,7 +2289,7 @@ const DAILY_DRILLS=[
   {req:null,  ic:'🪜', txt:'Construis une gamme (au hasard)', fn:()=>dojoScale()},
   {req:null,  ic:'🖐', txt:'Les pentas : les notes en plus', fn:()=>pentaAddsRoom()},
   {req:null,  ic:'🎯', txt:'La penta sur un accord', fn:()=>pentaChordsRoom()},
-  {req:null,  ic:'🎧', txt:'Juke-box : ta gamme sur un vrai morceau', fn:()=>jukeRoom()},
+  {req:null,  ic:'🎧', txt:'Juke-box : ta gamme sur un vrai morceau', sound:true, fn:()=>jukeRoom()},
   {req:null,  ic:'🧠', txt:'Quiz : formats, modes & grilles', fn:()=>dojoTheoryQuiz()},
   {req:'m2l2', ic:'🎲', txt:'Joue une progression tirée au sort', fn:()=>dojoProg()},
   {req:'m1l2', ic:'🌊', txt:'Enchaînements fluides (voice leading)', fn:()=>dojoVL()},
@@ -2317,8 +2326,9 @@ function dailyProgram(){
   if(lvl==='normal') return P;
 
   /* ---- INTENSE : le débouché musical + l'oreille (son point faible) ---- */
-  P.push({key:'impro', ic:'🎹', txt:'Impro guidée : la gamme en musique', fn:()=>improRoom()});
-  P.push({key:'ear', ic:'👂', txt:'Oreille : majeur ou mineur ?', fn:()=>dojoEar()});
+  /* l'impro guidée aussi : c'est l'app qui tient les accords pendant que tu joues. */
+  P.push({key:'impro', ic:'🎹', txt:'Impro guidée : la gamme en musique', opt:sonOpt(), fn:()=>improRoom()});
+  P.push({key:'ear', ic:'👂', txt:'Oreille : majeur ou mineur ?', opt:sonOpt(), fn:()=>dojoEar()});
   {const p=mgNext();
    P.push({key:'mg', ic:'🤚', txt:'Main gauche : '+p.nom+(mgDone(p.id)?' (série 2)':''), fn:()=>mgDrill(p.id)});}
   if(lvl==='intense') return P;
@@ -2334,7 +2344,7 @@ function dailyProgram(){
   {const pool=DAILY_DRILLS.filter(x=>!x.req||S.done[x.req]);
    /* clé 'varie' et non 'drill' : 'drill' est la clé générique que dix salles marquent,
       elle cocherait cette ligne toute seule. Le slot de la séance s'en charge. */
-   if(pool.length){ const d=pickDay(pool); P.push({key:'varie', ic:d.ic, txt:d.txt, fn:d.fn}); }}
+   if(pool.length){ const d=pickDay(pool); P.push({key:'varie', ic:d.ic, txt:d.txt, opt:!!d.sound&&sonOpt(), fn:d.fn}); }}
   return P;
 }
 function renderParcours(){
@@ -2350,7 +2360,7 @@ function renderParcours(){
     <div class="xpbar"><i style="width:${pct}%"></i></div>
     <div class="xptxt">${S.xp} XP${lv.next?` · ${lv.next[0]-S.xp} XP avant « ${lv.next[1]} »`:' · grade maximum'} · ${doneCount}/${ALL_LESSONS.length} leçons · ${S.hist[todayStr()]||0} XP aujourd'hui</div>
     ${nl?`<button class="btn" id="resume">▶ ${doneCount===0?'Commencer':'Reprendre'} : ${nl.title}</button>`
-        :'<button class="btn ok" disabled>Parcours terminé — le Dojo t\'attend</button>'}`;
+        :`<button class="btn ok" disabled>Parcours terminé${lessonsOreille()?` (hors ${lessonsOreille()} leçon${lessonsOreille()>1?'s':''} d'oreille)`:''} — le Dojo t'attend</button>`}`;
   main.appendChild(hero);
   if(nl) hero.querySelector('#resume').onclick=()=>openLesson(nl);
 
@@ -2375,11 +2385,12 @@ function renderParcours(){
 
   const d=ensureDaily();
   const prog=dailyProgram();
-  const nDone=prog.filter(t=>d.done[t.key]).length;
+  const req=prog.filter(t=>!t.opt);
+  const nDone=req.filter(t=>d.done[t.key]).length;
   const daily=document.createElement('div'); daily.className='card daily';
   daily.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center">
-    <b style="font-size:15px">📅 Séance du jour · ~${prog.length*6} min</b>
-    <small style="color:var(--dim);font-weight:700">${nDone}/${prog.length}</small></div>`;
+    <b style="font-size:15px">📅 Séance du jour · ~${req.length*6} min</b>
+    <small style="color:var(--dim);font-weight:700">${nDone}/${req.length}</small></div>`;
   /* sélecteur d'intensité : c'est toi qui règles la charge */
   const isel=document.createElement('div'); isel.className='selrow'; isel.style.margin='8px 0 4px';
   INTENSITIES.forEach(([v,l])=>{
@@ -2390,13 +2401,14 @@ function renderParcours(){
   daily.appendChild(isel);
   prog.forEach(t=>{
     const doneT=!!d.done[t.key];
-    const r=document.createElement('div'); r.className='row'+(doneT?' ok':'');
-    r.innerHTML = `<div class="st">${doneT?'✓':t.ic}</div><span>${t.txt}</span><small style="color:var(--dim)">›</small>`;
+    const r=document.createElement('div'); r.className='row'+(doneT?' ok':'')+(t.opt?' opt':'');
+    r.innerHTML = `<div class="st">${doneT?'✓':t.ic}</div><span>${t.txt}${t.opt?` ${CASQUE}<small style="color:var(--dim);font-weight:700"> facultatif</small>`:''}</span><small style="color:var(--dim)">›</small>`;
     if(!doneT) r.onclick=()=>dailyRun(t.key, t.fn);
     daily.appendChild(r);
   });
   const bn=document.createElement('div'); bn.className='bonus';
-  bn.textContent = d.bonus ? '🔥 Séance complète — bonus encaissé.' : `Les ${prog.length} dans la journée = +${10*prog.length} XP bonus.`;
+  bn.innerHTML = d.bonus ? '🔥 Séance complète — bonus encaissé.'
+    : `Les ${req.length} dans la journée = +${10*req.length} XP bonus.${prog.length>req.length?` Les lignes ${CASQUE} ne comptent pas : fais-les si tu peux écouter.`:''}`;
   daily.appendChild(bn);
   main.appendChild(daily);
 
@@ -2432,9 +2444,10 @@ function renderParcours(){
       const done=!!S.done[l.id];
       const el=document.createElement('div');
       el.className='lesson'+(done?' done':'');
+      const opt = !done && l.sound && sonOpt();
       const right = done ? '✓ '+l.xp : l.xp+' XP';
       el.innerHTML=`<div class="ico">${done?'✓':l.icon}</div>
-        <div class="t"><b>${l.title}</b><small>${l.sub}</small></div>
+        <div class="t"><b>${l.title}${opt?' '+CASQUE:''}</b><small>${opt?'Facultative — elle se répond à l\'oreille. '+l.sub:l.sub}</small></div>
         <div class="xp">${right}</div>`;
       el.onclick=()=>openLesson(l);
       md.appendChild(el);
@@ -2459,7 +2472,7 @@ const DRILLS=[
   {id:'roue', icon:'🗺', title:'LA ROUE DES 12', req:null,
    desc:()=>`Ta carte de conquête : les 12 gammes en <b>cercle des quintes</b>, chacune éclairée selon son palier. Les dièses à droite, les bémols à gauche — tu vois d\'un coup d\'œil de quel côté tu traînes. <b style="color:var(--ok)">${goMastered()}/12</b> scellées.`,
    run:()=>goWheel()},
-  {id:'juke', icon:'🎧', title:'LE JUKE-BOX — LES GAMMES EN VRAI', req:null,
+  {id:'juke', icon:'🎧', title:'LE JUKE-BOX — LES GAMMES EN VRAI', req:null, sound:true,
    desc:()=>`${JUKE.length} vrais morceaux rangés <b>par gamme</b> (penta, dorien, mixolydien, lydien, phrygien, blues, mineur harmonique). L\'app tient la grille en boucle, ta gamme s\'allume en bleu, la note à viser en orange. <b style="color:var(--acc)">${jbCount()}/${JUKE.length}</b> joués.`,
    run:()=>jukeRoom()},
   {id:'pentas', icon:'🖐', title:'LES PENTAS', req:null,
@@ -2481,7 +2494,7 @@ const DRILLS=[
   {id:'mix', icon:'🎯', title:'SESSION MIXTE', req:'m0l2',
    desc:()=>'Un peu de tout ce que tu as déjà vu, mélangé au hasard. S\'enrichit automatiquement à chaque leçon validée. +25 XP.',
    run:()=>dojoMix()},
-  {id:'impro', icon:'🎹', title:'IMPRO GUIDÉE', req:null,
+  {id:'impro', icon:'🎹', title:'IMPRO GUIDÉE', req:null, sound:true,
    desc:()=>'On te donne une tonalité : construis sa gamme, déduis la grille (I–IV–V, pop, ii–V–I, mineur soul), et l\'app tient les accords pendant que tu improvises la main droite sur la penta. 4 difficultés.',
    run:()=>improRoom()},
   {id:'tquiz', icon:'🧠', title:'Quiz — formats & grilles', req:null,
@@ -2504,10 +2517,10 @@ const DRILLS=[
   {id:'boussole', icon:'🧭', title:'La Boussole des armures', req:null,
    desc:()=>'Arrêter de retenir 12 listes : <b>une seule liste</b> (Fa-Do-Sol-Ré-La-Mi-Si) et <b>deux raccourcis</b> (dernier dièse = sensible · avant-dernier bémol = tonique). 4 niveaux, jusqu\'à l\'aller-retour chronométré.',
    run:()=>goCompass()},
-  {id:'modes', icon:'🎭', title:'Explorer les modes', req:null,
+  {id:'modes', icon:'🎭', title:'Explorer les modes', req:null, sound:true,
    desc:()=>'Tu ne comprends rien aux modes ? Écoute-les côte à côte sur le même Do, vois la note qui change. Du plus lumineux au plus sombre — par l\'oreille, pas par les mots.',
    run:()=>modesExplorer()},
-  {id:'coord', icon:'🤝', title:'Deux mains & impro', req:null,
+  {id:'coord', icon:'🤝', title:'Deux mains & impro', req:null, sound:true,
    desc:()=>'L\'app joue une main, tu joues l\'autre. Répertoire gradué (pop → « You Know I\'m No Good » → jazz) avec la penta donnée et surlignée. Le vrai chaînon pour improviser à deux mains.',
    run:()=>coordRoom()},
   {id:'qcards', icon:'🃏', title:'Les quintes en cartes', req:null,
@@ -2559,21 +2572,21 @@ const DRILLS=[
   {id:'scale', icon:'🪜', title:'Gammes', req:'m6l1',
    desc:()=>'Gamme majeure (ou pentatonique) depuis une fondamentale tirée au sort.',
    run:()=>dojoScale()},
-  {id:'voix', icon:'🎤', title:'Chanter pour entendre', req:null,
+  {id:'voix', icon:'🎤', title:'Chanter pour entendre', req:null, sound:true,
    desc:()=>{ const s=earStat('voix'); return 'Le parcours d\'oreille par la VOIX : bourdon, chante les couleurs (majeur/mineur) et les intervalles — <b>l\'app t\'écoute au micro</b> et te dit monte / descends, comme un accordeur — puis reconnais, armé par ta voix. Tu chantes déjà juste : on branche ton oreille sur les mots. 5 min/jour, le plus rentable contre ton point faible.'+(s.best?` Reconnaissance record : <b style="color:var(--acc)">${s.best}%</b>.`:''); },
    run:()=>dojoVoix()},
-  {id:'justesse', icon:'🎯', title:'Justesse de la voix — 10 niveaux', req:null,
+  {id:'justesse', icon:'🎯', title:'Justesse de la voix — 10 niveaux', req:null, sound:true,
    desc:()=>{ const n=VG_LEVELS.filter(L=>vgLv(L.id).stars).length, s=VG_LEVELS.reduce((a,L)=>a+vgLv(L.id).stars,0);
      return 'L’accordeur devient un parcours : unisson, tenue, secondes, do-ré-mi, tierces, arpèges, quarte & quinte — d’abord guidé par l’aiguille, puis <b>à l’oreille</b> (l’app juge sans t’aider). Notes tirées dans ta tessiture.'+(n?` <b style="color:var(--acc)">${n}/10 niveaux validés · ${s}/30 ★</b>`:''); },
    run:()=>voiceTunerRoom('parcours')},
-  {id:'chant', icon:'🎙', title:'Le chant — la routine de 12 min', req:null,
+  {id:'chant', icon:'🎙', title:'Le chant — la routine de 12 min', req:null, sound:true,
    desc:()=>{ const n=CHANT.filter(e=>chantDoneToday(e.id)).length, F=chantFocus(), r=chantRoutState();
      return `<b>12 minutes par jour</b>, cinq blocs : souffle (« sss » puis « zzz »), trille de lèvres en gammes, « ng » → voyelles, sirènes, puis <b>de la vraie musique</b> (la même phrase à trois nuances). Plus un focus différent chaque jour — aujourd’hui ${F.ico} <b>${F.t}</b>. Et 23 exos à la carte : souffle, placement, diction, phrasé, aigus, justesse au micro.`
        +(chantRoutToday()?' <b style="color:var(--ok)">Routine faite aujourd’hui.</b>':'')
        +(r.streak?` <b style="color:var(--acc)">Série : ${r.streak} jour${r.streak>1?'s':''}.</b>`:'')
        +(n?` ${n} exo${n>1?'s':''} fait${n>1?'s':''} aujourd’hui.`:''); },
    run:()=>chantRoom()},
-  {id:'ear', icon:'👂', title:'Majeur ou mineur ?', req:null,
+  {id:'ear', icon:'👂', title:'Majeur ou mineur ?', req:null, sound:true,
    desc:()=>{ const s=earStat('mm'); return 'Une note tirée au hasard : compare son majeur à son mineur, ressens la bascule, puis teste-toi. L\'exercice d\'oreille express — fais-le court et quotidien.'+(s.best?` Record : <b style="color:var(--acc)">${s.best}%</b>.`:''); },
    run:()=>dojoEar()},
 ];
@@ -2581,10 +2594,10 @@ const lessonById=id=>ALL_LESSONS.find(l=>l.id===id);
 const moduleOf=l=>CURRICULUM.find(m=>m.lessons.includes(l));
 function renderDojo(){
   main.innerHTML=`<h1 class="page">Le Dojo</h1>
-  <p style="color:var(--dim);font-size:14px;margin:-6px 0 14px">Entraînement illimité — +10 XP par série. <b style="color:var(--acc)">${DRILLS.length} salles</b>, toutes ouvertes : entraîne ce que tu veux, quand tu veux.</p>`;
+  <p style="color:var(--dim);font-size:14px;margin:-6px 0 14px">Entraînement illimité — +10 XP par série. <b style="color:var(--acc)">${DRILLS.length} salles</b>, toutes ouvertes : entraîne ce que tu veux, quand tu veux. Les <b>${DRILLS.filter(d=>d.sound).length}</b> marquées ${CASQUE} demandent du son — les autres se font en silence.</p>`;
   DRILLS.forEach(d=>{
     const c=document.createElement('div'); c.className='card';
-    c.innerHTML=`<b style="font-size:16px">${d.icon} ${d.title}</b><p style="color:var(--dim);font-size:13px;margin:4px 0 0">${d.desc()}</p>`;
+    c.innerHTML=`<b style="font-size:16px">${d.icon} ${d.title}${d.sound?' '+CASQUE:''}</b>${d.sound?'<div style="color:var(--dim);font-size:11.5px;font-weight:700;margin-top:2px">Demande du son (ou un micro)</div>':''}<p style="color:var(--dim);font-size:13px;margin:4px 0 0">${d.desc()}</p>`;
     const b=document.createElement('button'); b.className='btn ghost'; b.textContent='Lancer';
     b.onclick=d.run; c.appendChild(b);
     main.appendChild(c);
@@ -4855,6 +4868,26 @@ function openMidi(){
 
 function renderOutils(){
   main.innerHTML=`<h1 class="page">Outils</h1>`;
+  const cSon=document.createElement('div'); cSon.className='card'; cSon.style.borderColor=sonOpt()?'var(--acc)':'var(--line)';
+  cSon.innerHTML=`<b style="font-size:16px">🎧 Les exercices d'écoute</b>
+    <p style="color:var(--dim);font-size:13px;margin:4px 0 8px;line-height:1.5">
+      Tout ce qui se répond <b>avec les oreilles</b> (majeur ou mineur, juke-box, impro guidée, chant…).
+      En <b>facultatif</b>, ces exercices ne sont jamais imposés : ils sortent de la séance obligatoire,
+      ne bloquent plus le parcours, et l'épreuve d'oreille du bilan devient passable. Ils restent
+      accessibles à tout moment — les jours où tu peux écouter.</p>`;
+  const segSon=document.createElement('div'); segSon.className='selrow';
+  [[true,'Facultatifs'],[false,'Obligatoires']].forEach(([v,l])=>{
+    const t=document.createElement('div'); t.className='tag'+(sonOpt()===v?' on':''); t.textContent=l;
+    t.onclick=()=>{ S.sonOpt=v; save(); renderOutils(); };
+    segSon.appendChild(t);
+  });
+  cSon.appendChild(segSon);
+  const nb=DRILLS.filter(d=>d.sound).length+ALL_LESSONS.filter(l=>l.sound).length;
+  const pSon=document.createElement('p');
+  pSon.style.cssText='color:var(--dim);font-size:12px;margin:8px 0 0;line-height:1.5';
+  pSon.innerHTML=`<b>${nb}</b> endroits concernés dans l'app, tous marqués ${CASQUE}. Le reste — gammes, accords, degrés, armures, quintes, la main gauche — se fait <b>en silence</b>.`;
+  cSon.appendChild(pSon);
+  main.appendChild(cSon);
   const c1=document.createElement('div'); c1.className='card';
   c1.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center">
     <b style="font-size:16px">🎹 Clavier libre</b>
@@ -6209,6 +6242,14 @@ function runBilan(){
         lab.textContent=title; wrap.appendChild(lab);
         const box=document.createElement('div'); wrap.appendChild(box);
         const total=BILAN_AXES.find(a=>a.key===axis).total;
+        /* pas de son sous la main : on passe l'épreuve d'oreille au lieu de la rater.
+           L'axe reste « non testé » et ne tire PAS la note globale vers le bas. */
+        if(type==='ear' && sonOpt()){
+          const sk=document.createElement('button'); sk.className='btn ghost';
+          sk.innerHTML='🔇 Passer — je ne peux pas écouter là';
+          sk.onclick=()=>{ k++; next(); };
+          wrap.appendChild(sk);
+        }
         const eng={chord:runChord,quiz:runQuiz,ear:runEar}[type];
         eng(box,ex,(ok,a,b)=>{
           /* chord: a=score, b=nb d'items ratés → réussite 1er essai = total-b
@@ -6220,8 +6261,8 @@ function runBilan(){
       };
       const finishBilan=()=>{
         const prev=S.bilan;
-        const vals=BILAN_AXES.map(a=>axes[a.key]||0);
-        const global=Math.round(vals.reduce((s,x)=>s+x,0)/vals.length);
+        const vals=BILAN_AXES.map(a=>axes[a.key]).filter(v=>v!=null);   /* un axe passé ne compte pas pour 0 */
+        const global=vals.length?Math.round(vals.reduce((s,x)=>s+x,0)/vals.length):0;
         const bl=bilanLevel(global);
         S.bilan={date:todayStr(), axes, global};
         if(!S.bilanRewarded){ S.bilanRewarded=true; save(); award(40); } else save();
@@ -6232,13 +6273,14 @@ function runBilan(){
         wrap.appendChild(head);
         const bars=document.createElement('div'); bars.className='bilanbars';
         BILAN_AXES.forEach(a=>{
+          const passe=axes[a.key]==null;
           const v=axes[a.key]||0, pv=prev&&prev.axes?prev.axes[a.key]:null;
-          const dv=(pv!=null)?v-pv:null;
+          const dv=(!passe&&pv!=null)?v-pv:null;
           const delta=dv==null?'':` <small>${dv>0?'▲+'+dv:dv<0?'▼'+dv:'='}</small>`;
           const row=document.createElement('div'); row.className='brow';
           row.innerHTML=`<span class="bl">${a.ico} ${a.label}</span>
-            <span class="bt"><i style="width:${v}%;background:${v>=70?'var(--ok)':v>=45?'var(--acc)':'var(--bad)'}"></i></span>
-            <span class="bv">${v}${delta}</span>`;
+            <span class="bt"><i style="width:${passe?0:v}%;background:${v>=70?'var(--ok)':v>=45?'var(--acc)':'var(--bad)'}"></i></span>
+            <span class="bv">${passe?'<small style="color:var(--dim)">passé</small>':v+delta}</span>`;
           bars.appendChild(row);
         });
         wrap.appendChild(bars);
@@ -10236,6 +10278,9 @@ function mgTheorie(){
 (function(){
   const s=document.createElement('style');
   s.textContent=`
+  .csq{font-size:.82em;opacity:.95;vertical-align:1px}
+  .row.opt{opacity:.72}
+  .row.opt.ok{opacity:1}
   .mggrid{display:flex;flex-direction:column;gap:6px}
   .mggrid>div{display:flex;align-items:center;gap:5px;flex-wrap:wrap;background:var(--bg3);border:1px solid var(--line);border-radius:9px;padding:6px 8px}
   .mggrid>div>b{min-width:58px;font-size:12.5px;color:var(--acc)}
