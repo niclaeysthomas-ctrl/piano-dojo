@@ -2335,6 +2335,8 @@ function dailyProgram(){
   if(lvl==='intense') return P;
 
   /* ---- FORGE : le travail d'accords (un seul créneau, tournant) + la révision ---- */
+  {const t=cjDuJour();
+   if(t) P.push({key:'accordjour', ic:'🗓', txt:'L\'accord du jour : '+(CHORD_TYPES[t].suf||'majeur'), fn:()=>cjRoom()});}
   {const pool=SOUND_ROT.filter(x=>!x.req||S.done[x.req]);
    const s=pickDay(pool.length?pool:SOUND_ROT.slice(-1));
    P.push({key:'sound', ic:s.ic, txt:s.txt, fn:s.fn});}
@@ -2501,6 +2503,11 @@ const DRILLS=[
   {id:'tquiz', icon:'🧠', title:'Quiz — formats & grilles', req:null,
    desc:()=>'Blues, ii–V–I, anatole, AABA, modes, dominantes secondaires… Les formats et progressions que tout musicien doit connaître par cœur.',
    run:()=>dojoTheoryQuiz()},
+  {id:'accordjour', icon:'🗓', title:'L\'ACCORD DU JOUR', req:null,
+   desc:()=>{ const t=cjDuJour(), n=cjSus(), tot=CJ_ORDRE.length;
+     return t ? `<b>Un nouveau type d'accord par jour</b> : d'où il vient, comment le poser sous les doigts, dans quelle musique il vit, la grille qui le met en situation, l'erreur classique — puis trois épreuves. Aujourd'hui : <b style="color:var(--acc)">${CHORD_TYPES[t].suf||'majeur'}</b> · <b style="color:var(--ok)">${n}/${tot}</b> acquis.`
+       : `<b style="color:var(--ok)">Les ${tot} types sont acquis.</b> Reviens réviser une fiche quand tu veux.`; },
+   run:()=>cjRoom()},
   {id:'colab', icon:'🎨', title:'Accords colorés', req:'m5l1',
    desc:()=>'Au-delà de maj/min/7 : sus, dim, m7♭5, dim7, sixtes, 9 · 11 · 13, ♯11, 7♯9, mMaj7, 9sus4… tout le vocabulaire du son jazz, à construire au clavier.',
    run:()=>chordLabRoom()},
@@ -10574,6 +10581,372 @@ function alterRoom(){
     inner.appendChild(fin);
 
     draw();
+    overlay.scrollTop=0;
+  });
+}
+
+/* ================================================================
+   L'ACCORD DU JOUR
+   ----------------------------------------------------------------
+   Un type d'accord par jour, dans l'ordre où ils s'apprennent :
+   d'où il vient, comment le poser sous les doigts, où il vit, la
+   grille qui le met en situation, l'erreur classique — puis trois
+   exercices, et seulement ensuite « je le maîtrise ».
+   ================================================================ */
+/* l'ordre d'apprentissage : du socle aux couleurs rares */
+const CJ_ORDRE=['maj','min','dom7','maj7','m7','sus4','sus2','six','m6','add9','madd9','dim','m7b5',
+  'aug','dim7','dom9','maj9','m9','six9','m11','dom11','d9sus4','mMaj7','maj7s11','dom13','m13','maj13',
+  'd7b9','d7s9','d7b5','d7s5'];
+/* ce qu'il a déclaré maîtriser (ses cases jaunes du 2026-09-15) — posé une seule fois */
+const CJ_ACQUIS=['maj','min','dom7','maj7','m7','sus2','sus4','dim','aug','m7b5','dim7','dom9','maj9',
+  'm9','dom11','six','m6','add9','six9','m11'];
+
+function cjSt(){
+  if(!S.cj) S.cj={maitrise:{}, jour:null, type:null, vus:{}, seed:false};
+  if(!S.cj.seed){ CJ_ACQUIS.forEach(t=>{ S.cj.maitrise[t]=2; }); S.cj.seed=true; save(); }
+  return S.cj;
+}
+const cjNiv = t => cjSt().maitrise[t]||0;
+const cjSus = () => CJ_ORDRE.filter(t=>cjNiv(t)>=2).length;
+/* le prochain à apprendre : le premier non maîtrisé dans l'ordre */
+function cjProchain(){ return CJ_ORDRE.find(t=>cjNiv(t)<2)||null; }
+/* l'accord DU JOUR : figé pour la journée */
+function cjDuJour(){
+  const C=cjSt(), t=todayStr();
+  if(C.jour!==t || !C.type || cjNiv(C.type)>=2){
+    const p=cjProchain();
+    if(!p) return null;
+    C.jour=t; C.type=p; save();
+  }
+  return C.type;
+}
+
+/* ---- la fiche de chaque type : d'où il vient, comment le poser, où il vit ---- */
+const CJ={
+  maj:{depuis:null, geste:'1 · 3 · 5 — la brique de départ.',
+    main:'Main gauche la fondamentale, main droite les trois notes. C\'est le seul accord où l\'on peut tout doubler sans réfléchir.',
+    styles:'Partout. Il n\'y a pas de musique tonale sans lui.',
+    grille:[[0,'maj'],[5,'maj'],[7,'maj'],[0,'maj']], gtxt:'I – IV – V – I',
+    erreur:'Le plaquer trop bas : sous Do3 il devient de la boue.', confus:['min']},
+  min:{depuis:'maj', geste:'On <b>baisse la tierce</b> d\'un demi-ton. C\'est tout : 1 · ♭3 · 5.',
+    main:'Même forme que le majeur, le doigt du milieu descend d\'une touche.',
+    styles:'Partout aussi. C\'est la moitié sombre du système.',
+    grille:[[9,'min'],[5,'maj'],[0,'maj'],[7,'maj']], gtxt:'vi – IV – I – V',
+    erreur:'Croire que « mineur = triste ». Mineur = <b>tierce baissée</b> ; le reste est une question de contexte.', confus:['maj','dim']},
+  dom7:{depuis:'maj', geste:'On <b>ajoute la 7e mineure</b> (un ton sous l\'octave) : 1 · 3 · 5 · ♭7.',
+    main:'Jette la quinte si tu manques de doigts : 1 · 3 · ♭7 suffit à le dire, c\'est le <b>shell</b>.',
+    styles:'Blues, rock, gospel, jazz — et le V de toute tonalité majeure.',
+    grille:[[0,'dom7'],[5,'dom7'],[0,'dom7'],[7,'dom7']], gtxt:'I7 – IV7 – I7 – V7 (le blues)',
+    erreur:'Le confondre avec maj7 : ♭7 (tendue, elle appelle) vs 7 (douce, elle se pose).', confus:['maj7','d7b9']},
+  maj7:{depuis:'maj', geste:'On <b>ajoute la 7e majeure</b> (un demi-ton sous l\'octave) : 1 · 3 · 5 · 7.',
+    main:'La 7e frotte contre la fondamentale : <b>ne les mets pas côte à côte</b>. Fondamentale à gauche, 3-5-7 à droite.',
+    styles:'Jazz, bossa, soul, pop douce. Le son du I et du IV.',
+    grille:[[0,'maj7'],[9,'m7'],[2,'m7'],[7,'dom7']], gtxt:'Imaj7 – vi7 – ii7 – V7',
+    erreur:'Le mettre sur un V : maj7 ne tire pas, il se pose. Sur le V il faut un ♭7.', confus:['dom7','six']},
+  m7:{depuis:'min', geste:'Mineur + 7e mineure : 1 · ♭3 · 5 · ♭7.',
+    main:'Shell 1 · ♭3 · ♭7. C\'est l\'accord le plus confortable du clavier.',
+    styles:'Jazz, soul, R&B, house. Le ii et le vi de toute tonalité.',
+    grille:[[2,'m7'],[7,'dom7'],[0,'maj7'],[0,'maj7']], gtxt:'ii7 – V7 – Imaj7',
+    erreur:'Aucune, c\'est le plus sûr de tous. Il ne sonne jamais faux.', confus:['m7b5','m6']},
+  sus4:{depuis:'maj', geste:'La tierce est <b>remplacée</b> par la quarte : 1 · 4 · 5. Ni majeur ni mineur.',
+    main:'Le doigt de la tierce monte d\'une touche. Le retour vers la tierce (sus4 → maj) est le geste, pas l\'accord.',
+    styles:'Rock (Who, Police), gospel, worship, pop. Toute intro qui « attend ».',
+    grille:[[7,'sus4'],[7,'maj'],[0,'maj'],[0,'maj']], gtxt:'Vsus4 – V – I',
+    erreur:'Le laisser là. Un sus4 qui ne résout jamais n\'est plus une suspension, c\'est une panne.', confus:['sus2','dom11']},
+  sus2:{depuis:'maj', geste:'La tierce est remplacée par la <b>seconde</b> : 1 · 2 · 5.',
+    main:'Le doigt de la tierce descend d\'une touche. Plus ouvert, plus « moderne » que le sus4.',
+    styles:'Pop, folk, ambient, musique de film. Les intros de guitare acoustique.',
+    grille:[[0,'sus2'],[0,'maj'],[5,'sus2'],[5,'maj']], gtxt:'Isus2 – I – IVsus2 – IV',
+    erreur:'Croire qu\'il est mineur : il n\'a <b>pas de tierce</b>, il n\'a pas de genre.', confus:['sus4','add9']},
+  six:{depuis:'maj', geste:'On <b>ajoute</b> la 6te, sans 7e : 1 · 3 · 5 · 6.',
+    main:'C\'est un maj7 dont la 7e est remplacée par la 6 — plus doux, moins « jazz d\'école ».',
+    styles:'Jazz ancien, swing, bossa, variété. La façon de finir un morceau sans le fermer brutalement.',
+    grille:[[0,'six'],[9,'m7'],[2,'m7'],[7,'dom7']], gtxt:'I6 – vi7 – ii7 – V7',
+    erreur:'Ajouter la 7e en plus : avec les deux, ça s\'appelle un 13, plus du tout la même couleur.', confus:['m6','six9','min']},
+  m6:{depuis:'min', geste:'Mineur + sixte <b>MAJEURE</b> : 1 · ♭3 · 5 · 6. Le « m » ne touche que la tierce.',
+    main:'Attention au réflexe : la 6 ne se baisse pas. Sur Dom, c\'est un <b>La</b>, pas un Lab.',
+    styles:'Jazz, bossa, James Bond, chanson française. Le mineur qui ne pleure pas.',
+    grille:[[9,'min'],[9,'mMaj7'],[9,'m7'],[9,'m6']], gtxt:'i – i(maj7) – i7 – i6 (le line cliché)',
+    erreur:'Baisser la 6te par symétrie avec la tierce. C\'est LA faute de nom la plus fréquente.', confus:['m7b5','m7']},
+  add9:{depuis:'maj', geste:'Majeur + la 9e, <b>sans passer par la 7e</b> : 1 · 3 · 5 · 9.',
+    main:'La 9e se pose en haut, loin. Collée à la fondamentale (1 et 2 voisines), elle grince.',
+    styles:'Pop, rock (Police, Coldplay), variété. Le majeur qui brille sans sonner jazz.',
+    grille:[[0,'add9'],[7,'maj'],[9,'min'],[5,'add9']], gtxt:'Iadd9 – V – vi – IVadd9',
+    erreur:'Écrire « 9 » : un accord « 9 » contient la 7e. « add9 » veut dire <b>sans</b> 7e.', confus:['sus2','dom9']},
+  madd9:{depuis:'min', geste:'Mineur + 9e, sans 7e : 1 · ♭3 · 5 · 9.',
+    main:'Le plus simple : joue ton accord mineur main droite et ajoute la 9e <b>au-dessus</b> avec le petit doigt.',
+    styles:'Ballades, néo-classique (Einaudi, Yiruma), lo-fi, cinéma. Mélancolique sans être lourd.',
+    grille:[[9,'madd9'],[5,'maj7'],[0,'maj'],[7,'maj']], gtxt:'vi(add9) – IVmaj7 – I – V',
+    erreur:'Y ajouter la ♭7 « pour faire riche » : tu obtiens un m9, bien plus jazz et moins nu.', confus:['m9','min']},
+  dim:{depuis:'min', geste:'Mineur dont on <b>baisse aussi la quinte</b> : 1 · ♭3 · ♭5. Deux tierces mineures empilées.',
+    main:'Symétrique : la même forme tous les trois demi-tons. Ça se pose vite partout.',
+    styles:'Classique, tango, jazz. Comme accord de passage, presque jamais comme destination.',
+    grille:[[0,'maj'],[1,'dim'],[2,'m7'],[7,'dom7']], gtxt:'I – ♯Idim – ii7 – V7 (le diminué qui monte)',
+    erreur:'Vouloir s\'y arrêter. Le diminué est un couloir, pas une pièce.', confus:['m7b5','dim7']},
+  m7b5:{depuis:'m7', geste:'Un m7 dont on <b>baisse la quinte</b> : 1 · ♭3 · ♭5 · ♭7. Aussi appelé demi-diminué.',
+    main:'Shell 1 · ♭3 · ♭7 comme un m7 — c\'est la quinte qui change, et on peut la jeter en cas d\'urgence.',
+    styles:'Jazz, bossa. C\'est le <b>ii du mineur</b> : il annonce presque toujours un V7 puis un accord mineur.',
+    grille:[[2,'m7b5'],[7,'dom7'],[0,'min'],[0,'min']], gtxt:'ii∅ – V7 – i (le ii-V mineur)',
+    erreur:'Le confondre avec dim7 : le demi-diminué a une <b>♭7</b>, le dim7 une 6te (♭♭7).', confus:['dim7','dim','m7']},
+  aug:{depuis:'maj', geste:'Majeur dont on <b>monte la quinte</b> : 1 · 3 · ♯5. Deux tierces majeures empilées.',
+    main:'Symétrique tous les quatre demi-tons. Trois accords augmentés seulement existent.',
+    styles:'Jazz, soul (le V+ avant le I), Beatles, musiques de dessin animé. Effet de « montée ».',
+    grille:[[7,'aug'],[0,'maj'],[0,'dom7'],[5,'maj']], gtxt:'V+ – I – I7 – IV',
+    erreur:'Le traiter comme une destination : il est fait pour <b>pousser</b> vers l\'accord suivant.', confus:['maj','d7s5']},
+  dim7:{depuis:'dim', geste:'Diminué + une tierce mineure de plus : 1 · ♭3 · ♭5 · 6 (une ♭♭7, en vrai).',
+    main:'Parfaitement symétrique : la même forme tous les trois demi-tons, et <b>trois</b> accords dim7 couvrent les douze notes.',
+    styles:'Classique, tango, jazz manouche, générique d\'époque. Toujours de passage.',
+    grille:[[0,'maj'],[1,'dim7'],[2,'m7'],[7,'dom7']], gtxt:'I – ♯Idim7 – ii7 – V7',
+    erreur:'L\'appeler m7♭5. Le dim7 n\'a pas de ♭7 : sa dernière note est une 6te.', confus:['m7b5','dim']},
+  dom9:{depuis:'dom7', geste:'Dominante + la 9e : 1 · 3 · 5 · ♭7 · 9.',
+    main:'Cinq notes = trop. Jette la <b>quinte</b>, garde 1 · 3 · ♭7 · 9. Ou pose 3-♭7-9 à droite, la fondamentale à gauche.',
+    styles:'Funk (LE son de James Brown), soul, gospel, blues. Le V7 des morceaux qui groovent.',
+    grille:[[2,'m9'],[7,'dom9'],[0,'maj9'],[0,'maj9']], gtxt:'ii9 – V9 – Imaj9',
+    erreur:'Croire que « 9 » veut dire « avec la 9e seulement » : un 9 contient <b>toujours</b> la 7e.', confus:['add9','dom13']},
+  maj9:{depuis:'maj7', geste:'Majeur 7 + la 9e : 1 · 3 · 5 · 7 · 9.',
+    main:'Jette la quinte, et surtout <b>écarte</b> 7 et 9 de la fondamentale : main gauche 1, main droite 3-7-9.',
+    styles:'Bossa, soul, néo-soul, house. L\'accord de repos le plus riche qui reste doux.',
+    grille:[[0,'maj9'],[9,'m9'],[2,'m9'],[7,'dom9']], gtxt:'Imaj9 – vi9 – ii9 – V9',
+    erreur:'Empiler les cinq notes serrées : ça devient épais. Un accord riche se joue <b>ouvert</b>.', confus:['add9','six9']},
+  m9:{depuis:'m7', geste:'Mineur 7 + la 9e : 1 · ♭3 · 5 · ♭7 · 9.',
+    main:'Jette la quinte. 1 à gauche, ♭3-♭7-9 à droite : trois doigts, et tout est dit.',
+    styles:'Néo-soul, R&B, house, jazz. L\'accord mineur par défaut dès qu\'on veut de la couleur.',
+    grille:[[9,'m9'],[2,'m9'],[7,'dom9'],[0,'maj9']], gtxt:'vi9 – ii9 – V9 – Imaj9',
+    erreur:'Aucune vraie : le m9 ne sonne jamais mal. C\'est le premier « accord riche » à adopter.', confus:['madd9','m11']},
+  six9:{depuis:'six', geste:'Sixte + 9e, et on <b>jette la quinte</b> : 1 · 3 · 6 · 9.',
+    main:'Quatre notes seulement, très écartées. C\'est l\'accord final le plus élégant du jazz.',
+    styles:'Jazz, bossa, standards. La <b>dernière</b> mesure, quand maj7 ferait trop scolaire.',
+    grille:[[2,'m7'],[7,'dom7'],[0,'six9'],[0,'six9']], gtxt:'ii7 – V7 – I6/9',
+    erreur:'Le charger de 7e ou de quinte. Sa beauté vient de ce qu\'il <b>manque</b>.', confus:['six','maj9']},
+  m11:{depuis:'m9', geste:'Mineur 7 + 11e : 1 · ♭3 · 5 · ♭7 · 11. Sur un mineur, la 11 (= la 4) ne frotte pas.',
+    main:'Trop de notes : jette la 9e, garde 1 · ♭3 · ♭7 · 11. Effet « suspendu, planant ».',
+    styles:'Néo-soul, house, jazz modal, ambient. Un vamp mineur qui ne veut aller nulle part.',
+    grille:[[2,'m11'],[2,'m11'],[7,'dom9'],[0,'maj9']], gtxt:'ii11 – V9 – Imaj9',
+    erreur:'Faire la même chose sur un accord <b>majeur</b> : là, la 11 heurte la tierce de plein fouet.', confus:['m9','dom11']},
+  dom11:{depuis:'dom9', geste:'Dominante 11 : 1 · 5 · ♭7 · 9 · 11 — et <b>pas de tierce</b>, elle grincerait contre la 11.',
+    main:'Sans tierce, c\'est exactement un <b>9sus4</b> : même notes, autre nom selon le contexte.',
+    styles:'Gospel, soul, jazz. Le V qui reste suspendu avant de résoudre.',
+    grille:[[7,'dom11'],[7,'dom7'],[0,'maj7'],[0,'maj7']], gtxt:'V11 – V7 – Imaj7',
+    erreur:'Y laisser la tierce. C\'est le seul accord de la liste où une note est <b>interdite</b>.', confus:['d9sus4','sus4']}
+};
+/* ---- suite : les onze qu'il n'a pas encore cochés ---- */
+Object.assign(CJ,{
+  d9sus4:{depuis:'sus4', geste:'Un sus4 chargé : 1 · 4 · 5 · ♭7 · 9. La tierce reste absente.',
+    main:'La recette de pianiste : <b>joue un accord mineur 7 un ton en dessous</b>, avec la fondamentale du sus à la basse. Sur Sol9sus4 → main gauche Sol, main droite <b>Fam7</b>. Deux secondes à apprendre, un son de disque.',
+    styles:'Gospel, soul, néo-soul, jazz. Le V qui plane avant de résoudre — l\'intro de la moitié des morceaux gospel.',
+    grille:[[7,'d9sus4'],[7,'dom7'],[0,'maj7'],[0,'maj7']], gtxt:'V9sus4 – V7 – Imaj7',
+    erreur:'Y glisser la tierce majeure « pour faire dominante ». Elle et la 4 se battent : il faut choisir.', confus:['dom11','sus4','m11']},
+  mMaj7:{depuis:'min', geste:'Mineur + 7e <b>MAJEURE</b> : 1 · ♭3 · 5 · 7. Une tierce mineure en bas, une 7e majeure en haut.',
+    main:'Pars de ton accord mineur et monte la ♭7 d\'un demi-ton — ou plus simple : la note juste <b>sous</b> l\'octave.',
+    styles:'James Bond, films noirs, tango, jazz. Toute musique qui veut un mineur <b>inquiétant</b>.',
+    grille:[[9,'min'],[9,'mMaj7'],[9,'m7'],[9,'m6']], gtxt:'i – i(maj7) – i7 – i6 — le line cliché',
+    erreur:'Le jouer isolé : seul, il sonne « faux ». Il vit <b>en mouvement</b>, coincé entre le mineur et le m7.', confus:['min','m7','maj7']},
+  maj7s11:{depuis:'maj7', geste:'Majeur 7 dont la 11e est <b>montée</b> d\'un demi-ton : 1 · 3 · 7 · ♯11. C\'est le son lydien, en accord.',
+    main:'Jette la quinte et la 9e. Astuce : la ♯11 est la <b>tierce majeure</b> de l\'accord un ton au-dessus — sur Domaj7♯11, c\'est un Fa♯.',
+    styles:'Musique de film (Williams, Zimmer), jazz moderne, bossa. L\'accord « grand large ».',
+    grille:[[0,'maj7'],[0,'maj7s11'],[5,'maj7'],[7,'dom7']], gtxt:'Imaj7 – Imaj7♯11 – IVmaj7 – V7',
+    erreur:'La jouer à côté de la quinte : ♯11 et 5 se cognent. Si tu gardes la ♯11, <b>la quinte dégage</b>.', confus:['d7b5','maj7']},
+  dom13:{depuis:'dom9', geste:'La dominante complète : 1 · 3 · ♭7 · 9 · 13. <b>Ni quinte ni 11e</b> — elles ne servent à rien ici.',
+    main:'La recette : main gauche 1, main droite <b>3 · ♭7 · 9 · 13</b>. Et la 13 est la <b>6te</b>, donc facile à trouver.',
+    styles:'Jazz, soul, big band, funk. C\'est LE V7 des gens qui jouent — le V7 nu sonne d\'école à côté.',
+    grille:[[2,'m9'],[7,'dom13'],[0,'maj9'],[0,'maj9']], gtxt:'ii9 – V13 – Imaj9',
+    erreur:'Y laisser la 11e juste : elle frappe la tierce. Sur une dominante, ou bien pas de 11, ou bien ♯11.', confus:['six','dom9']},
+  m13:{depuis:'m9', geste:'Mineur 7 + 9 + 13 : 1 · ♭3 · ♭7 · 9 · 13 — la 13 est la <b>6te majeure</b>, donc c\'est un son dorien.',
+    main:'Main gauche 1, main droite ♭3 · ♭7 · 9 · 13. Si ça encombre, jette la 9e.',
+    styles:'Néo-soul, jazz modal, R&B. Un vamp mineur qui respire au lieu de tourner en rond.',
+    grille:[[2,'m13'],[2,'m13'],[7,'dom13'],[0,'maj9']], gtxt:'ii13 – V13 – Imaj9',
+    erreur:'Le poser sur un mineur <b>éolien</b> : la 13 y serait ♭6, donc fausse. Le m13 est dorien par nature.', confus:['m6','m9']},
+  maj13:{depuis:'maj9', geste:'Majeur 7 + 9 + 13 : 1 · 3 · 7 · 9 · 13. L\'accord de repos maximal.',
+    main:'Quatre notes suffisent à droite : 3 · 7 · 9 · 13. La quinte et la 11 ne viennent jamais.',
+    styles:'Bossa, jazz, néo-soul. La dernière mesure d\'un morceau quand on veut du velours.',
+    grille:[[2,'m9'],[7,'dom13'],[0,'maj13'],[0,'maj13']], gtxt:'ii9 – V13 – Imaj13',
+    erreur:'L\'utiliser partout : trop riche, il efface les nuances. C\'est une <b>arrivée</b>, pas un accord de travail.', confus:['six9','maj9']},
+  d7b9:{depuis:'dom7', geste:'Dominante dont on <b>baisse la 9e</b> : 1 · 3 · 5 · ♭7 · ♭9. La première des altérations.',
+    main:'Le truc qui change la vie : <b>un ♭9 = un accord diminué un demi-ton au-dessus</b>. Sur Sol7♭9 → main gauche Sol, main droite <b>Labdim7</b>.',
+    styles:'Jazz, tango, musique latine, classique romantique. Le V7 qui résout vers un accord <b>mineur</b>.',
+    grille:[[2,'m7b5'],[7,'d7b9'],[0,'min'],[0,'min']], gtxt:'ii∅ – V7♭9 – i',
+    erreur:'Le poser devant un accord majeur : le ♭9 annonce le mineur. Devant un I majeur, il grince.', confus:['dim7','d7s9']},
+  d7s9:{depuis:'dom7', geste:'Dominante dont on <b>monte la 9e</b> : 1 · 3 · ♭7 · ♯9. L\'accord « Hendrix » (Purple Haze).',
+    main:'Sa saveur vient d\'un conflit assumé : la ♯9 est enharmoniquement la <b>tierce mineure</b>, jouée par-dessus la tierce majeure. Majeur et mineur en même temps.',
+    styles:'Funk, rock, soul, jazz. Tout ce qui doit mordre.',
+    grille:[[0,'d7s9'],[0,'d7s9'],[5,'dom9'],[0,'d7s9']], gtxt:'I7♯9 – IV9 – I7♯9 (le vamp funk)',
+    erreur:'Mettre la ♯9 <b>sous</b> la tierce majeure : elles se collent et ça devient sale. La ♯9 va en haut.', confus:['d7b9','min']},
+  d7b5:{depuis:'dom7', geste:'Dominante dont on <b>baisse la quinte</b> : 1 · 3 · ♭5 · ♭7.',
+    main:'Curiosité utile : il contient <b>deux tritons</b>, et il est identique à un 7♭5 situé un triton plus loin. Do7♭5 = Fa♯7♭5 — les mêmes touches.',
+    styles:'Jazz, impressionnisme, tango. Un V7 rendu flottant.',
+    grille:[[2,'m7'],[7,'d7b5'],[0,'maj7'],[0,'maj7']], gtxt:'ii7 – V7♭5 – Imaj7',
+    erreur:'Y laisser la quinte juste à côté : ♭5 et 5 ensemble, ça ne fait pas riche, ça fait faux.', confus:['maj7s11','d7s5','dim']},
+  d7s5:{depuis:'dom7', geste:'Dominante dont on <b>monte la quinte</b> : 1 · 3 · ♯5 · ♭7. Aussi écrit 7aug ou 7+.',
+    main:'C\'est un accord augmenté + une ♭7. La ♯5 tire vers le haut : elle veut monter d\'un demi-ton sur la tierce de l\'accord suivant.',
+    styles:'Soul, gospel, Beatles, jazz. Le V qui pousse plus fort que le V7 normal.',
+    grille:[[2,'m7'],[7,'d7s5'],[0,'maj7'],[0,'maj7']], gtxt:'ii7 – V7♯5 – Imaj7',
+    erreur:'Croire qu\'il sonne « faux » : il est <b>fait</b> pour être instable. Écoute-le toujours suivi de sa résolution.', confus:['aug','d7b5']}
+});
+
+/* joue une grille de démonstration : [[degré en demi-tons, type], …] dans une tonalité */
+function cjPlayGrid(keyPc, steps, spb){
+  ac(); spb=spb||1.3;
+  steps.forEach(([d,t],i)=>{
+    const root=(keyPc+d)%12;
+    playNote(36+root, spb*.95, .4, i*spb);
+    voicingFor(root,t).map(m=>m+12).forEach((m,k)=>playNote(m, spb*.9, .26, i*spb+k*.016));
+  });
+}
+const cjKeyName = pc => NOTE_FR[pc];
+function cjGridTxt(keyPc, steps){
+  return steps.map(([d,t])=>NOTE_FR[(keyPc+d)%12]+CHORD_TYPES[t].suf).join(' – ');
+}
+/* quiz de reconnaissance : les notes sont données, quel type ? */
+function cjNameQs(t, n){
+  const F=CJ[t], qs=[], R=[0,2,3,5,7,8,9,10];
+  const pool=(F.confus||[]).concat(['maj','min','dom7','maj7','m7']).filter(x=>x!==t);
+  for(let i=0;i<n;i++){
+    const root=R[Math.floor(Math.random()*R.length)];
+    const notes=CHORD_TYPES[t].iv.map(x=>NOTE_FR[(root+x)%12]).join(' – ');
+    const bons=NOTE_FR[root]+CHORD_TYPES[t].suf;
+    const faux=[]; const p=pool.slice().sort(()=>Math.random()-.5);
+    p.forEach(x=>{ const lab=NOTE_FR[root]+CHORD_TYPES[x].suf; if(faux.length<3 && lab!==bons && !faux.includes(lab)) faux.push(lab); });
+    const opts=[bons,...faux].sort(()=>Math.random()-.5);
+    qs.push({q:`Ces notes : <b>${notes}</b><br>Quel accord ?`, opts, a:opts.indexOf(bons),
+      why:`${bons} = ${CHORD_TYPES[t].fx}.`});
+  }
+  return qs;
+}
+
+function cjRoom(type){
+  const C=cjSt();
+  const t = type || cjDuJour() || CJ_ORDRE[CJ_ORDRE.length-1];
+  const F=CJ[t], T=CHORD_TYPES[t];
+  const duJour = t===cjDuJour();
+  openCustom(duJour?'🗓 L\'accord du jour':'🎨 '+(T.suf||'majeur'),(inner)=>{
+    const keyPc=[0,5,7,2,9,10][Math.floor(Math.random()*6)];
+
+    /* --- en-tête : la progression globale --- */
+    const head=document.createElement('div'); head.className='card'; head.style.borderColor='var(--acc)';
+    head.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:baseline">
+        <b style="font-size:15px">🗂 Ton vocabulaire d'accords</b>
+        <span style="color:var(--acc);font-weight:800">${cjSus()}/${CJ_ORDRE.length}</span></div>
+      <div class="bigbar" style="margin:8px 0 8px"><i style="width:${Math.round(cjSus()/CJ_ORDRE.length*100)}%"></i></div>
+      <p style="color:var(--dim);font-size:12.5px;margin:0;line-height:1.5">${duJour
+        ? 'Un <b>nouveau type par jour</b>, dans l\'ordre où ils s\'apprennent. Celui du jour est en dessous — il ne changera pas avant demain.'
+        : 'Fiche consultée hors du parcours du jour.'}</p>`;
+    inner.appendChild(head);
+
+    /* --- la fiche --- */
+    const fiche=document.createElement('div'); fiche.className='theory';
+    const dep=F.depuis?CHORD_TYPES[F.depuis]:null;
+    fiche.innerHTML=`<h2 style="font-size:26px;margin:14px 0 2px;color:var(--acc)">${NOTE_FR[keyPc]}${T.suf}</h2>
+      <p style="color:var(--dim);font-size:13px;margin:0 0 10px">${T.nom} · noté <b>${NOTE[keyPc]}${T.suf}</b> en lettres (c'est ainsi que les épreuves l'affichent)</p>
+      <div class="formula">${T.fx}</div>
+      ${dep?`<h3>D'où il vient</h3><p>Pars de l'accord que tu connais déjà — <b>${dep.nom}</b> (${dep.fx}). ${F.geste}</p>`
+           :`<h3>Ce que c'est</h3><p>${F.geste}</p>`}
+      <h3>Comment le poser sous les doigts</h3><p>${F.main}</p>
+      <h3>Où il vit</h3><p>${F.styles}</p>
+      <h3>L'erreur classique</h3><p>${F.erreur}</p>
+      ${F.confus&&F.confus.length?`<h3>À ne pas confondre avec</h3><p>${F.confus.map(x=>`<b>${CHORD_TYPES[x].suf||'majeur'}</b> (${CHORD_TYPES[x].fx})`).join(' · ')}</p>`:''}`;
+    inner.appendChild(fiche);
+
+    /* --- en situation : la grille --- */
+    const sit=document.createElement('div'); sit.className='card';
+    sit.innerHTML=`<b style="font-size:15px">🎼 En situation</b>
+      <p style="color:var(--dim);font-size:12.5px;margin:5px 0 4px">${F.gtxt}</p>
+      <div style="font-size:17px;font-weight:800;color:var(--acc);margin-bottom:8px">${cjGridTxt(keyPc,F.grille)}</div>`;
+    const sr=document.createElement('div'); sr.className='exrow';
+    const bg=document.createElement('button'); bg.className='btn'; bg.textContent='▶ Écouter la grille';
+    bg.onclick=()=>cjPlayGrid(keyPc,F.grille);
+    const bs=document.createElement('button'); bs.className='btn ghost'; bs.textContent='🔊 L\'accord seul';
+    bs.onclick=()=>playChord(voicingFor(keyPc,t).map(m=>m+12));
+    const bc=document.createElement('button'); bc.className='btn ghost'; bc.textContent='↔️ Comparer à '+(dep?(CHORD_TYPES[F.depuis].suf||'majeur'):'l\'accord majeur');
+    bc.onclick=()=>{ const base=F.depuis||'maj';
+      playChord(voicingFor(keyPc,base).map(m=>m+12));
+      setTimeout(()=>playChord(voicingFor(keyPc,t).map(m=>m+12)),1500); };
+    sr.appendChild(bg); sr.appendChild(bs); sr.appendChild(bc); sit.appendChild(sr);
+    const kb=buildKeyboard(48,84,(m,k)=>{ playNote(m); k.classList.add('flash'); setTimeout(()=>k.classList.remove('flash'),150); });
+    kb.style.marginTop='10px';
+    voicingFor(keyPc,t).map(m=>m+12).forEach(m=>{ const k=kb.keyEl(m); if(k) k.classList.add('hint'); });
+    const bass=kb.keyEl(36+keyPc); if(bass) bass.classList.add('sel');
+    sit.appendChild(kb);
+    inner.appendChild(sit);
+
+    /* --- les trois exercices --- */
+    const ex=document.createElement('div'); ex.className='card'; ex.style.borderColor='var(--purple)';
+    ex.innerHTML=`<b style="font-size:15px">⚔️ Trois épreuves</b>
+      <p style="color:var(--dim);font-size:12.5px;margin:5px 0 8px;line-height:1.5">Le construire, le reconnaître, le jouer en situation. C'est seulement après les trois que la case se coche.</p>`;
+    const box=document.createElement('div'); ex.appendChild(box);
+    const et={build:false, name:false, play:false};
+    const statut=document.createElement('div'); statut.style.cssText='display:flex;gap:8px;margin-top:10px;flex-wrap:wrap';
+    const btns=[];
+    function majStatut(){
+      statut.innerHTML='';
+      [['build','① Le construire'],['name','② Le reconnaître'],['play','③ Le jouer']].forEach(([k,l])=>{
+        const b=document.createElement('button'); b.className='btn '+(et[k]?'ok':'ghost');
+        b.style.cssText='flex:1;min-width:110px;font-size:12.5px';
+        b.textContent=(et[k]?'✓ ':'')+l;
+        b.onclick=()=>lancer(k); statut.appendChild(b);
+      });
+      const tout=et.build&&et.name&&et.play;
+      const v=document.createElement('button'); v.className='btn'+(tout?'':' ghost'); v.style.marginTop='10px';
+      v.disabled=!tout;
+      v.textContent=tout?'✓ Je le maîtrise — valider':'Les trois épreuves d\'abord';
+      v.onclick=()=>{
+        if(cjNiv(t)<2){ C.maitrise[t]=2; save(); award(40); tada(); toast('🎨 '+(T.suf||'majeur')+' ajouté à ton vocabulaire'); }
+        dailyMark('accordjour');
+        closeOverlay(); render();
+      };
+      statut.appendChild(v);
+    }
+    function lancer(k){
+      box.innerHTML='';
+      if(k==='build'){
+        runChord(box,{gen:{types:[t],roots:[0,1,2,3,4,5,6,7,8,9,10,11],count:3}, pass:3,
+          sub:'Construis '+(T.suf||'l\'accord majeur')+' dans 3 tonalités tirées au sort.'},
+          (ok)=>{ et.build=et.build||!!ok; majStatut(); });
+      } else if(k==='name'){
+        runQuiz(box,{qs:cjNameQs(t,5)}, (good,total)=>{ et.name=et.name||good>=4; majStatut(); });
+      } else {
+        const kp=[0,5,7,2,9,10][Math.floor(Math.random()*6)];
+        box.innerHTML=`<div class="exhead"><div class="sub">③ En situation</div>
+            <div style="font-size:19px;font-weight:800;margin:8px 0 6px;color:var(--acc)">${cjGridTxt(kp,F.grille)}</div>
+            <div class="sub">${F.gtxt} — en ${NOTE_FR[kp]}</div></div>`;
+        const r=document.createElement('div'); r.className='exrow';
+        const p1=document.createElement('button'); p1.className='btn'; p1.textContent='▶ Écouter';
+        p1.onclick=()=>cjPlayGrid(kp,F.grille);
+        const p2=document.createElement('button'); p2.className='btn ghost'; p2.textContent='🐢 Lentement';
+        p2.onclick=()=>cjPlayGrid(kp,F.grille,2.2);
+        r.appendChild(p1); r.appendChild(p2); box.appendChild(r);
+        const consigne=document.createElement('p');
+        consigne.style.cssText='color:var(--dim);font-size:13px;line-height:1.5;margin:10px 0';
+        consigne.innerHTML='Joue cette grille <b>deux fois sans t\'arrêter</b>, main gauche la fondamentale, main droite l\'accord. Puis refais-la dans <b>une autre tonalité de ton choix</b>.';
+        box.appendChild(consigne);
+        const ok=document.createElement('button'); ok.className='btn'; ok.textContent='✓ Joué, dans deux tonalités';
+        ok.onclick=()=>{ et.play=true; majStatut(); box.innerHTML='<div class="fb good">✅ Épreuve 3 validée.</div>'; };
+        box.appendChild(ok);
+      }
+    }
+    ex.appendChild(statut); majStatut(); inner.appendChild(ex);
+
+    /* --- le référentiel complet --- */
+    const rost=document.createElement('div'); rost.className='theory';
+    rost.innerHTML=`<h3 style="margin-top:20px">🗂 Tous les types</h3>
+      <p style="font-size:13px">Touche un accord pour ouvrir sa fiche. Touche la <b>pastille</b> à droite pour corriger ton niveau — c'est ton référentiel, pas le mien.</p>`;
+    inner.appendChild(rost);
+    const list=document.createElement('div');
+    function drawRoster(){
+      list.innerHTML='';
+      CJ_ORDRE.forEach(id=>{
+        const T2=CHORD_TYPES[id], n=cjNiv(id);
+        const row=document.createElement('div'); row.className='row'; row.style.cursor='pointer';
+        row.innerHTML=`<div class="st" style="color:${n>=2?'var(--ok)':'var(--dim)'}">${n>=2?'✓':'·'}</div>
+          <span><b>${T2.suf||'majeur'}</b> <small style="color:var(--dim)">${T2.nom}</small></span>
+          <small data-tog="${id}" style="color:${n>=2?'var(--ok)':'var(--acc)'};font-weight:800;padding:4px 8px;border:1px solid var(--line);border-radius:12px">${n>=2?'acquis':'à voir'}</small>`;
+        row.onclick=(e)=>{
+          if(e.target.dataset.tog){ C.maitrise[id]=n>=2?0:2; save(); drawRoster(); return; }
+          closeOverlay(); cjRoom(id);
+        };
+        list.appendChild(row);
+      });
+    }
+    drawRoster(); inner.appendChild(list);
     overlay.scrollTop=0;
   });
 }
