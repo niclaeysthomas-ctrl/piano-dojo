@@ -2273,6 +2273,7 @@ const MODES_ROT=[
   {ic:'🖐', txt:'Les pentas : donne-la sur le clavier', fn:()=>pentaRoom()},
   {ic:'🎭', txt:'Les modes : construis-en un, ou reconnais-le', fn:()=>dojoModes()},
   {ic:'🃏', txt:'Les modes : fiches + gymnastique', fn:()=>modesFiches()},
+  {ic:'⚗️', txt:'Table d\'altération : transforme une gamme', fn:()=>alterRoom()},
 ];
 /* le travail d'accords : UN créneau, qui tourne (au lieu de colab + tech + drill) */
 const SOUND_ROT=[
@@ -2520,6 +2521,12 @@ const DRILLS=[
   {id:'modes', icon:'🎭', title:'Explorer les modes', req:null, sound:true,
    desc:()=>'Tu ne comprends rien aux modes ? Écoute-les côte à côte sur le même Do, vois la note qui change. Du plus lumineux au plus sombre — par l\'oreille, pas par les mots.',
    run:()=>modesExplorer()},
+  {id:'alter', icon:'⚗️', title:'LA TABLE D\'ALTÉRATION', req:null,
+   desc:()=>{ const n=Object.keys(altSt().done||{}).length;
+     return 'Une gamme s\'affiche, <b>tu déplaces les notes</b> d\'un demi-ton et l\'app te dit ce que tu viens de fabriquer. Partir de Fa mineur et arriver à Fa dorien en un mouvement. '
+       +'Avec les <b>deux façons de construire</b> un mode (dériver vs altérer), les trois mineures expliquées, et l\'escalier de luminosité.'
+       +(n?` <b style="color:var(--ok)">${n}/${ALT_MISSIONS.length}</b> transformations réussies.`:' <b style="color:var(--acc)">La réponse à « quelle formule construire ».</b>'); },
+   run:()=>alterRoom()},
   {id:'coord', icon:'🤝', title:'Deux mains & impro', req:null, sound:true,
    desc:()=>'L\'app joue une main, tu joues l\'autre. Répertoire gradué (pop → « You Know I\'m No Good » → jazz) avec la penta donnée et surlignée. Le vrai chaînon pour improviser à deux mains.',
    run:()=>coordRoom()},
@@ -4239,6 +4246,8 @@ function modesExplorer(){
     inner.appendChild(intro);
     const fbtn=document.createElement('button'); fbtn.className='btn ghost'; fbtn.textContent='🃏 Voir les fiches (résumé + gymnastique « je suis en X »)';
     fbtn.onclick=()=>{ closeOverlay(); modesFiches(); }; inner.appendChild(fbtn);
+    const abtn=document.createElement('button'); abtn.className='btn'; abtn.textContent='⚗️ La table d\'altération — fabrique un mode en déplaçant une note';
+    abtn.onclick=()=>{ closeOverlay(); alterRoom(); }; inner.appendChild(abtn);
     const kb=buildKeyboard(60,72,(m,k)=>{ playNote(m); k.classList.add('flash'); setTimeout(()=>k.classList.remove('flash'),150); });
     inner.appendChild(kb);
     const seg=document.createElement('div'); seg.className='selrow'; seg.style.flexWrap='wrap'; seg.style.marginTop='10px'; inner.appendChild(seg);
@@ -10279,6 +10288,15 @@ function mgTheorie(){
   const s=document.createElement('style');
   s.textContent=`
   .csq{font-size:.82em;opacity:.95;vertical-align:1px}
+  .altg{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin:12px 0 2px}
+  .altd{background:var(--bg3);border:1px solid var(--line);border-radius:9px;padding:6px 2px;text-align:center}
+  .altd.ch{border-color:var(--acc);background:rgba(245,184,64,.09)}
+  .altl{font-size:12.5px;font-weight:900;color:var(--acc);line-height:1.2}
+  .altn{display:block;width:100%;background:none;border:0;color:var(--txt);font-size:13px;font-weight:800;padding:3px 0;cursor:pointer;font-family:inherit}
+  .altb{display:flex;flex-direction:column;gap:2px}
+  .altb button{background:var(--bg2);border:1px solid var(--line);color:var(--txt);border-radius:5px;font-size:11px;padding:2px 0;cursor:pointer;line-height:1.1}
+  .altb button:disabled{opacity:.25}
+  .altlk{font-size:9px;color:var(--dim);font-weight:700;padding:3px 0}
   .row.opt{opacity:.72}
   .row.opt.ok{opacity:1}
   .mggrid{display:flex;flex-direction:column;gap:6px}
@@ -10290,6 +10308,275 @@ function mgTheorie(){
   `;
   document.head.appendChild(s);
 })();
+
+/* ================================================================
+   LA TABLE D'ALTÉRATION
+   ----------------------------------------------------------------
+   Tu pars d'une gamme, tu montes ou descends UNE note d'un demi-ton,
+   et l'app te dit ce que tu viens de fabriquer. Le tout en degrés
+   (donc valable dans les 12 tonalités) ET en vraies notes.
+   Un degré garde toujours sa LETTRE : Fa dorien a un Ré, jamais un Do𝄪.
+   ================================================================ */
+const ALT_LIB=[
+  {id:'lyd',  nom:'lydien',              fam:'majeur', iv:[0,2,4,6,7,9,11], mot:'Majeur avec un ♯4 : rêveur, suspendu.'},
+  {id:'ion',  nom:'majeure (ionien)',    fam:'majeur', iv:[0,2,4,5,7,9,11], mot:'La gamme majeure. La référence de tout le reste.'},
+  {id:'mix',  nom:'mixolydien',          fam:'majeur', iv:[0,2,4,5,7,9,10], mot:'Majeur à 7e mineure : le son dominante, blues, rock.'},
+  {id:'dor',  nom:'dorien',              fam:'mineur', iv:[0,2,3,5,7,9,10], mot:'Mineur à 6e MAJEURE : un mineur qui sourit.'},
+  {id:'eol',  nom:'mineure (éolien)',    fam:'mineur', iv:[0,2,3,5,7,8,10], mot:'LE mineur naturel.'},
+  {id:'phr',  nom:'phrygien',            fam:'mineur', iv:[0,1,3,5,7,8,10], mot:'Mineur à ♭2 : couleur espagnole, flamenco, metal.'},
+  {id:'loc',  nom:'locrien',             fam:'mineur', iv:[0,1,3,5,6,8,10], mot:'Quinte diminuée : instable, inhabitable.'},
+  {id:'mh',   nom:'mineure harmonique',  fam:'mineur', iv:[0,2,3,5,7,8,11], mot:'Le mineur naturel dont on REMONTE la 7e, pour retrouver une vraie dominante. D\'où le grand saut ♭6 → 7 (une seconde augmentée), qui fait sa couleur orientale.'},
+  {id:'mm',   nom:'mineure mélodique',   fam:'mineur', iv:[0,2,3,5,7,9,11], mot:'La majeure avec SEULEMENT la 3e baissée. On remonte aussi la 6e pour supprimer le grand saut : mineur en bas, majeur en haut.'},
+  {id:'majh', nom:'majeure harmonique',  fam:'majeur', iv:[0,2,4,5,7,8,11], mot:'La majeure avec la 6e baissée : majeur avec une ombre. Rare et magnifique.'},
+  {id:'phd',  nom:'phrygien ♯3 (dominante phrygienne)', fam:'dominante', iv:[0,1,4,5,7,8,10], mot:'Le 5e mode du mineur harmonique : LE son flamenco, sur un accord 7.'},
+  {id:'lb7',  nom:'lydien ♭7',           fam:'dominante', iv:[0,2,4,6,7,9,10], mot:'Le 4e mode du mineur mélodique : dominante rêveuse (♯11).'},
+  {id:'alt',  nom:'altérée (super-locrien)', fam:'dominante', iv:[0,1,3,4,6,8,10], mot:'Le 7e mode du mineur mélodique : toutes les tensions d\'un coup, sur un V7 qui veut rentrer fort.'}
+];
+const altById = id => ALT_LIB.find(x=>x.id===id);
+/* les 7 modes, du plus lumineux au plus sombre : à chaque marche, UNE note descend */
+const ALT_ECHELLE=[
+  {id:'lyd', chg:'—',                  vs:null},
+  {id:'ion', chg:'la <b>♯4</b> redescend en 4', vs:'lyd'},
+  {id:'mix', chg:'la <b>7</b> descend en ♭7',   vs:'ion'},
+  {id:'dor', chg:'la <b>3</b> descend en ♭3',   vs:'mix'},
+  {id:'eol', chg:'la <b>6</b> descend en ♭6',   vs:'dor'},
+  {id:'phr', chg:'la <b>2</b> descend en ♭2',   vs:'eol'},
+  {id:'loc', chg:'la <b>5</b> descend en ♭5',   vs:'phr'}
+];
+/* état : un décalage par degré, par rapport à la gamme MAJEURE de la même tonique */
+function altSt(){ if(!S.alt) S.alt={root:5, offs:[0,0,-1,0,0,-1,-1], mission:null, done:{}, moves:0}; return S.alt; }
+const altIv = O => MAJ_DEG_PC.map((p,i)=>p+O[i]);
+const altSame = (a,b) => a.every((x,i)=>x===b[i]);
+function altFind(O){ const iv=altIv(O); return ALT_LIB.find(s=>altSame(s.iv,iv))||null; }
+/* la plus proche, et combien de degrés séparent */
+function altNear(O){
+  const iv=altIv(O);
+  let best=null;
+  ALT_LIB.forEach(s=>{ const d=iv.filter((x,i)=>x!==s.iv[i]).length; if(!best||d<best.d) best={s,d}; });
+  return best;
+}
+/* les degrés qui restent à bouger pour atteindre une gamme */
+function altDiff(O, s){
+  const iv=altIv(O), out=[];
+  iv.forEach((x,i)=>{ if(x!==s.iv[i]) out.push({deg:i, sens:s.iv[i]>x?1:-1}); });
+  return out;
+}
+const ALT_LAB=['1','2','3','4','5','6','7'];
+function altDegLab(i,o){ return (o===0?'':o<0?'♭'.repeat(-o):'♯'.repeat(o))+ALT_LAB[i]; }
+function altNote(root,i,o){ return spellDeg(root, MAJ_DEG_PC[i]+o, i); }
+/* la gamme majeure « parente » quand ce qu'on a est un des 7 modes */
+function altParent(root, s){
+  const M=MODES.find(m=>altSame(m.p,s.iv));
+  if(!M) return null;
+  const pc=((root-MAJ_DEG_PC[M.deg-1])%12+12)%12;
+  return {pc, nom:spellDeg(root,(pc-root+12)%12,(8-M.deg)%7), deg:M.deg};
+}
+/* les missions : à chaque fois UNE idée, et le nombre minimum de mouvements */
+const ALT_MISSIONS=[
+  {root:5,  from:'eol', to:'dor', txt:'Fa mineur → Fa dorien'},
+  {root:0,  from:'ion', to:'mix', txt:'Do majeur → Do mixolydien'},
+  {root:0,  from:'ion', to:'lyd', txt:'Do majeur → Do lydien'},
+  {root:9,  from:'eol', to:'phr', txt:'La mineur → La phrygien'},
+  {root:2,  from:'dor', to:'eol', txt:'Ré dorien → Ré mineur'},
+  {root:7,  from:'ion', to:'eol', txt:'Sol majeur → Sol mineur'},
+  {root:9,  from:'eol', to:'mh',  txt:'La mineur → La mineur harmonique'},
+  {root:9,  from:'eol', to:'mm',  txt:'La mineur → La mineur mélodique'},
+  {root:4,  from:'phr', to:'loc', txt:'Mi phrygien → Mi locrien'},
+  {root:10, from:'ion', to:'majh',txt:'Si♭ majeur → Si♭ majeure harmonique'},
+  {root:4,  from:'phr', to:'phd', txt:'Mi phrygien → Mi phrygien ♯3 (le son flamenco)'},
+  {root:7,  from:'mix', to:'lb7', txt:'Sol mixolydien → Sol lydien ♭7'}
+];
+const altOffsOf = id => { const s=altById(id); return s? s.iv.map((x,i)=>x-MAJ_DEG_PC[i]) : [0,0,0,0,0,0,0]; };
+
+function alterRoom(){
+  const A=altSt();
+  openCustom('⚗️ La table d\'altération',(inner)=>{
+    /* ---------------- 1. la théorie : les deux constructions ---------------- */
+    const th=document.createElement('div'); th.className='theory';
+    th.innerHTML=`<p>Tu sais qu'on <b>dérive</b> les mineurs et les modes de la gamme majeure. C'est vrai — et c'est la moitié de l'histoire. L'autre moitié est celle qui sert <b>quand tu joues</b>.</p>
+
+      <h3>Construction n° 1 — la dérivation (« relative »)</h3>
+      <div class="formula">Le mode = les notes d'une gamme majeure, jouées depuis un autre degré</div>
+      <p>Ré dorien = les notes de <b>Do majeur</b>, mais Ré est la maison. La mineur = les notes de Do majeur, mais La est la maison. C'est net, c'est vrai, et ça explique <b>d'où viennent</b> les sept modes : une seule gamme, sept points de départ.</p>
+      <p><b>Le problème.</b> Elle ne dit rien de la <b>couleur</b>. « Ré dorien = Do majeur » ne t'apprend pas que le dorien est un mineur à 6<sup>e</sup> majeure. Pire : en jouant, ta tête reste en Do majeur — tu gravites autour de la mauvaise note, et ça s'entend. Et à chaque tonalité, il faut refaire un calcul (« Fa dorien… degré 2… donc Mi♭ majeur »).</p>
+
+      <h3>Construction n° 2 — l'altération (« parallèle »)</h3>
+      <div class="formula">Le mode = la gamme majeure DE LA MÊME tonique, avec 1 à 4 notes déplacées</div>
+      <p>Ré dorien = <b>Ré majeur</b> avec la <b>3</b> et la <b>7</b> baissées d'un demi-ton. Point. Même maison, et la formule <b>dit la couleur</b> : ♭3 → c'est un mineur ; la 6 reste majeure → c'est ça qui le sépare du mineur naturel.</p>
+      <div class="tip">💡 <b>C'est cette formule-là qu'il faut construire et automatiser.</b> Trois raisons :
+        <br>① elle est <b>invariante</b> — ♭3 et ♭7 valent dans les 12 tonalités, zéro calcul de gamme parente ;
+        <br>② elle <b>nomme la couleur</b>, donc elle te dit quoi faire chanter (sur un dorien, tu vises la 6<sup>e</sup> majeure) ;
+        <br>③ elle <b>colle à l'accord</b> : ♭3 → accord mineur, ♭7 → m7, ♯4 → ♯11, ♭2 → la tension espagnole. La gamme et l'accord deviennent la même information.</div>
+      <p>Garde la n° 1 pour <b>trouver les notes vite</b> quand tu débutes un morceau. Vise la n° 2 comme <b>état final</b> : c'est celle des gens qui jouent.</p>
+
+      <h3>Les formules, depuis la majeure de même tonique</h3>
+      <table style="width:100%;border-collapse:collapse;font-size:13.5px;margin:6px 0">
+        <tr style="color:var(--dim);font-size:11px;text-transform:uppercase"><th style="text-align:left;padding:6px 4px">Mode</th><th style="text-align:left;padding:6px 4px">Ce qui change</th><th style="text-align:left;padding:6px 4px">Famille</th></tr>
+        ${[['lydien','<b>♯4</b>','majeur'],['majeure (ionien)','— la référence','majeur'],['mixolydien','<b>♭7</b>','majeur'],
+           ['dorien','<b>♭3 ♭7</b>','mineur'],['mineure (éolien)','<b>♭3 ♭6 ♭7</b>','mineur'],
+           ['phrygien','<b>♭2 ♭3 ♭6 ♭7</b>','mineur'],['locrien','<b>♭2 ♭3 ♭5 ♭6 ♭7</b>','mineur']]
+          .map(r=>`<tr style="border-top:1px solid var(--line)"><td style="padding:7px 4px">${r[0]}</td><td style="padding:7px 4px;color:var(--acc);font-weight:700">${r[1]}</td><td style="padding:7px 4px;color:var(--dim)">${r[2]}</td></tr>`).join('')}
+      </table>
+
+      <h3>Le vrai raccourci : l'escalier</h3>
+      <p>Range les sept modes <b>du plus lumineux au plus sombre</b>, et il se passe ceci : à chaque marche, <b>une seule note descend d'un demi-ton</b> — toujours dans le même ordre, <b>4, 7, 3, 6, 2, 5</b>.</p>
+      <div class="formula">lydien → majeure → mixolydien → dorien → mineure → phrygien → locrien</div>
+      <p>Tu n'as donc pas sept formules à retenir : <b>un escalier et un ordre de six notes</b>. C'est exactement ce que fait la table ci-dessous — tu bouges une note, tu changes de marche.</p>
+
+      <h3>Et les trois mineures ?</h3>
+      <ul>
+        <li><b>Mineure naturelle</b> = <b>♭3 ♭6 ♭7</b> (c'est l'éolien). Son défaut : sa 7<sup>e</sup> est à un <b>ton</b> de la tonique, elle ne tire pas — donc pas de vraie dominante, pas de cadence forte.</li>
+        <li><b>Mineure harmonique</b> = <b>♭3 ♭6</b> : on <b>remonte</b> la 7<sup>e</sup>. C'est né d'un besoin d'<b>harmonie</b>, d'où le nom : avec la 7<sup>e</sup> naturelle, le V redevient majeur et le V7 fonctionne. Prix à payer : entre ♭6 et 7 il reste un saut d'<b>un ton et demi</b> (seconde augmentée) — la fameuse couleur orientale, superbe en harmonie, malcommode à chanter.</li>
+        <li><b>Mineure mélodique</b> = <b>♭3</b> tout court : on remonte aussi la 6<sup>e</sup> pour effacer ce grand saut. La gamme monte comme une majeure et n'a plus qu'une seule note mineure — faite pour la <b>mélodie</b>, d'où son nom. (En classique on redescend en mineure naturelle ; en jazz on garde la même forme dans les deux sens.)</li>
+      </ul>
+      <div class="tip">La logique tient en une ligne : <b>♭3 ♭6 ♭7 → ♭3 ♭6 → ♭3</b>. Les trois mineures sont la même gamme à qui on rend une note, puis deux. Rien à apprendre par cœur.</div>
+      <h3>À toi</h3>
+      <p>La table ci-dessous fait exactement ce que décrit la construction n° 2 : une tonique, sept degrés, et des flèches. Bouge une note, l'app te dit ce que tu viens de fabriquer — et te donne les deux lectures à la fois (la formule <b>et</b> la gamme parente).</p>`;
+    inner.appendChild(th);
+
+    /* ---------------- 2. tonique & point de départ ---------------- */
+    const pick=document.createElement('div'); pick.className='card';
+    pick.innerHTML=`<b style="font-size:14px">La maison</b>`;
+    const rr=document.createElement('div'); rr.className='selrow';
+    for(let pc=0;pc<12;pc++){
+      const t=document.createElement('div'); t.className='tag'+(A.root===pc?' on':''); t.textContent=NOTE_FR[pc];
+      t.onclick=()=>{ A.root=pc; save(); draw(); rr.querySelectorAll('.tag').forEach(x=>x.classList.remove('on')); t.classList.add('on'); };
+      rr.appendChild(t);
+    }
+    pick.appendChild(rr);
+    const lab=document.createElement('div'); lab.style.cssText='font-size:12px;color:var(--dim);font-weight:700;margin:8px 0 4px';
+    lab.textContent='Charger une gamme de départ'; pick.appendChild(lab);
+    const sr=document.createElement('div'); sr.className='selrow'; sr.style.flexWrap='wrap';
+    ALT_LIB.forEach(s=>{
+      const t=document.createElement('div'); t.className='tag'; t.textContent=s.nom;
+      t.onclick=()=>{ A.offs=altOffsOf(s.id); A.moves=0; A.mission=null; save(); draw(); };
+      sr.appendChild(t);
+    });
+    pick.appendChild(sr);
+    inner.appendChild(pick);
+
+    /* ---------------- 3. clavier + table ---------------- */
+    const kb=buildKeyboard(48,73,(m,k)=>{ playNote(m); k.classList.add('flash'); setTimeout(()=>k.classList.remove('flash'),150); });
+    kb.style.margin='10px 0 2px';
+    inner.appendChild(kb);
+    const card=document.createElement('div'); card.className='card'; card.style.borderColor='var(--acc)'; inner.appendChild(card);
+    const fb=document.createElement('div'); inner.appendChild(fb);
+
+    function playScale(){ altIv(A.offs).concat([12]).forEach((x,i)=>playNote(48+A.root+x,.5,.38,i*.4)); }
+    function playDeg(i){ playNote(48+A.root+MAJ_DEG_PC[i]+A.offs[i], .9, .42); }
+
+    function draw(){
+      const s=altFind(A.offs), near=altNear(A.offs);
+      const cible=A.mission!=null?altById(ALT_MISSIONS[A.mission].to):null;
+      const reste=cible?altDiff(A.offs,cible):null;
+      const par=s?altParent(A.root,s):null;
+      const tonique=altNote(A.root,0,0);
+
+      kb.clearSel();
+      altIv(A.offs).concat([12]).forEach(x=>{ const k=kb.keyEl(48+A.root+x); if(k) k.classList.add('hint'); });
+      const home=kb.keyEl(48+A.root); if(home){ home.classList.remove('hint'); home.classList.add('sel'); }
+
+      card.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap">
+          <b style="font-size:22px;font-weight:900;color:var(--acc)">${tonique} ${s?s.nom:'…'}</b>
+          <span style="font-size:12px;font-weight:800;color:${s?'var(--ok)':'var(--dim)'}">${s?'✓ gamme connue':'sans nom'}</span></div>
+        ${s?`<p style="color:#c9cde0;font-size:13.5px;line-height:1.5;margin:5px 0 0">${s.mot}</p>`:''}
+        <p style="color:var(--dim);font-size:12.5px;margin:7px 0 0;line-height:1.5"><b style="color:var(--txt)">① Formule</b> — depuis ${tonique} majeur :
+          <b style="color:var(--acc)">${A.offs.every(o=>o===0)?'rien ne change':A.offs.map((o,i)=>o?altDegLab(i,o):null).filter(Boolean).join(' · ')}</b></p>
+        ${par?`<p style="color:var(--dim);font-size:12.5px;margin:3px 0 0;line-height:1.5"><b style="color:var(--txt)">② Dérivation</b> — ce sont les notes de <b>${par.nom} majeur</b>, ${tonique} en étant le degré ${par.deg}.</p>`
+             :`<p style="color:var(--dim);font-size:12.5px;margin:3px 0 0;line-height:1.5"><b style="color:var(--txt)">② Dérivation</b> — aucune : cette gamme n'est pas un mode de la majeure. ${s?'Elle a sa propre famille.':''}</p>`}
+        ${!s?`<p style="color:var(--dim);font-size:12.5px;margin:6px 0 0">Pas dans le catalogue. Le plus proche : <b style="color:var(--acc)">${near.s.nom}</b>, à ${near.d} note${near.d>1?'s':''}.</p>`:''}
+        <div class="altg">${A.offs.map((o,i)=>`<div class="altd${o?' ch':''}">
+            <div class="altl">${altDegLab(i,o)}</div>
+            <button class="altn" data-play="${i}">${altNote(A.root,i,o)}</button>
+            ${i===0?`<div class="altlk">maison</div>`
+              :`<div class="altb"><button data-up="${i}"${o>=1?' disabled':''}>▲</button><button data-dn="${i}"${o<=-1?' disabled':''}>▼</button></div>`}
+          </div>`).join('')}</div>`;
+
+      const row=document.createElement('div'); row.className='exrow'; row.style.marginTop='10px';
+      const bP=document.createElement('button'); bP.className='btn'; bP.textContent='▶ Écouter la gamme'; bP.onclick=playScale;
+      const bR=document.createElement('button'); bR.className='btn ghost'; bR.textContent='↺ Repartir de la majeure';
+      bR.onclick=()=>{ A.offs=[0,0,0,0,0,0,0]; A.moves=0; save(); draw(); };
+      row.appendChild(bP); row.appendChild(bR); card.appendChild(row);
+
+      card.querySelectorAll('[data-up]').forEach(b=>b.onclick=()=>{ const i=+b.dataset.up; A.offs[i]=Math.min(1,A.offs[i]+1); A.moves++; save(); playDeg(i); draw(); });
+      card.querySelectorAll('[data-dn]').forEach(b=>b.onclick=()=>{ const i=+b.dataset.dn; A.offs[i]=Math.max(-1,A.offs[i]-1); A.moves++; save(); playDeg(i); draw(); });
+      card.querySelectorAll('[data-play]').forEach(b=>b.onclick=()=>playDeg(+b.dataset.play));
+
+      fb.innerHTML='';
+      if(A.mission!=null){
+        const M=ALT_MISSIONS[A.mission], gagne=reste.length===0;
+        const mini=altDiff(altOffsOf(M.from), cible).length;
+        const c=document.createElement('div'); c.className='card'; c.style.borderColor=gagne?'var(--ok)':'var(--purple)';
+        c.innerHTML=`<b style="font-size:15px">🎯 ${M.txt}</b>
+          ${gagne?`<p style="color:var(--ok);font-size:14px;font-weight:800;margin:6px 0 0">✅ Atteint en ${A.moves} mouvement${A.moves>1?'s':''} — minimum ${mini}.</p>
+              <p style="color:#c9cde0;font-size:13px;line-height:1.5;margin:6px 0 0">${cible.mot}</p>`
+            :`<p style="color:var(--dim);font-size:13px;margin:6px 0 0;line-height:1.5">Il reste <b style="color:var(--acc)">${reste.length}</b> note${reste.length>1?'s':''} à bouger. Le minimum pour cette mission est <b>${mini}</b>.</p>`}`;
+        const r2=document.createElement('div'); r2.className='exrow'; r2.style.marginTop='9px';
+        if(gagne){
+          const k=M.from+'>'+M.to;
+          if(!A.done[k]){ A.done[k]=true; save(); award(A.moves<=mini?20:10); }
+          dailyMark('modes');
+          const bn=document.createElement('button'); bn.className='btn'; bn.textContent='➡️ Suivante';
+          bn.onclick=()=>lancerMission((A.mission+1)%ALT_MISSIONS.length); r2.appendChild(bn);
+        } else {
+          const bh=document.createElement('button'); bh.className='btn ghost'; bh.textContent='💡 Un indice';
+          bh.onclick=()=>{ const d=reste[0]; toast('Bouge la '+ALT_LAB[d.deg]+' vers le '+(d.sens>0?'haut ▲':'bas ▼')); };
+          r2.appendChild(bh);
+        }
+        const bq=document.createElement('button'); bq.className='btn ghost'; bq.textContent='✕ Quitter';
+        bq.onclick=()=>{ A.mission=null; save(); draw(); }; r2.appendChild(bq);
+        c.appendChild(r2); fb.appendChild(c);
+      }
+    }
+    function lancerMission(k){
+      const M=ALT_MISSIONS[k];
+      A.mission=k; A.root=M.root; A.offs=altOffsOf(M.from); A.moves=0; save();
+      rr.querySelectorAll('.tag').forEach((x,i)=>x.classList.toggle('on', i===M.root));
+      draw(); kb.scrollIntoView({block:'center'});
+    }
+
+    /* ---------------- 4. les missions ---------------- */
+    const mh=document.createElement('div'); mh.className='theory';
+    mh.innerHTML=`<h3 style="margin-top:20px">🎯 Les transformations</h3>
+      <p>Chacune part d'une gamme et en vise une autre, sur <b>la même tonique</b>. L'app compte tes mouvements et te donne le minimum : une transformation à un mouvement, c'est <b>une marche d'escalier</b>.</p>`;
+    inner.appendChild(mh);
+    const ml=document.createElement('div');
+    ALT_MISSIONS.forEach((M,k)=>{
+      const mini=altDiff(altOffsOf(M.from), altById(M.to)).length;
+      const fait=!!A.done[M.from+'>'+M.to];
+      const b=document.createElement('button'); b.className='btn ghost';
+      b.style.cssText='text-align:left;display:flex;justify-content:space-between;align-items:center;gap:10px';
+      b.innerHTML=`<span>${fait?'✓ ':''}${M.txt}</span><small style="color:var(--dim);white-space:nowrap">${mini} mvt${mini>1?'s':''}</small>`;
+      b.onclick=()=>lancerMission(k);
+      ml.appendChild(b);
+    });
+    inner.appendChild(ml);
+
+    /* ---------------- 5. l'escalier ---------------- */
+    const eh=document.createElement('div'); eh.className='theory';
+    eh.innerHTML=`<h3 style="margin-top:20px">🪜 L'escalier de luminosité</h3>
+      <p>Les sept modes, du plus clair au plus sombre. Entre deux marches voisines : <b>une seule note</b>. Touche une marche pour la charger dans la table, sur ta tonique actuelle.</p>`;
+    inner.appendChild(eh);
+    const el=document.createElement('div');
+    ALT_ECHELLE.forEach((E,i)=>{
+      const s=altById(E.id);
+      const b=document.createElement('button'); b.className='btn ghost';
+      b.style.cssText='text-align:left;display:block';
+      b.innerHTML=`<b style="color:var(--acc)">${i+1}. ${s.nom}</b>
+        <small style="display:block;color:var(--dim);font-weight:600;margin-top:2px">${E.vs?'depuis le '+altById(E.vs).nom+' : '+E.chg:'le plus lumineux des sept'}</small>`;
+      b.onclick=()=>{ A.offs=altOffsOf(E.id); A.moves=0; A.mission=null; save(); draw(); kb.scrollIntoView({block:'center'}); };
+      el.appendChild(b);
+    });
+    inner.appendChild(el);
+
+    const fin=document.createElement('div'); fin.className='theory';
+    fin.innerHTML=`<div class="tip">💡 L'exercice qui fait entrer tout ça dans les doigts : prends <b>une tonique</b> et descends l'escalier en entier, en jouant chaque gamme. Tu n'auras déplacé que six notes, et tu auras joué les sept modes.</div>`;
+    inner.appendChild(fin);
+
+    draw();
+    overlay.scrollTop=0;
+  });
+}
 
 /* ---------------- init ---------------- */
 updateHeader(); render();
