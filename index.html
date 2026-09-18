@@ -10856,12 +10856,26 @@ function cjGridTxt(keyPc, steps){
   return steps.map(([d,t])=>NOTE_FR[(keyPc+d)%12]+CHORD_TYPES[t].suf).join(' – ');
 }
 /* quiz de reconnaissance : les notes sont données, quel type ? */
+/* Les notes d'un accord, ÉPELÉES : un degré = une lettre. NOTE_FR donnerait
+   « Si♭ – Do♯ – Fa – Do » pour un Si♭m(add9), alors que la 3e est un Ré♭.
+   Table des pas de lettre par intervalle, + les cas où 6 est une ♭5 et non
+   une ♯4 (dim, dim7, m7♭5, 7♭5), et la ♭♭7 du dim7. */
+const CJ_STEP={0:0,1:1,2:1,3:2,4:2,5:3,6:3,7:4,8:4,9:5,10:6,11:6,13:1,14:1,15:1,17:3,18:3,20:5,21:5};
+function cjSpell(rootPc, type){
+  const flat5=['dim','dim7','m7b5','d7b5'].indexOf(type)>=0;
+  return CHORD_TYPES[type].iv.map(iv=>{
+    let st=CJ_STEP[iv];
+    if(iv===6 && flat5) st=4;                 /* ♭5, pas ♯4 */
+    if(iv===9 && type==='dim7') st=6;         /* ♭♭7, pas 6te */
+    return spellDeg(rootPc, iv, st);
+  });
+}
 function cjNameQs(t, n){
   const F=CJ[t], qs=[], R=[0,2,3,5,7,8,9,10];
   const pool=(F.confus||[]).concat(['maj','min','dom7','maj7','m7']).filter(x=>x!==t);
   for(let i=0;i<n;i++){
     const root=R[Math.floor(Math.random()*R.length)];
-    const notes=CHORD_TYPES[t].iv.map(x=>NOTE_FR[(root+x)%12]).join(' – ');
+    const notes=cjSpell(root,t).join(' – ');
     const bons=NOTE_FR[root]+CHORD_TYPES[t].suf;
     const faux=[]; const p=pool.slice().sort(()=>Math.random()-.5);
     p.forEach(x=>{ const lab=NOTE_FR[root]+CHORD_TYPES[x].suf; if(faux.length<3 && lab!==bons && !faux.includes(lab)) faux.push(lab); });
