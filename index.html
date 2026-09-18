@@ -5195,7 +5195,10 @@ function runQuiz(el,ex,cb){
     else { el.innerHTML=`<div class="exhead"><div class="target">${score}/${ex.qs.length}</div><div class="sub">Insuffisant. Relis la théorie et reviens : la base doit être solide.</div></div>`;
       const rb=document.createElement('button'); rb.className='btn'; rb.textContent='↻ Recommencer';
       rb.onclick=()=>{ i=0; wrong=0; show(); }; el.appendChild(rb); return; }
-    setTimeout(()=>cb(true),1200);
+    /* le score part TOUJOURS en 2e argument (comme runChord et comme la branche
+       `scored`) : sans lui, un appelant qui filtre sur le nombre de bonnes
+       réponses reçoit `true` et son seuil ne peut jamais tomber. */
+    setTimeout(()=>cb(true,score),1200);
   };
   show();
 }
@@ -10948,7 +10951,11 @@ function cjRoom(type){
           sub:'Construis '+(T.suf||'l\'accord majeur')+' dans 3 tonalités tirées au sort.'},
           (ok)=>{ et.build=et.build||!!ok; majStatut(); });
       } else if(k==='name'){
-        runQuiz(box,{qs:cjNameQs(t,5)}, (good,total)=>{ et.name=et.name||good>=4; majStatut(); });
+        runQuiz(box,{qs:cjNameQs(t,5)}, (_ok,score)=>{
+          if(score>=4) et.name=true;
+          else toast('② Il faut au moins 4/5 — relance l\'épreuve');
+          majStatut();
+        });
       } else {
         const kp=[0,5,7,2,9,10][Math.floor(Math.random()*6)];
         box.innerHTML=`<div class="exhead"><div class="sub">③ En situation</div>
