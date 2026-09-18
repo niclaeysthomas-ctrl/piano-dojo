@@ -712,7 +712,12 @@ function errPass(k){
   save(); return false;
 }
 function errFail(k){ const e=errsObj()[k]; if(e){ e.box=0; e.n++; e.last=todayStr(); logErr(e.kind,e.d); save(); } }
-function errCount(){ return Object.keys(errsObj()).length; }
+/* Une erreur d'oreille ne peut pas être « en attente » les jours sans son :
+   elle bloquerait la ligne Rattrapage de la séance. Tant que l'écoute est
+   facultative, ces erreurs restent MÉMORISÉES mais sortent de la file. */
+const errHid = e => e.kind==='ear' && sonOpt();
+function errCount(){ return Object.values(errsObj()).filter(e=>!errHid(e)).length; }
+function errEarHidden(){ return Object.values(errsObj()).filter(e=>e.kind==='ear'&&sonOpt()).length; }
 function errsOf(kind){ return Object.entries(errsObj()).filter(([,e])=>e.kind===kind); }
 
 /* ---------- RAPPORT D'ERREURS : synthèse + export (à envoyer à Claude) ---------- */
@@ -4691,12 +4696,14 @@ function dojoScale(){
    sont notés par lot (sans faute = maîtrisé). */
 function dojoErrs(){
   const chordErrs=errsOf('chord').slice(0,8);
-  const earErrs=errsOf('ear').filter(([,e])=>e.d.t==='maj'||e.d.t==='min').slice(0,4);
+  const earErrs=sonOpt()?[]:errsOf('ear').filter(([,e])=>e.d.t==='maj'||e.d.t==='min').slice(0,4);
   const quizErrs=errsOf('quiz').slice(0,4);
   if(!chordErrs.length && !earErrs.length && !quizErrs.length){
     return openCustom('🩹 Mes erreurs',(inner,close)=>{
+      const cachees=errEarHidden();
       inner.insertAdjacentHTML('beforeend',`<div class="exhead"><div class="target">✨</div>
-        <div class="sub">Rien en attente. Tout ce que tu as raté a été rattrapé — continue le parcours, l'app remplira cette salle toute seule.</div></div>`);
+        <div class="sub">Rien en attente. Tout ce que tu as raté a été rattrapé — continue le parcours, l'app remplira cette salle toute seule.</div></div>
+        ${cachees?`<div class="tip">${CASQUE} ${cachees} erreur${cachees>1?'s':''} d'oreille ${cachees>1?'sont':'est'} en mémoire mais hors file, puisque les exercices d'écoute sont facultatifs. ${cachees>1?'Elles reviendront':'Elle reviendra'} si tu les repasses en obligatoires (Outils), ou tu peux les reprendre directement dans la salle 👂.</div>`:''}`);
       const b=document.createElement('button'); b.className='btn'; b.textContent='Retour'; b.onclick=close; inner.appendChild(b);
     });
   }
@@ -4756,7 +4763,10 @@ function mixSegments(){
   }
   if(S.done['m5l1']) segs.push(['Les 7e','chord',{gen:{types:['maj7','m7','dom7'],roots:R12,count:3},sub:'4 notes.'}]);
   if(S.done['m6l1']) segs.push(['Gamme','scale',genScaleEx()]);
-  segs.push(['Oreille','ear',{kinds:['maj','min'],count:3,pass:0,sub:'Écoute avant de cliquer.'}]);
+  if(!sonOpt()) segs.push(['Oreille','ear',{kinds:['maj','min'],count:3,pass:0,sub:'Écoute avant de cliquer.'}]);
+  /* l'oreille fermait la marche quelle que soit la progression : sans elle, un profil
+     tout neuf se retrouverait avec une session VIDE qui s'auto-valide. */
+  if(!segs.length) segs.push(['Accords','chord',{gen:{types:['maj','min'],roots:R12,count:3},sub:'Formule, pas mémoire.'}]);
   return segs;
 }
 function dojoMix(){
@@ -4771,7 +4781,7 @@ function dojoMix(){
         d.innerHTML=`<div class="exhead"><div class="target">🎯</div>
           <div class="sub">Session mixte bouclée — ${segs.length} discipline${segs.length>1?'s':''}. Elle grossira à chaque leçon validée. C'est ça, l'entretien du grade.</div></div>`;
         inner.appendChild(d);
-        dailyMark('warm'); dailyMark('ear'); dailyMark('mix'); award(25); toast('+25 XP · session mixte');
+        dailyMark('warm'); if(!sonOpt()) dailyMark('ear'); dailyMark('mix'); award(25); toast('+25 XP · session mixte');
         setTimeout(close,1600); return;
       }
       const [name,type,ex]=segs[k];
