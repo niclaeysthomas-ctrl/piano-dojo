@@ -310,6 +310,7 @@
     color:var(--dim);flex-shrink:0;text-transform:uppercase;letter-spacing:.4px}
   .songitem .df.f1{color:var(--ok)} .songitem .df.f2{color:var(--acc)}
   .songitem .df.f3{color:var(--purple)} .songitem .df.jam{color:var(--blue)}
+  .songitem .df.f4{color:var(--warn,#e8a33d)} .songitem .df.f5{color:var(--bad)}
   .songitem .played{color:var(--ok);font-size:12px;font-weight:700;flex-shrink:0}
   .strip{display:flex;gap:6px;overflow-x:auto;padding:6px 2px;margin:12px 0;scrollbar-width:none}
   .strip::-webkit-scrollbar{display:none}
@@ -578,7 +579,12 @@ const isBlack = m => [1,3,6,8,10].includes(m%12);
 const LEVELS = [
   [0,'Touriste du clavier'],[120,'Ceinture blanche'],[300,'Ceinture jaune'],
   [550,'Ceinture orange'],[850,'Ceinture verte'],[1200,'Ceinture bleue'],
-  [1700,'Ceinture marron'],[2300,'Ceinture noire'],[3200,'Sensei']
+  [1700,'Ceinture marron'],[2300,'Ceinture noire'],[3200,'Sensei'],
+  /* ajoutés le 2026-09-20 : « Sensei » était le grade MAXIMUM à 3200 XP.
+     À 4911 XP, la barre de progression était pleine depuis des jours et
+     l'XP ne voulait plus rien dire. La suite suit la vraie trajectoire :
+     savoir → accompagner → jouer devant des gens. */
+  [4200,'Accompagnateur'],[5600,'Soliste'],[7500,'Musicien de scène'],[10000,'Maître du clavier']
 ];
 
 /* ---------------- état / sauvegarde ---------------- */
@@ -734,9 +740,23 @@ function buildErrReport(){
   L.push('Généré le '+todayStr()+' · Période '+ds[0]+' → '+ds[ds.length-1]);
   L.push('Total : '+total+' erreurs ('+sum(chords)+' accords · '+sum(ears)+' oreille · '+sum(quiz)+' quiz)');
   L.push('');
+  /* ajouté le 2026-09-20 : le journal est CUMULATIF et ne s'efface jamais, si
+     bien que le rapport présentait comme « récurrentes » des erreurs corrigées
+     depuis trois semaines (G6/9, vu pour la dernière fois 17 jours plus tôt).
+     On marque donc l'âge, et si l'erreur est ENCORE dans la file de rattrapage. */
+  const enFile=new Set(Object.keys(S.errs||{}));
+  const ageJ=d=>{ const x=Math.round((new Date(todayStr())-new Date(d))/864e5); return isNaN(x)?null:x; };
+  const etat=e=>{
+    const k=errKey(e.kind, e.meta&&e.kind==='chord' ? {root:e.meta.root,t:e.meta.t,bass:e.meta.bass} : (e.meta||{}));
+    const a=ageJ(e.last);
+    if(enFile.has(k)) return ' ⚠️ ENCORE EN FILE';
+    return a==null ? '' : (a<=3 ? ' [récent]' : ' [corrigée depuis '+a+' j]');
+  };
+  L.push('(⚠️ ENCORE EN FILE = pas encore rattrapé · [corrigée depuis N j] = plus revu depuis)');
+  L.push('');
   if(chords.length){
     L.push('— ACCORDS — les plus récurrents :');
-    chords.slice(0,10).forEach(e=>L.push('  • '+e.label+'  ×'+e.n+'  ('+e.first+'→'+e.last+')'));
+    chords.slice(0,10).forEach(e=>L.push('  • '+e.label+'  ×'+e.n+'  ('+e.first+'→'+e.last+')'+etat(e)));
     const byType={}; let black=0,white=0,inv=0;
     chords.forEach(e=>{ const m=e.meta||{}; if(m.t) byType[m.t]=(byType[m.t]||0)+e.n;
       if(m.root!=null){ if([1,3,6,8,10].includes(m.root%12)) black+=e.n; else white+=e.n; }
@@ -756,7 +776,7 @@ function buildErrReport(){
   }
   if(quiz.length){
     L.push('— QUIZ (théorie) —');
-    quiz.slice(0,8).forEach(e=>L.push('  • ×'+e.n+' — '+e.label));
+    quiz.slice(0,8).forEach(e=>L.push('  • ×'+e.n+' — '+e.label+etat(e)));
     L.push('');
   }
   L.push('(Envoie ce rapport à Claude pour l\'analyse des patterns.)');
@@ -817,24 +837,99 @@ function buildProgressReport(){
       const arm=sc.alt===0?'0 alt':sc.alt+sc.type;
       L.push('  '+(sc.name+'     ').slice(0,5)+'('+arm+')  palier '+m.lvl+'/5 '+GO_RANKSHORT[m.lvl]
         +(m.seal?'  [sceau pose, attend 2e jour]':'')
-        +(m.best?'  record aveugle '+m.best+'s':'')
+        +(m.best?'  record aveugle '+m.best+'s':(m.lvl>=4?'  ⚠️ JAMAIS récitée à l\'aveugle':''))
+        +(m.lapses?'  · '+m.lapses+' rechute'+(m.lapses>1?'s':''):'')
         +(m.last?'  · vu '+m.last:''));
     });
   }
   L.push('');
   L.push('=== LEÇONS & THÉORIE ===');
   const done=Object.keys(S.done||{});
-  L.push('Leçons/exos validés : '+done.length+(done.length?'  ['+done.slice(0,50).join(', ')+(done.length>50?', …':'')+']':''));
+  const nTot=(typeof ALL_LESSONS!=='undefined')?ALL_LESSONS.length:0;
+  L.push('Leçons/exos validés : '+done.length+(nTot?'/'+nTot+(done.length>=nTot?'  ⚠️ PARCOURS TERMINÉ':''):'')
+    +(done.length?'  ['+done.slice(0,50).join(', ')+(done.length>50?', …':'')+']':''));
   if(S.bilan) L.push('Dernier bilan global : '+S.bilan.global+'/100 ('+S.bilan.date+')');
-  L.push('Oreille — meilleure série : '+(S.earBest||0));
-  const nSongs=Object.keys(S.songs||{}).length; if(nSongs) L.push('Morceaux touchés : '+nSongs);
+  else L.push('Bilan d\'entrée : jamais passé.');
+  L.push('');
+
+  /* ══ ajouté le 2026-09-20 ════════════════════════════════════════════════
+     L'export ne contenait NI les morceaux, NI les quintes en cartes, NI la
+     main gauche, NI l'accord du jour, NI le juke-box, NI les pentas, NI la
+     table d'altération, NI l'assiduité — c'est-à-dire tout ce qui a été
+     construit depuis un mois. En face, il exportait noteStats et rhythmStats,
+     deux clés que rien n'écrit. Le diagnostic se faisait donc sur l'app d'il
+     y a un mois. Réparé ici : une ligne par module, même à zéro — surtout à
+     zéro, un module jamais ouvert est l'information la plus utile du rapport.
+     ═══════════════════════════════════════════════════════════════════════ */
+  L.push('=== LA MUSIQUE (le débouché) ===');
+  try{
+    const fam=x=>x.fam||(x.jam?'grille':'comptine');
+    const grp=[['piece','Vraies pièces'],['trad','Traditionnels'],['grille','Grilles à improviser'],['comptine','Comptines']];
+    grp.forEach(([f,lab])=>{
+      const list=SONGS.filter(x=>fam(x)===f), joues=list.filter(x=>songPlays(x.id));
+      L.push('  '+(lab+'                  ').slice(0,22)+joues.length+'/'+list.length
+        +(joues.length?'  → '+joues.map(x=>x.title+'×'+songPlays(x.id)).join(', '):'  ⚠️ aucun'));
+    });
+    L.push('  Juke-box (impro sur grille) : '+(S.juke?Object.keys(S.juke).length:0)+'/'+(typeof JUKE!=='undefined'?JUKE.length:'?'));
+    L.push('  Main gauche travaillée sur : '+Object.keys(S.songsLH||{}).length+' morceau(x)');
+  }catch(e){ L.push('  (indisponible)'); }
+  L.push('');
+
+  L.push('=== L\'OREILLE ===');
+  L.push('  Meilleure série (historique) : '+(S.earBest||0));
+  try{
+    EAR_STAGES.forEach((st,i)=>{ const x=earStat(st.id);
+      L.push('  Étage '+st.n+' · '+(st.t+'                    ').slice(0,22)
+        +(earStageOpen(i)?'ouvert ':'🔒      ')
+        +(x.n?('record '+x.best+'% · '+x.n+' séance'+(x.n>1?'s':'')+(x.last!=null?' · dernière '+x.last+'%':'')):'jamais fait'));
+    });
+  }catch(e){ const mm=earStat('mm'); L.push('  maj/min : record '+(mm.best||0)+'% sur '+(mm.n||0)+' séances'); }
+  L.push('');
+
+  L.push('=== LES AUTRES SALLES ===');
+  /* on compte la PROGRESSION (les sous-objets « done »), pas le nombre de clés
+     de l'état — une erreur facile qui faisait dire « 7 patterns » là où il y en
+     avait 0 et « 5 pentas » pour une structure vide. */
+  const nk=o=>o&&typeof o==='object'?Object.keys(o).length:0;
+  const tot=n=>{ try{ return '/'+eval(n).length; }catch(e){ return ''; } };
+  const ligne=(lab,fait,total,extra)=>L.push('  '+(lab+'                          ').slice(0,26)+fait+total+(fait===0?'  ⚠️ jamais ouvert':(extra||'')));
+  try{
+    const qc=S.qc||{}, vues=nk(qc), mures=Object.values(qc).filter(c=>(c.box||0)>=3).length;
+    ligne('Quintes en cartes', vues, tot('QC_CARDS'), ' · '+mures+' mûres'+(typeof qcQueue==='function'?(' · '+qcQueue().length+' dues'):''));
+  }catch(e){ L.push('  Quintes en cartes : (indisponible)'); }
+  ligne('Main gauche (patterns)', nk((S.mg||{}).done), tot('MG_PATS'), ' · '+nk((S.mg||{}).seen)+' vus');
+  try{ const m=(S.cj||{}).maitrise||{}, ac=Object.values(m).filter(v=>v>=(typeof CJ_STEP!=='undefined'?2:2)).length;
+    ligne('Accord du jour (acquis)', ac, '/'+Object.keys(CHORD_TYPES).length, ' · aujourd\'hui : '+((S.cj||{}).type||'—')); }catch(e){}
+  ligne('Pentas posées', nk((S.penta||{}).map), tot('PENTA_TYPES'), '');
+  ligne('Table d\'altération', nk((S.alt||{}).done), tot('ALT_MISSIONS'), '');
+  ligne('Chant (exos)', nk((S.chant||{}).done), tot('CHANT'), ' · routine : série '+(((S.chant||{}).rout||{}).streak||0)+' j');
+  ligne('Justesse (niveaux)', nk((S.vg||{}).lv), tot('VG_LEVELS'), '');
+  L.push('  Records : '+Object.entries(S.best||{}).filter(([,v])=>typeof v==='number').map(([k,v])=>k+'='+v).join(' · '));
+  L.push('');
+
+  L.push('=== ASSIDUITÉ ===');
+  const H=S.hist||{}, jours=Object.keys(H).sort();
+  L.push('  Jours joués : '+jours.length+(jours.length?(' · du '+jours[0]+' au '+jours[jours.length-1]):''));
+  if(jours.length){
+    const last14=jours.slice(-14);
+    L.push('  14 derniers jours actifs : '+last14.map(d=>d.slice(5)+'('+H[d]+')').join(' '));
+    const t=todayStr(), d7=[...Array(7)].map((_,i)=>{const x=new Date(t); x.setDate(x.getDate()-i); return x.toISOString().slice(0,10);});
+    L.push('  Sur les 7 derniers jours : '+d7.filter(d=>H[d]).length+'/7 joués · '+d7.reduce((a,d)=>a+(H[d]||0),0)+' XP');
+  }
+  L.push('  Intensité réglée sur : '+(S.intensity||'?')+' · exercices sonores : '+(S.sonOpt!==false?'FACULTATIFS':'obligatoires'));
   L.push('');
   const er=(typeof buildErrReport==='function')?buildErrReport():{empty:true};
   if(!er.empty){ L.push('=== ERREURS RÉCURRENTES ==='); er.text.split('\n').slice(2).forEach(x=>L.push(x)); }
   else L.push('=== ERREURS === (journal vide)');
   L.push('');
   L.push('--- DONNÉES BRUTES (pour analyse fine, ne pas éditer) ---');
-  L.push(JSON.stringify({xp:S.xp,streak:S.streak,lastDay:S.lastDay,gammes:S.gammes,done:S.done,best:S.best,earBest:S.earBest,earStats:S.earStats,noteStats:S.noteStats,rhythmStats:S.rhythmStats,defi:S.defi,bilan:S.bilan,songs:S.songs,intensity:S.intensity}));
+  L.push(JSON.stringify({xp:S.xp,streak:S.streak,lastDay:S.lastDay,gammes:S.gammes,done:S.done,
+    best:S.best,earBest:S.earBest,earStats:S.earStats,defi:S.defi,bilan:S.bilan,
+    songs:S.songs,songsLH:S.songsLH,juke:S.juke,
+    qc:S.qc,mg:S.mg,cj:S.cj,penta:S.penta,alt:S.alt,vg:S.vg,
+    hist:S.hist,intensity:S.intensity,sonOpt:S.sonOpt,
+    /* conservées pour compatibilité : rien ne les écrit encore (voir LE RYTHME) */
+    noteStats:S.noteStats,rhythmStats:S.rhythmStats}));
   return {text:L.join('\n'), json:JSON.stringify(S)};
 }
 function progressReportView(){
@@ -2345,6 +2440,8 @@ const DAILY_DRILLS=[
   {req:null,  ic:'🧠', txt:'Quiz : formats, modes & grilles', fn:()=>dojoTheoryQuiz()},
   {req:'m2l2', ic:'🎲', txt:'Joue une progression tirée au sort', fn:()=>dojoProg()},
   {req:'m1l2', ic:'🌊', txt:'Enchaînements fluides (voice leading)', fn:()=>dojoVL()},
+  {req:null,  ic:'🥁', txt:'Rythme : tape, on mesure', fn:()=>rhythmRoom()},
+  {req:null,  ic:'🎯', txt:'Ton point faible, au peigne fin', fn:()=>weakRoom()},
 ];
 const INTENSITIES=[['normal','Normal'],['intense','Intense'],['forge','Forge'],['marathon','Marathon']];
 function curIntensity(){ return S.intensity||'intense'; }
@@ -2354,9 +2451,15 @@ function dailyProgram(){
 
   /* ---- SOCLE : le terrain, présent quelle que soit l'intensité ---- */
   /* 1. échauffement — armures dans les deux sens, 2 min (les erreurs passent avant) */
-  P.push(nErr>=3
+  /* trois portes pour la même ligne, par ordre d'urgence : ce qui est en file
+     d'attente, puis la tonalité qui saigne, puis l'échauffement générique.
+     Ça n'allonge pas la séance : c'est la MÊME ligne, mieux ciblée. */
+  {let wk=null; try{ wk=wkTop(); }catch(e){}
+   P.push(nErr>=3
     ? {key:'warm', ic:'🩹', txt:'Rattrapage : '+nErr+' erreur'+(nErr>1?'s':'')+' en attente', fn:()=>dojoErrs()}
-    : {key:'warm', ic:'⚡', txt:'Échauffement : le Flash des 12 gammes', fn:()=>goFlash()});
+    : wk
+    ? {key:'warm', ic:'🎯', txt:'Point faible : '+GO_SCALES[wk.root].name+' majeur', fn:()=>weakDrill(wk.root)}
+    : {key:'warm', ic:'⚡', txt:'Échauffement : le Flash des 12 gammes', fn:()=>goFlash()});}
   /* 2. LE CHANTIER : la séance adaptative du Grand Œuvre (gammes + armures + degrés).
         Elle remplace l'ancien « construis une gamme » : elle le contient, en mieux. */
   {const nGo=goDueList().length, m=goMastered();
@@ -2375,12 +2478,20 @@ function dailyProgram(){
   P.push({key:'lesson', ic:'📖', lesson:true,
     txt: nl?('Leçon : '+nl.title):'Révision : une leçon au hasard',
     fn:()=>openLesson(nl||ALL_LESSONS[Math.floor(Math.random()*ALL_LESSONS.length)])});
+  /* 7. LE MORCEAU DU JOUR — la ligne qui manquait. Obligatoire dès « Normal » :
+        la théorie sans musique, c'est ce qui rend une app de piano ennuyeuse. */
+  {const so=songOfDay();
+   if(so) P.push({key:'song', ic:so.ico||'🎶',
+     txt:(songTrack()==='improviser'?'Improviser sur : ':(songPlays(so.id)?'Reprendre : ':'Nouveau morceau : '))+so.title,
+     fn:()=>openSong(so)});}
   if(lvl==='normal') return P;
 
   /* ---- INTENSE : le débouché musical + l'oreille (son point faible) ---- */
   /* l'impro guidée aussi : c'est l'app qui tient les accords pendant que tu joues. */
   P.push({key:'impro', ic:'🎹', txt:'Impro guidée : la gamme en musique', opt:sonOpt(), fn:()=>improRoom()});
-  P.push({key:'ear', ic:'👂', txt:'Oreille : majeur ou mineur ?', opt:sonOpt(), fn:()=>dojoEar()});
+  {const es=earStageCur();
+   P.push({key:'ear', ic:es.ic, txt:'Oreille · étage '+es.n+' : '+es.t, opt:sonOpt(),
+     fn:()=>(es.id==='mm'?dojoEar():earRunStage(es))});}
   {const p=mgNext();
    P.push({key:'mg', ic:'🤚', txt:'Main gauche : '+p.nom+(mgDone(p.id)?' (série 2)':''), fn:()=>mgDrill(p.id)});}
   if(lvl==='intense') return P;
@@ -2414,9 +2525,15 @@ function renderParcours(){
     <div class="xpbar"><i style="width:${pct}%"></i></div>
     <div class="xptxt">${S.xp} XP${lv.next?` · ${lv.next[0]-S.xp} XP avant « ${lv.next[1]} »`:' · grade maximum'} · ${doneCount}/${ALL_LESSONS.length} leçons · ${S.hist[todayStr()]||0} XP aujourd'hui</div>
     ${nl?`<button class="btn" id="resume">▶ ${doneCount===0?'Commencer':'Reprendre'} : ${nl.title}</button>`
-        :`<button class="btn ok" disabled>Parcours terminé${lessonsOreille()?` (hors ${lessonsOreille()} leçon${lessonsOreille()>1?'s':''} d'oreille)`:''} — le Dojo t'attend</button>`}`;
+        :`<div style="color:var(--dim);font-size:12.5px;margin:8px 0 6px">Parcours terminé${lessonsOreille()?` (hors ${lessonsOreille()} leçon${lessonsOreille()>1?'s':''} d'oreille)`:''} — la suite, c'est de la musique.</div>
+          <button class="btn" id="resume">▶ ${(()=>{try{const so=songOfDay();return (songTrack()==='improviser'?'Improviser sur : ':'Jouer : ')+so.title;}catch(e){return 'Le morceau du jour';}})()}</button>`}`;
   main.appendChild(hero);
-  if(nl) hero.querySelector('#resume').onclick=()=>openLesson(nl);
+  /* le bouton principal n'est plus jamais mort : leçon suivante tant qu'il en
+     reste, puis le morceau du jour. Il était « disabled » depuis qu'il avait
+     fini les 25 leçons — c'est-à-dire l'écran d'accueil d'une app qui n'a plus
+     rien à proposer. */
+  if(hero.querySelector('#resume')) hero.querySelector('#resume').onclick=
+    nl ? (()=>openLesson(nl)) : (()=>{ try{ openSong(songOfDay()); }catch(e){ goTab('morceaux'); } });
 
   /* le coach : UNE consigne, la plus rentable du moment */
   const ad=coachAdvice();
@@ -2540,6 +2657,19 @@ const DRILLS=[
        +`<b>${t} mains gauches</b> (dixième brisée, charleston, walking, stride, shell 1-7…), l\'escalier qui les classe de la plus simple à la plus riche, le choix guidé selon ton morceau, et 9 fiches de théorie de la basse — tout écoutable en A/B.`
        +(n?` <b style="color:var(--ok)">${n}/${t}</b> posés.`:' <b style="color:var(--acc)">Commence par l\'Escalier.</b>'); },
    run:()=>mgRoom()},
+  {id:'rhythm', icon:'🥁', title:'LE MÉTRONOME INTÉRIEUR', req:null,
+   desc:()=>{ try{ const f=RHY_EXOS.filter(x=>rhyStat(x.id).best>=70).length, o=RHY_EXOS.filter((_,i)=>rhyOpen(i)).length;
+     const best=RHY_EXOS.map(x=>rhyStat(x.id)).filter(s=>s.ms!=null).sort((a,b)=>a.ms-b.ms)[0];
+     return `<b>Le seul exercice de l'app où le temps compte.</b> Tu ne réponds pas : tu tapes, et on te dit à combien de millisecondes tu tombes — et si tu es <b>devant</b> ou <b>derrière</b> le temps. Pulsation, croches, <b>le métronome qui se tait</b>, contretemps, swing, 5 temps. <b style="color:var(--acc)">${f}/${RHY_EXOS.length}</b> tenus · ${o} ouvert${o>1?'s':''}${best?` · meilleur écart <b>${best.ms} ms</b>`:''}. Guide visuel : se fait en silence.`;
+   }catch(e){ return 'Six exercices de rythme : tu tapes, l\'app mesure.'; } },
+   run:()=>rhythmRoom()},
+  {id:'weak', icon:'🎯', title:'MON POINT FAIBLE', req:null,
+   desc:()=>{ try{ const t=wkTop(), ct=wkChordType();
+     if(!t) return 'L\'app lit tes vraies performances — échecs par gamme, rechutes, erreurs de quiz — et désigne la tonalité qui saigne. <b>Pas encore assez de données</b> : fais quelques séances et reviens.';
+     return `La tonalité qui te coûte le plus cher en ce moment : <b style="color:var(--bad)">${GO_SCALES[t.root].name} majeur</b> — ${wkWhy(t)}. Quatre épreuves d'affilée dessus.`
+       +(ct?` Et ton accord noir : <b>${CHORD_TYPES[ct.t].nom}</b> (raté ${ct.n}×).`:'');
+   }catch(e){ return 'Analyse de tes points faibles à partir de tes vraies erreurs.'; } },
+   run:()=>weakRoom()},
   {id:'errs', icon:'🩹', title:'MES ERREURS', req:null,
    desc:()=>errCount()
      ? `<b style="color:var(--bad)">${errCount()}</b> point(s) que tu as raté(s) t'attendent. Une erreur ne sort de la liste qu'après <b>2 réussites</b> — c'est là que le progrès se fait, pas dans ce que tu sais déjà.`
@@ -2651,6 +2781,11 @@ const DRILLS=[
        +(r.streak?` <b style="color:var(--acc)">Série : ${r.streak} jour${r.streak>1?'s':''}.</b>`:'')
        +(n?` ${n} exo${n>1?'s':''} fait${n>1?'s':''} aujourd’hui.`:''); },
    run:()=>chantRoom()},
+  {id:'earladder', icon:'🪜', title:'L\'OREILLE — LES ÉTAGES', req:null, sound:true,
+   desc:()=>{ const c=earStageCur(), st=earStat(c.id);
+     const ouverts=EAR_STAGES.filter((_,i)=>earStageOpen(i)).length;
+     return `Quatre étages, du plus simple au vrai relevé : majeur/mineur → <b>les trois 7es</b> (maj7·m7·7) → les quatre couleurs → <b>le degré à l'oreille</b> (IV ou V ?). <b style="color:var(--acc)">${ouverts}/${EAR_STAGES.length}</b> ouverts · tu es à l'étage <b>${c.n} — ${c.t}</b>${st.best?` (record ${st.best}%)`:''}. Majeur/mineur était acquis depuis longtemps : voilà la suite.`; },
+   run:()=>earLadder()},
   {id:'ear', icon:'👂', title:'Majeur ou mineur ?', req:null, sound:true,
    desc:()=>{ const s=earStat('mm'); return 'Une note tirée au hasard : compare son majeur à son mineur, ressens la bascule, puis teste-toi. L\'exercice d\'oreille express — fais-le court et quotidien.'+(s.best?` Record : <b style="color:var(--acc)">${s.best}%</b>.`:''); },
    run:()=>dojoEar()},
@@ -3629,6 +3764,159 @@ function chantRoom(){
     inner.appendChild(body); home();
   });
 }
+/* ═══════════════════════════════════════════════════════════════════════
+   L'OREILLE — LES ÉTAGES                          (ajouté le 2026-09-20)
+   Constat : la salle 👂 était figée sur majeur/mineur depuis le début.
+   Score : 80 → 100 → 100 → 100 %. C'était fini, et l'app continuait à le
+   servir tous les jours. Le moteur runEar() savait déjà jouer maj7/m7/7 —
+   personne ne le lui demandait jamais.
+   Rien n'est supprimé : l'étage 1 EST l'ancienne salle, intacte.
+   Tout reste FACULTATIF (réglage « son » dans Outils).
+   ═══════════════════════════════════════════════════════════════════════ */
+const EAR_STAGES=[
+  {id:'mm',  n:1, ic:'☀️', t:'Majeur ou mineur',
+   sub:'La bascule brillant ↔ sombre. Le socle de tout le reste.',
+   why:'Une seule note bouge : la tierce. Tout part de là.',
+   run:cb=>dojoEar()},
+  {id:'s7',  n:2, ic:'🎨', t:'Les trois 7es',
+   sub:'maj7 · m7 · 7 — les trois couleurs du son adulte.',
+   why:'C\'est CE palier qui te permet d\'entendre une grille de jazz. Sur Autumn Leaves, chaque mesure est l\'une de ces trois couleurs — rien d\'autre.',
+   kinds:['maj7','m7','dom7'], count:6, pass:4, arp:true},
+  {id:'col', n:3, ic:'🌗', t:'Les quatre couleurs',
+   sub:'majeur · mineur · diminué · augmenté.',
+   why:'Le diminué et l\'augmenté sont les deux accords « instables » : dès que tu les entends, tu sais que ça va bouger. C\'est l\'oreille harmonique qui commence.',
+   kinds:['maj','min','dim','aug'], count:8, pass:6, arp:true},
+  {id:'deg', n:4, ic:'🏛', t:'Le degré à l\'oreille',
+   sub:'On pose le I, puis un autre accord : IV ou V ?',
+   why:'LE palier du relevé. Reconnaître un accord isolé ne sert à rien ; reconnaître sa FONCTION dans une tonalité, c\'est ce qui te permet de retrouver une chanson au piano.',
+   custom:true},
+];
+const earStageStat = id => earStat(id);
+/* un étage s'ouvre quand le précédent a été tenu : 80 % au moins, deux fois. */
+function earStageOpen(i){
+  if(i===0) return true;
+  const p=earStageStat(EAR_STAGES[i-1].id);
+  return (p.best||0)>=80 && (p.n||0)>=2;
+}
+function earStageCur(){
+  let last=0;
+  for(let i=0;i<EAR_STAGES.length;i++){ if(earStageOpen(i)) last=i; else break; }
+  /* on reste sur le plus haut étage ouvert, mais on redescend s'il n'est pas tenu */
+  return EAR_STAGES[last];
+}
+function earStageLabel(){ const s=earStageCur(); return s.ic+' '+s.t; }
+
+/* ---- étage 4 : le degré à l'oreille (moteur dédié) ---- */
+function runEarDeg(el, cb){
+  const N=6; let i=0, score=0, answered=false, cur=null; const badIdx=new Set();
+  el.innerHTML=`<div class="exhead"><div class="target">🏛</div>
+    <div class="sub">On joue d'abord le <b>I</b> (la maison), puis un second accord. C'est le <b>IV</b> ou le <b>V</b> ?</div></div>
+    <div class="exprog" id="dots"></div>
+    <div class="exrow"><button class="btn ghost" id="replay">🔊 Réécouter</button><button class="btn ghost" id="onlyt">🏠 Rejouer le I seul</button></div>
+    <div class="earbtns" id="btns"></div><div class="fb" id="fb"></div>`;
+  const dots=el.querySelector('#dots'), fb=el.querySelector('#fb'), btns=el.querySelector('#btns');
+  btns.style.gridTemplateColumns='1fr 1fr';
+  [['IV','IV — ça s\'ouvre, ça s\'éloigne'],['V','V — ça tire, ça veut rentrer']].forEach(([k,lbl])=>{
+    const b=document.createElement('button'); b.className='btn ghost'; b.innerHTML=lbl; b.dataset.k=k;
+    b.onclick=()=>answer(k,b); btns.appendChild(b);
+  });
+  const triad=(r)=>[0,4,7].map(x=>r+x);
+  const playSeq=(withTarget)=>{
+    if(!cur) return;
+    playChord(triad(cur.tonic),1.3,.03);
+    if(withTarget) setTimeout(()=>playChord(triad(cur.target),1.8,.03),1500);
+  };
+  el.querySelector('#replay').onclick=()=>playSeq(true);
+  el.querySelector('#onlyt').onclick=()=>playChord(triad(cur.tonic),1.3,.03);
+  const next=()=>{
+    answered=false;
+    const tonic=52+Math.floor(Math.random()*9);
+    const k=Math.random()<.5?'IV':'V';
+    cur={tonic, k, target: tonic + (k==='IV'?5:7)};
+    fb.textContent=''; fb.className='fb';
+    btns.querySelectorAll('.btn').forEach(b=>{ b.classList.remove('ok'); b.style.pointerEvents='auto'; });
+    progDots(dots,N,i,badIdx);
+    setTimeout(()=>playSeq(true),400);
+  };
+  const answer=(k,b)=>{
+    if(answered) return; answered=true;
+    btns.querySelectorAll('.btn').forEach(x=>x.style.pointerEvents='none');
+    if(k===cur.k){ score++; b.classList.add('ok'); tada();
+      fb.innerHTML=`✓ <b>${cur.k}</b> — ${cur.k==='IV'?'quarte au-dessus : la couleur qui s\'ouvre.':'quinte au-dessus : la tension qui veut retomber sur le I.'}`;
+      fb.className='fb ok'; }
+    else { buzz(); badIdx.add(i);
+      fb.innerHTML=`✗ Tu as dit <b>${k}</b>, c'était <b>${cur.k}</b>. Réécoute : I → IV, puis I → V.`;
+      fb.className='fb bad';
+      btns.querySelector(`[data-k="${cur.k}"]`).classList.add('ok');
+      playChord(triad(cur.tonic),1.0,.03);
+      setTimeout(()=>playChord(triad(cur.tonic+5),1.4,.03),1100);
+      setTimeout(()=>playChord(triad(cur.tonic),1.0,.03),2900);
+      setTimeout(()=>playChord(triad(cur.tonic+7),1.6,.03),4000);
+    }
+    setTimeout(()=>{ i++; if(i<N) next(); else finish(); }, k===cur.k?1400:6000);
+  };
+  const finish=()=>{
+    const pct=Math.round(score/N*100), ok=score>=4;
+    el.innerHTML=`<div class="exhead"><div class="target">${ok?'🏛':'😵'} ${score}/${N}</div>
+      <div class="sub">${ok?'Tu viens d\'entendre une FONCTION, pas une note. C\'est avec ça qu\'on relève une chanson.'
+        :'Le repère : le V « tire » vers la maison, le IV « s\'ouvre » sans tirer. Rejoue les deux à la suite jusqu\'à sentir la différence.'}</div></div>`;
+    cb(pct);
+  };
+  next();
+}
+
+/* ---- la salle : l'escalier ---- */
+function earLadder(){
+  openCustom('👂 L\'oreille — les étages',(inner,close)=>{
+    const intro=document.createElement('p');
+    intro.style.cssText='color:var(--dim);font-size:13.5px;line-height:1.55;margin:0 0 12px';
+    intro.innerHTML='Quatre étages. Chacun s\'ouvre quand le précédent est tenu (<b>80 % deux fois</b>). Tu n\'es jamais obligé de monter : redescendre un étage pour se rassurer, c\'est de l\'entraînement, pas un échec. '+CASQUE+' <b>Tout ceci est facultatif</b> — aucun de ces exercices n\'est imposé par la séance.';
+    inner.appendChild(intro);
+    EAR_STAGES.forEach((st,i)=>{
+      const open=earStageOpen(i), stat=earStageStat(st.id);
+      const c=document.createElement('div'); c.className='card';
+      c.style.borderColor = !open ? 'var(--line)' : (stat.best>=80 ? 'var(--ok)' : 'var(--acc)');
+      c.style.opacity = open?1:.55;
+      c.innerHTML=`<b style="font-size:16px">${st.ic} Étage ${st.n} · ${st.t}${stat.best>=80?' <span style="color:var(--ok)">✓</span>':''}</b>
+        <p style="color:var(--dim);font-size:13px;margin:4px 0 0">${st.sub}</p>
+        <p style="font-size:12.5px;line-height:1.5;margin:7px 0 0;color:var(--txt);opacity:.85">💡 ${st.why}</p>
+        ${stat.n?`<p style="color:var(--dim);font-size:12px;margin:6px 0 0">Record <b style="color:var(--acc)">${stat.best}%</b> · ${stat.n} séance${stat.n>1?'s':''}${stat.last!=null?` · dernière ${stat.last}%`:''}</p>`:''}
+        ${!open?`<p style="color:var(--dim);font-size:12px;margin:6px 0 0">🔒 S'ouvre à 80 % deux fois sur l'étage ${st.n-1}.</p>`:''}`;
+      if(open){
+        const b=document.createElement('button'); b.className='btn'+(i===EAR_STAGES.indexOf(earStageCur())?'':' ghost');
+        b.textContent='Lancer l\'étage '+st.n;
+        b.onclick=()=>{ close(); earRunStage(st); };
+        c.appendChild(b);
+      }
+      inner.appendChild(c);
+    });
+  });
+}
+function earRunStage(st){
+  if(st.run) return st.run();
+  openCustom(st.ic+' Étage '+st.n+' · '+st.t,(inner)=>{
+    const box=document.createElement('div'); inner.appendChild(box);
+    const record=pct=>{ earPush(st.id,pct); save(); };
+    const done=pct=>{
+      dailyMark('ear'); award(15); chime();
+      const nxt=EAR_STAGES[st.n]; /* st.n est 1-indexé → l'étage suivant */
+      const justOpened = nxt && pct>=80 && earStageStat(st.id).n>=2;
+      const tip=document.createElement('div'); tip.className='theory';
+      tip.innerHTML=`<div class="tip" style="margin-top:12px">${justOpened
+        ? `🔓 <b>Étage ${nxt.n} ouvert</b> : ${nxt.t}. ${nxt.why}`
+        : 'Reviens demain — l\'oreille se consolide en dormant, pas en insistant.'}</div>`;
+      box.appendChild(tip);
+      const b=document.createElement('button'); b.className='btn ghost'; b.textContent='← Les étages';
+      b.onclick=()=>earLadder(); box.appendChild(b);
+    };
+    if(st.custom){ runEarDeg(box, pct=>{ record(pct); done(pct); }); return; }
+    runEar(box,{kinds:st.kinds, count:st.count, pass:st.pass, arp:st.arp,
+      sub:st.sub+' — « 🎵 Note par note » si l\'accord plaqué est trop dense.',
+      onAttempt:(score,count)=>record(Math.round(score/count*100))},
+      (ok,score)=>done(Math.round(score/st.count*100)));
+  });
+}
+
 function dojoEar(){
   const ROOT=EAR_ROOTS[Math.floor(Math.random()*EAR_ROOTS.length)];
   const LO=ROOT, HI=ROOT+12, rn=NOTE_FR[ROOT%12];
@@ -5418,7 +5706,7 @@ function runScale(el,ex,cb){
 /* ---------- moteur : OREILLE ---------- */
 function runEar(el,ex,cb){
   let i=0, score=0, answered=false, cur=null, prevT=null, streakT=0; const badIdx=new Set();
-  const label={maj:'Majeur',min:'Mineur',maj7:'maj7',m7:'m7',dom7:'7'};
+  const label={maj:'Majeur',min:'Mineur',maj7:'maj7',m7:'m7',dom7:'7',dim:'Diminué',aug:'Augmenté'};
   const third={maj:'tierce majeure — brillante (4 demi-tons)', min:'tierce mineure — sombre (3 demi-tons)'};
   el.innerHTML=`<div class="exhead"><div class="target">👂</div><div class="sub">${ex.sub||''}</div></div>
     <div class="exprog" id="dots"></div>
@@ -5475,6 +5763,11 @@ function runEar(el,ex,cb){
   };
   const finish=()=>{
     const okPass=score>=(ex.pass||0);
+    /* ajouté le 2026-09-20 : le moteur ne rappelait cb() qu'en cas de RÉUSSITE,
+       donc une séance ratée ne laissait aucune trace — ni stat, ni historique.
+       onAttempt voit tout. Aucune salle existante ne le passe : rien ne change
+       pour elles. */
+    if(ex.onAttempt) ex.onAttempt(score, ex.count, okPass);
     el.innerHTML=`<div class="exhead"><div class="target">${okPass?'👂':'😵'} ${score}/${ex.count}</div>
       <div class="sub">${okPass ? 'Ton oreille s\'ouvre. Reviens demain : elle progresse en dormant.'
         : 'En dessous de '+ex.pass+'/'+ex.count+'. Normal au début — réécoute chaque couleur, puis recommence.'}</div></div>`;
@@ -5722,11 +6015,193 @@ const SONGS=[
   {id:'sowhat', ico:'🎺', title:'« So What » (jazz modal)', jam:true, diff:3, sub:'Deux accords, tout le reste est à toi', key:'Ré dorien', bpm:130, ts:4,
    mel:[], ch:[[2,'m7'],[2,'m7'],[3,'m7'],[2,'m7']],
    hint:'Modal : improvise en Ré dorien (la gamme de Do centrée sur Ré). Sur l\'Ebm7, glisse en Mib dorien (gamme de Réb). Phrases longues, espace.'},
+
+  /* ═══════════════════════════════════════════════════════════════════
+     LES VRAIES PIÈCES — domaine public, vrai répertoire de pianiste.
+     Ajoutées le 2026-09-20 : les comptines ne suffisaient plus.
+     fam : 'piece' (classique) · 'trad' · 'grille' · 'comptine' (les anciennes)
+     ═══════════════════════════════════════════════════════════════════ */
+
+  {id:'bwv846', ico:'⛪', fam:'piece', title:'Prélude en Do — J.S. Bach', sub:'BWV 846 · huit accords, un seul geste', diff:3, key:'Do majeur', bpm:66, ts:4,
+   mel:[[60,.5],[64,.5],[67,.5],[72,.5],[76,.5],[67,.5],[72,.5],[76,.5],
+        [60,.5],[62,.5],[69,.5],[74,.5],[77,.5],[69,.5],[74,.5],[77,.5],
+        [59,.5],[62,.5],[67,.5],[74,.5],[77,.5],[67,.5],[74,.5],[77,.5],
+        [60,.5],[64,.5],[67,.5],[72,.5],[76,.5],[67,.5],[72,.5],[76,.5],
+        [60,.5],[64,.5],[69,.5],[76,.5],[81,.5],[69,.5],[76,.5],[81,.5],
+        [60,.5],[62,.5],[66,.5],[69,.5],[74,.5],[66,.5],[69,.5],[74,.5],
+        [59,.5],[62,.5],[67,.5],[74,.5],[79,.5],[67,.5],[74,.5],[79,.5],
+        [60,.5],[64,.5],[67,.5],[72,.5],[76,.5],[67,.5],[72,.5],[76,.5]],
+   ch:[[0,'maj'],[2,'m7'],[7,'dom7'],[0,'maj'],[9,'m7'],[2,'dom7'],[7,'maj'],[0,'maj']],
+   hint:'La pièce la plus intelligente du répertoire débutant : <b>un seul motif d\'arpège</b>, répété 35 fois, et seule l\'harmonie bouge dessous. Tu ne travailles pas des doigtés, tu travailles à <b>entendre les accords défiler</b>. Regarde la grille : C · Dm7 · G7 · C · Am7 · D7 · G · C. Tu reconnais le <b>ii–V–I</b> ? Il est là, mesures 2-3-4. Joue-le trois fois plus lentement que tu ne penses.'},
+
+  {id:'elise', ico:'🌹', fam:'piece', title:'Lettre à Élise — Beethoven', sub:'Le thème que tout le monde reconnaît', diff:4, key:'La mineur', bpm:76, ts:6,
+   mel:[[76,1],[75,1],[76,1],[75,1],[76,1],[71,1],
+        [74,1],[72,1],[69,4],
+        [null,1],[60,1],[64,1],[69,3],
+        [null,1],[64,1],[68,1],[71,3],
+        [72,3],[64,1],[76,1],[75,1],
+        [76,1],[75,1],[76,1],[75,1],[76,1],[71,1],
+        [74,1],[72,1],[69,4],
+        [null,1],[60,1],[64,1],[69,3],
+        [null,1],[64,1],[68,1],[71,3],
+        [72,3],[64,1],[72,1],[71,1],
+        [69,6]],
+   ch:[[9,'min'],[9,'min'],[9,'min'],[4,'maj'],[9,'min'],
+       [9,'min'],[9,'min'],[9,'min'],[4,'maj'],[9,'min'],[9,'min']],
+   hint:'Le balancement <b>mi ↔ ré♯</b> du début, c\'est un demi-ton, rien d\'autre — et pourtant c\'est LE son de la pièce. Toute la main droite tient dans <b>La mineur</b> sauf le <b>sol♯</b> : c\'est la tierce du <b>E majeur</b> (le V de La mineur), la note qui donne envie de retomber sur le La. Main gauche : rien que les arpèges La-Mi-La puis Mi-Mi-Sol♯. Tu as fait les deux en Module 3.'},
+
+  {id:'greensleeves', ico:'🍃', fam:'trad', title:'Greensleeves', sub:'Le thème anglais du XVIᵉ — ton premier mineur', diff:3, key:'La mineur', bpm:100, ts:3,
+   mel:[[null,2],[69,1],
+        [72,2],[74,1],
+        [76,1.5],[77,.5],[76,1],
+        [74,2],[71,1],
+        [67,1.5],[69,.5],[71,1],
+        [72,2],[69,1],
+        [69,1.5],[68,.5],[69,1],
+        [71,2],[68,1],
+        [64,3]],
+   ch:[[9,'min'],[9,'min'],[7,'maj'],[9,'min'],[4,'maj'],[9,'min'],[9,'min'],[4,'dom7'],[9,'min']],
+   hint:'Écoute la fin : le <b>sol♯</b> de l\'avant-dernière mesure n\'est PAS dans La mineur naturel. C\'est le <b>mineur harmonique</b> — on monte la 7e d\'un demi-ton pour fabriquer un vrai V (E7) qui attire vers le La. C\'est exactement le mécanisme que tu as vu dans les modes : une note déplacée change toute la couleur. Joue-le en 3 temps, en balançant.'},
+
+  {id:'canon', ico:'🔁', fam:'piece', title:'Canon de Pachelbel — la ligne', sub:'La grille la plus jouée de l\'histoire', diff:3, key:'Ré majeur', bpm:80, ts:4,
+   mel:[[78,2],[76,2],[74,2],[73,2],[71,2],[69,2],[71,2],[73,2],
+        [74,2],[73,2],[71,2],[69,2],[67,2],[66,2],[67,2],[64,2]],
+   ch:[[2,'maj'],[9,'maj'],[11,'min'],[6,'min'],[7,'maj'],[2,'maj'],[7,'maj'],[9,'maj']],
+   hint:'Ré · La · Sim · Fa♯m · Sol · Ré · Sol · La = <b>I · V · vi · iii · IV · I · IV · V</b> en Ré majeur. Tu connais les degrés : récite-les à voix haute en jouant. Cette grille tient la moitié de la pop occidentale — <i>Go West</i>, <i>Basket Case</i>, <i>Don\'t Look Back in Anger</i>. La mélodie descend simplement la gamme de Ré. <b>Apprends la grille, pas la mélodie</b> : c\'est elle qui te servira partout.'},
+
+  {id:'habanera', ico:'💃', fam:'piece', title:'Habanera — Bizet', sub:'Carmen · la descente chromatique', diff:3, key:'Ré mineur', bpm:92, ts:4,
+   mel:[[74,2],[73,.5],[72,.5],[71,.5],[70,.5],
+        [69,3],[null,1],
+        [74,2],[73,.5],[72,.5],[71,.5],[70,.5],
+        [69,4]],
+   ch:[[2,'min'],[2,'min'],[9,'dom7'],[2,'min']],
+   hint:'Ré · Do♯ · Do · Si · Si♭ · La : <b>six demi-tons d\'affilée</b>, la descente chromatique la plus célèbre de l\'opéra. Aucune gamme ne contient ça — c\'est le point : le chromatisme passe AU-DESSUS de l\'harmonie. Main gauche : Ré grave sur le 1, puis l\'accord sur les temps 2-3-4, en balancement. Le <b>A7</b> de la 3ᵉ mesure, c\'est ton V de Ré mineur.'},
+
+  {id:'entertainer', ico:'🎩', fam:'piece', title:'The Entertainer — Joplin', sub:'Ragtime · le morceau qui décale le temps', diff:5, key:'Do majeur', bpm:84, ts:4,
+   mel:[[74,.5],[75,.5],[76,.5],[84,.5],[76,.5],[84,.5],[76,1],
+        [84,1.5],[null,.5],[84,.5],[86,.5],[87,.5],[88,.5],
+        [84,.5],[86,.5],[88,2],[83,.5],[86,.5],
+        [84,3],[null,1]],
+   ch:[[0,'maj'],[0,'maj'],[7,'dom7'],[0,'maj']],
+   hint:'⚠️ Le plus dur de la liste, et c\'est voulu : <b>ici c\'est le RYTHME le sujet</b>, pas les notes. Le ragtime pose la mélodie <b>entre</b> les temps pendant que la main gauche marche droit. Méthode : active le <b>🥁 Clic</b>, descends à 60 %, et ne monte que quand c\'est propre. Si tu n\'arrives pas à taper du pied en même temps, c\'est trop rapide.'},
+
+  {id:'scarborough', ico:'🌾', fam:'trad', title:'Scarborough Fair', sub:'Traditionnel anglais · en DORIEN', diff:3, key:'La dorien', bpm:96, ts:3,
+   mel:[[69,1],[69,1],[76,1],
+        [76,2],[78,1],
+        [76,1],[74,1],[72,1],
+        [71,3],
+        [69,1],[69,1],[72,1],
+        [74,1],[76,1],[74,1],
+        [72,1],[71,1],[69,1],
+        [69,3]],
+   ch:[[9,'min'],[9,'min'],[7,'maj'],[9,'min'],[9,'min'],[7,'maj'],[9,'min'],[9,'min']],
+   hint:'La note à surveiller : le <b>fa♯</b> de la 2ᵉ mesure. En La mineur naturel ce serait un fa. Le fa♯, c\'est la <b>6e majeure</b> — donc tu n\'es pas en mineur, tu es en <b>DORIEN</b>. C\'est ta leçon m8l4 en vrai : « un mineur qui sourit ». Joue la version avec fa, puis avec fa♯ : c\'est la même mélodie et ce n\'est pas la même chanson.'},
+
+  {id:'auldlang', ico:'🥂', fam:'trad', title:'Ce n\'est qu\'un au revoir', sub:'Auld Lang Syne · le nouvel an', diff:2, key:'Do majeur', bpm:88, ts:4,
+   mel:[[null,3],[67,1],
+        [72,1.5],[72,.5],[72,1],[76,1],
+        [74,1],[72,1],[74,1],[76,1],
+        [72,1],[72,1],[76,1],[79,1],
+        [81,3],[79,1],
+        [76,1],[72,1],[72,1],[76,1],
+        [74,1],[72,1],[74,1],[67,1],
+        [72,4]],
+   ch:[[0,'maj'],[0,'maj'],[5,'maj'],[0,'maj'],[5,'maj'],[0,'maj'],[7,'dom7'],[0,'maj']],
+   hint:'Celui-là, tu le sortiras vraiment un 31 décembre — et c\'est LE test du I–IV–V : Do · Fa · Sol7, rien d\'autre. Mesure 5, la mélodie monte au <b>La</b> : c\'est le sommet de la phrase, appuie dessus. Main gauche 1-5-8 (Module 3) et tu tiens le morceau entier.'},
+
+  {id:'amazing', ico:'🕊', fam:'trad', title:'Amazing Grace', sub:'Le gospel le plus chanté au monde', diff:2, key:'Do majeur', bpm:80, ts:3,
+   mel:[[null,2],[67,1],
+        [72,2],[76,1],
+        [72,2],[76,1],
+        [74,3],
+        [72,2],[69,1],
+        [67,2],[67,1],
+        [72,2],[76,1],
+        [72,1],[76,1],[74,1],
+        [72,3]],
+   ch:[[0,'maj'],[0,'maj'],[0,'maj'],[5,'maj'],[0,'maj'],[0,'maj'],[5,'maj'],[0,'maj'],[0,'maj']],
+   hint:'Toute la mélodie tient dans <b>cinq notes</b> : Do Ré Mi Sol La — la <b>pentatonique majeure de Do</b>. C\'est pour ça qu\'elle est impossible à chanter faux, et c\'est pour ça qu\'elle est parfaite pour toi : joue-la, puis <b>improvise dessus avec la même penta</b>. Tu passes du morceau à l\'impro sans changer une note.'},
+
+  /* ────────── LES GRILLES — et la plupart sont en BÉMOLS, exprès ────────── */
+
+  {id:'autumn', ico:'🍂', fam:'grille', jam:true, title:'Autumn Leaves (grille)', sub:'LE standard pour apprendre le ii–V–I', diff:3, key:'Sol mineur', bpm:120, ts:4, groove:'ballade',
+   mel:[], ch:[[0,'m7'],[5,'dom7'],[10,'maj7'],[3,'maj7'],[9,'m7b5'],[2,'dom7'],[7,'min'],[7,'min']],
+   hint:'Le morceau qu\'on donne à TOUS les débutants en jazz, et pour une raison : c\'est <b>deux ii–V–I collés</b>. Cm7 · F7 · B♭maj7 = ii–V–I <b>majeur</b> en Si♭. Am7♭5 · D7 · Gm = ii–V–i <b>mineur</b> en Sol. Le même geste, deux couleurs. ⚠️ Regarde tes tonalités : Si♭, Mi♭, Fa — <b>exactement les trois gammes sur lesquelles tu te plantes</b>. Improvise avec la gamme de Si♭ majeur sur les 4 premières mesures : toutes les notes sont bonnes.'},
+
+  {id:'bluebossa', ico:'🌴', fam:'grille', jam:true, title:'Blue Bossa (grille)', sub:'Bossa · et un détour par Ré♭', diff:4, key:'Do mineur', bpm:140, ts:4,
+   mel:[], ch:[[0,'m7'],[0,'m7'],[5,'m7'],[5,'m7'],[2,'m7b5'],[7,'dom7'],[0,'m7'],[0,'m7'],
+              [3,'m7'],[8,'dom7'],[1,'maj7'],[1,'maj7'],[2,'m7b5'],[7,'dom7'],[0,'m7'],[0,'m7']],
+   hint:'16 mesures, deux tonalités. Les 8 premières en <b>Do mineur</b>, puis — mesure 9 — E♭m7 · A♭7 · <b>D♭maj7</b> : la grille déménage d\'un coup en <b>Ré♭ majeur</b>. Ton Ré♭ est au palier 1/5 : le voilà en musique. Improvise avec la penta mineure de Do sur la 1ʳᵉ moitié, puis la gamme de Ré♭ majeur sur la seconde. Tu entendras la bascule sans que personne te la montre.'},
+
+  {id:'bluesfa', ico:'🎺', fam:'grille', jam:true, title:'Le blues en Fa', sub:'12 mesures · ta gamme noire, en musique', diff:2, key:'Fa', bpm:100, ts:4,
+   mel:[], ch:[[5,'dom7'],[10,'dom7'],[5,'dom7'],[5,'dom7'],
+               [10,'dom7'],[10,'dom7'],[5,'dom7'],[5,'dom7'],
+               [0,'dom7'],[10,'dom7'],[5,'dom7'],[0,'dom7']],
+   hint:'Tu as fait le blues en Do. Celui-ci est en <b>Fa</b> — la gamme qui te coûte 23 tests, 5 échecs et 2 rechutes. Les trois accords : F7 · B♭7 · C7 = <b>I · IV · V</b>, exactement comme en Do, juste déplacé. Improvise avec la penta mineure de Fa : <b>Fa La♭ Si♭ Do Mi♭</b>. Ajoute le <b>Si</b> (la blue note) entre Si♭ et Do. Trois tours de grille et le Si♭ arrêtera de te surprendre.'},
+
+  {id:'anatole', ico:'♻️', fam:'grille', jam:true, title:'L\'anatole en Si♭', sub:'I–vi–ii–V · la boucle des années 50', diff:3, key:'Si♭ majeur', bpm:132, ts:4,
+   mel:[], ch:[[10,'maj7'],[7,'m7'],[0,'m7'],[5,'dom7'],[10,'maj7'],[7,'m7'],[0,'m7'],[5,'dom7']],
+   hint:'B♭maj7 · Gm7 · Cm7 · F7, en boucle : le <b>I–vi–ii–V</b>, la grille de <i>Heart and Soul</i>, du doo-wop et de la moitié des standards. C\'est le I–V–vi–IV que tu connais, réarrangé. Tout tient dans la <b>gamme de Si♭ majeur</b> : une seule gamme pour les 8 mesures. Joue les shell voicings 1–3–7 main gauche (m5l3), improvise main droite. Si♭ est à 21 tests et 4 échecs — règle-lui son compte ici.'},
+
+  {id:'gospelmib', ico:'⛪', fam:'grille', jam:true, title:'Le vamp gospel en Mi♭', sub:'Deux accords, tout le feeling', diff:2, key:'Mi♭ majeur', bpm:76, ts:4, groove:'ballade',
+   mel:[], ch:[[3,'maj7'],[8,'maj7'],[3,'maj7'],[10,'d9sus4']],
+   hint:'E♭maj7 · A♭maj7 · E♭maj7 · B♭9sus4 = <b>I · IV · I · V</b> en Mi♭, en très lent. Le <b>9sus4</b> de la dernière mesure, c\'est LE son gospel : un V qui plane sans jamais se résoudre tout à fait. Mi♭ est ton palier 4/5 avec une rechute — trois minutes de vamp là-dessus valent dix QCM.'},
+
+  {id:'gymnopedie', ico:'🕯', fam:'grille', jam:true, title:'Gymnopédie n°1 — Satie', sub:'Deux accords, la main gauche qui respire', diff:3, key:'Ré majeur', bpm:60, ts:3, groove:'ballade',
+   mel:[], ch:[[7,'maj7'],[2,'maj7'],[7,'maj7'],[2,'maj7']],
+   hint:'Gmaj7 ↔ Dmaj7, en boucle, à 60 BPM. Toute la pièce est là. Le vrai sujet, c\'est la <b>main gauche</b> : une basse grave <b>seule sur le temps 1</b>, puis l\'accord sur les temps 2 et 3. Basse, silence, accord. C\'est ton pattern du Module 3 ralenti à l\'extrême, et ça change tout. Main droite : la gamme de Ré majeur, une note à la fois, très lentement — Satie ne joue jamais vite.'},
+
+  {id:'summertime', ico:'☀️', fam:'grille', jam:true, title:'Summertime (grille)', sub:'Mineur · le standard que tout le monde connaît', diff:3, key:'La mineur', bpm:84, ts:4, groove:'ballade',
+   mel:[], ch:[[9,'min'],[4,'dom7'],[9,'min'],[4,'dom7'],[9,'min'],[2,'m7'],[9,'min'],[4,'dom7']],
+   hint:'Am · E7 en boucle : un <b>i–V</b> mineur, le balancement le plus simple qui existe. Improvise avec la <b>penta mineure de La</b> (La Do Ré Mi Sol) — cinq notes, zéro fausse note. Puis essaie d\'ajouter le <b>sol♯</b> (la tierce du E7) quand le E7 passe : tu viens de faire ce qu\'un vrai soliste fait — <b>viser l\'accord</b>, pas juste la gamme.'},
+
+  {id:'take5', ico:'🖐', fam:'grille', jam:true, title:'Le vamp à 5 temps', sub:'5/4 · compter autrement', diff:4, key:'Mi♭ mineur', bpm:168, ts:5,
+   mel:[], ch:[[3,'min'],[10,'m7'],[3,'min'],[10,'m7']],
+   hint:'⚠️ <b>Cinq temps par mesure</b>, pas quatre. Compte « 1-2-3 · 1-2 » : un groupe de 3 puis un groupe de 2. C\'est tout le secret des mesures impaires. E♭m · B♭m7 en boucle. Active le <b>🥁 Clic</b> et ne joue RIEN pendant deux tours : contente-toi de compter à voix haute. Quand le 5 est dans le corps, entre avec la penta mineure de Mi♭.'},
 ];
-const JAM_DIFF=['','Facile','Groove','Avancé'];
+const JAM_DIFF=['','Facile','Groove','Avancé','Exigeant','Costaud'];
 const diffLabel = s => s.jam
   ? ['jam','🎹 '+(JAM_DIFF[s.diff]||'Jam')]
-  : [['','f1','f2','f3'][s.diff], ['','Très facile','Facile','Interm.'][s.diff]];
+  : [(['','f1','f2','f3','f4','f5'][s.diff]||'f3'), (['','Très facile','Facile','Interm.','Avancé','Costaud'][s.diff]||'Interm.')];
+
+/* ---- LE MORCEAU DU JOUR ----------------------------------------------
+   La séance n'avait AUCUN créneau musique : la clé 'song' était prévue dans
+   dailyMark() depuis le début, mais rien ne la poussait jamais dans le
+   programme. Résultat : 25 jours, 0 morceau joué. Réparé ici.
+   Règle : on finit ce qu'on a commencé (un morceau déjà touché mais pas
+   encore solide passe avant), sinon on ouvre le suivant, du plus simple
+   au plus dur, en piochant d'abord dans le vrai répertoire. */
+const songPlays = id => (S.songs||{})[id]||0;
+const songFam = s => s.fam || (s.jam?'grille':'comptine');
+/* Deux pistes qui avancent en parallèle, un jour sur deux :
+   « jouer » (des notes écrites, des vraies pièces) et « improviser » (des
+   grilles). Sans alternance, il ferait les 9 mélodies avant de toucher une
+   seule grille — or c'est dans les grilles que vivent ses bémols. */
+const SONG_TRACKS={
+  jouer:    {fams:['piece','trad','comptine'], rank:{piece:0, trad:0, comptine:2}},
+  improviser:{fams:['grille'],                 rank:{grille:0}},
+};
+function songPool(track){
+  const T=SONG_TRACKS[track];
+  return SONGS.filter(s=>T.fams.includes(songFam(s)))
+    .sort((a,b)=>((T.rank[songFam(a)]||1)*10+(a.diff||0))-((T.rank[songFam(b)]||1)*10+(b.diff||0)));
+}
+function songPick(pool){
+  if(!pool.length) return null;
+  /* 1. finir ce qu'on a commencé (moins de 3 passages = pas encore acquis) */
+  const started=pool.filter(s=>songPlays(s.id)>0 && songPlays(s.id)<3);
+  if(started.length) return started[0];
+  /* 2. sinon le prochain jamais joué, du plus simple au plus dur */
+  const fresh=pool.find(s=>!songPlays(s.id));
+  if(fresh) return fresh;
+  /* 3. tout est acquis sur cette piste : on tourne sur les moins joués */
+  return pool.slice().sort((a,b)=>songPlays(a.id)-songPlays(b.id))[0];
+}
+function songTrack(){ return DAY_IDX()%2 ? 'improviser' : 'jouer'; }
+function songOfDay(){
+  const t=songTrack();
+  return songPick(songPool(t)) || songPick(songPool(t==='jouer'?'improviser':'jouer'));
+}
 
 /* logique pure du mode « À toi de jouer » : une frappe → une décision.
    st={pos,wrong,done} muté ; renvoie l'action à jouer côté UI. */
@@ -5869,7 +6344,7 @@ const Player = {
 /* ---------------- vue liste ---------------- */
 function renderMorceaux(){
   main.innerHTML=`<h1 class="page">Morceaux</h1>
-  <p style="color:var(--dim);font-size:14px;margin:-6px 0 14px">La théorie, ça se joue. L'app tient le tempo et t'allume les touches — tes doigts suivent. Ralentis, coupe une main, boucle : c'est toi qui mènes. <b style="color:var(--txt)">Classés par difficulté</b> — commence en haut.</p>`;
+  <p style="color:var(--dim);font-size:14px;margin:-6px 0 14px">La théorie, ça se joue. L'app tient le tempo et t'allume les touches — tes doigts suivent. Ralentis, coupe une main, boucle : c'est toi qui mènes. <b style="color:var(--txt)">Le vrai répertoire d'abord</b>, les comptines en bas. Un morceau par jour est maintenant dans ta séance — <b>un jour à jouer, un jour à improviser</b>.</p>`;
   const jbc=document.createElement('div'); jbc.className='card'; jbc.style.borderColor='var(--acc)'; jbc.style.cursor='pointer';
   jbc.innerHTML=`<b style="font-size:16px">🎧 LE JUKE-BOX — les gammes en vrai</b>
     <p style="color:var(--dim);font-size:13px;margin:4px 0 0">${JUKE.length} morceaux connus rangés <b>par gamme</b> : l'app tient la grille en boucle, ta gamme s'allume en bleu, la note à viser en orange. De <i>Lonely Day</i> à <i>Hotel California</i>. <b style="color:var(--acc)">${jbCount()}/${JUKE.length}</b> joués.`;
@@ -5878,9 +6353,11 @@ function renderMorceaux(){
   const byDiff=(a,b)=>(a.diff||0)-(b.diff||0);
   const melodies=SONGS.filter(s=>!s.jam).sort(byDiff), jams=SONGS.filter(s=>s.jam).sort(byDiff);
   const section=(titre,list)=>{
-    const h=document.createElement('h2');
-    h.style.cssText='font-size:13px;color:var(--dim);text-transform:uppercase;letter-spacing:1.2px;margin:6px 0 8px;padding-left:4px';
-    h.textContent=titre; main.appendChild(h);
+    if(titre){
+      const h=document.createElement('h2');
+      h.style.cssText='font-size:13px;color:var(--dim);text-transform:uppercase;letter-spacing:1.2px;margin:6px 0 8px;padding-left:4px';
+      h.textContent=titre; main.appendChild(h);
+    }
     list.forEach(s=>{
       const [cls,lbl]=diffLabel(s);
       const played=(S.songs||{})[s.id], lh=(S.songsLH||{})[s.id];
@@ -5893,8 +6370,29 @@ function renderMorceaux(){
       main.appendChild(el);
     });
   };
-  section('Mélodies à jouer',melodies);
-  section('Grilles à improviser',jams);
+  /* rangé par FAMILLE : le vrai répertoire en haut, les comptines en bas.
+     Rien n'est supprimé — les 6 comptines restent, elles ne sont juste plus
+     la première chose qu'on voit quand on sait déjà jouer. */
+  const fams=[
+    ['piece',    '🎹 Le vrai répertoire',        'Des pièces entières, du domaine public. Celles qu\'on reconnaît quand tu les joues.'],
+    ['trad',     '🌾 Les traditionnels',          'Courts, chantables, une seule idée de théorie chacun.'],
+    ['grille',   '🎼 Les grilles à improviser',   'L\'app tient les accords en boucle, tu joues par-dessus. C\'est ici qu\'on devient musicien.'],
+    ['comptine', '🍼 Les comptines',              'Le tout début. Gardées pour les jours sans, et pour déchiffrer vite.'],
+  ];
+  const famOf = s => s.fam || (s.jam?'grille':'comptine');
+  fams.forEach(([id,titre,desc])=>{
+    const list=SONGS.filter(s=>famOf(s)===id).sort(byDiff);
+    if(!list.length) return;
+    const nOk=list.filter(s=>(S.songs||{})[s.id]).length;
+    const h=document.createElement('h2');
+    h.style.cssText='font-size:13px;color:var(--dim);text-transform:uppercase;letter-spacing:1.2px;margin:16px 0 2px;padding-left:4px';
+    h.innerHTML=titre+` <b style="color:${nOk?'var(--ok)':'var(--dim)'}">${nOk}/${list.length}</b>`;
+    main.appendChild(h);
+    const d=document.createElement('p');
+    d.style.cssText='color:var(--dim);font-size:12.5px;line-height:1.45;margin:0 0 8px;padding-left:4px';
+    d.textContent=desc; main.appendChild(d);
+    section(null,list);
+  });
 }
 
 /* ---------------- vue lecteur ---------------- */
@@ -6900,7 +7398,13 @@ function circleOfFifths(){
 
 function trophyDefs(){
   const doneN=Object.keys(S.done||{}).length, songs=Object.keys(S.songs||{}).length, days=Object.keys(S.hist||{}).length;
-  const es=S.earStats||{}, earBest=Math.max(0,...['fond','duel','samediff','l1','l2','l3','l4'].map(id=>(es[id]||{}).best||0));
+  /* ⚠️ corrigé le 2026-09-20 : ces ids ('fond','duel','samediff','l1'…) n'étaient
+     écrits NULLE PART dans le code. Le trophée était donc impossible à obtenir,
+     même à 100 % trois fois de suite. Les vraies clés sont 'mm', 'voix' et les
+     étages de EAR_STAGES. */
+  const es=S.earStats||{};
+  const earIds=['mm','voix'].concat((typeof EAR_STAGES!=='undefined'?EAR_STAGES:[]).map(x=>x.id));
+  const earBest=Math.max(0,...earIds.map(id=>(es[id]||{}).best||0));
   const xp=S.xp||0, streak=S.streak||0, sprint=S.best&&S.best.sprint;
   const p=(v,t)=>Math.max(0,Math.min(1,v/t));
   return [
@@ -6919,7 +7423,11 @@ function trophyDefs(){
     {ic:'🕹️',n:'Arcade',d:'500 points en 60 s', ok:((S.best&&S.best.arcade)||0)>=500, p:p((S.best&&S.best.arcade)||0,500)},
     {ic:'🎧',n:'Juke-box',d:'5 morceaux improvisés', ok:jbCount()>=5, p:p(jbCount(),5)},
     {ic:'🗺',n:'Cartographe',d:'Les 12 gammes scellées', ok:goMastered()>=12, p:p(goMastered(),12)},
-    {ic:'👑',n:'Sensei',d:'Grade maximum (3200 XP)', ok:xp>=3200, p:p(xp,3200)},
+    {ic:'👑',n:'Sensei',d:'Le grade des 3200 XP', ok:xp>=3200, p:p(xp,3200)},
+    {ic:'🎹',n:'Accompagnateur',d:'4200 XP — tu tiens un morceau pour quelqu\'un', ok:xp>=4200, p:p(xp,4200)},
+    {ic:'🌟',n:'Soliste',d:'5600 XP', ok:xp>=5600, p:p(xp,5600)},
+    {ic:'🎼',n:'Le répertoire vivant',d:'3 vraies pièces jouées (hors comptines)', ok:(()=>{try{return SONGS.filter(x=>['piece','trad'].includes(x.fam)&&songPlays(x.id)).length>=3;}catch(e){return false;}})(), p:(()=>{try{return p(SONGS.filter(x=>['piece','trad'].includes(x.fam)&&songPlays(x.id)).length,3);}catch(e){return 0;}})()},
+    {ic:'🪜',n:'L\'escalier de l\'oreille',d:'Étage 3 atteint', ok:(()=>{try{return earStageCur().n>=3;}catch(e){return false;}})(), p:(()=>{try{return p(earStageCur().n,3);}catch(e){return 0;}})()},
   ];
 }
 function trophyView(){
@@ -7229,7 +7737,18 @@ const GO_SCALES = {
 const GO_ORDER=[0,7,5,2,10,9,3,4,8,11,1,6];
 const GO_RANKS=['Inconnue','Armure','Notes','Degrés','Par cœur','Réflexe'];
 const GO_RANKSHORT=['—','Armure','Notes','Degrés','Par cœur','Scellée ✅'];
-const GO_TARGET_S=13;            /* chrono à battre pour le palier Réflexe */
+const GO_TARGET_S=13;            /* barre de départ, pour qui n'a encore aucun record */
+/* La barre était FIXE à 13 s. Ses records : 3,0 · 3,3 · 3,5 · 3,9 · 4,2 · 4,5 ·
+   4,7 · 5,5 s. Il passait 2,5× sous la barre — le palier « Réflexe » ne testait
+   plus rien sur le chrono. Elle se cale maintenant sur SES propres records :
+   médiane × 1,7, jamais sous 6 s, jamais au-dessus des 13 s d'origine.
+   Personne ne perd de palier déjà acquis : ça ne concerne que les tests à venir. */
+function goTargetS(){
+  const bests=GO_ORDER.map(r=>gm(r).best).filter(b=>typeof b==='number'&&b>0).sort((a,b)=>a-b);
+  if(bests.length<3) return GO_TARGET_S;
+  const med=bests.length%2 ? bests[(bests.length-1)/2] : (bests[bests.length/2-1]+bests[bests.length/2])/2;
+  return Math.max(6, Math.min(GO_TARGET_S, Math.round(med*1.7)));
+}
 const GO_MAXPROG=3;              /* nb de gammes menées de front */
 const NAMEPC={Do:0,'Do#':1,'Réb':1,'Ré':2,'Ré#':3,'Mib':3,'Mi':4,'Mi#':5,'Fab':4,'Fa':5,'Fa#':6,'Solb':6,'Sol':7,'Sol#':8,'Lab':8,'La':9,'La#':10,'Sib':10,'Si':11,'Si#':0,'Dob':11};
 const OTHER={'Do#':'Réb','Réb':'Do#','Ré#':'Mib','Mib':'Ré#','Fa#':'Solb','Solb':'Fa#','Sol#':'Lab','Lab':'Sol#','La#':'Sib','Sib':'La#','Mi#':'Fa','Si#':'Do','Dob':'Si','Fab':'Mi'};
@@ -7448,11 +7967,12 @@ function goLevelTest(sc, el, done){
       (ok,secs,faults)=> faults<=1 ? bump() : nobump('Presque — trop de reprises. L\'ordre des notes doit être fluide. On y revient.')); return; }
   if(lvl===3){ runQuiz(el,{qs:goDegQs(sc)},()=>bump()); return; }
   if(lvl===4){                                                                     /* par cœur → réflexe : aveugle chrono, propre */
-    runOrder(el,{sc,mode:'blind',timed:true,sub:`Palier Réflexe : à l'aveugle, sous ${GO_TARGET_S}s, sans faute.`},
+    {const TGT=goTargetS();
+     runOrder(el,{sc,mode:'blind',timed:true,sub:`Palier Réflexe : à l'aveugle, sous ${TGT}s, sans faute.${TGT<GO_TARGET_S?' <span style="opacity:.7">(barre calculée sur tes propres records)</span>':''}`},
       (ok,secs,faults)=>{
-        if(faults===0 && secs<=GO_TARGET_S){ bump(secs); }
-        else nobump(faults? '✗ Une reprise = pas encore un réflexe. Recommence à froid.' : `✗ ${secs}s — sous la barre des ${GO_TARGET_S}s, il te faut le réflexe. Presque.`);
-      }); return;
+        if(faults===0 && secs<=TGT){ bump(secs); }
+        else nobump(faults? '✗ Une reprise = pas encore un réflexe. Recommence à froid.' : `✗ ${secs}s — ta barre est à ${TGT}s. Tu l'as déjà fait plus vite sur d'autres gammes : celle-ci n'est pas encore au même niveau.`);
+      });} return;
   }
   if(lvl>=5){
     /* ENTRETIEN — il compte pour de vrai : réussi, l'intervalle s'allonge ;
@@ -7474,28 +7994,377 @@ function goLevelTest(sc, el, done){
 }
 
 /* ---- construit le programme de la séance du jour ---- */
+const GO_SEANCE_MAX=5;           /* longueur max d'une séance (était 8 : trop long) */
+/* ── RÉÉCRIT LE 2026-09-20 — pourquoi ──────────────────────────────────────
+   L'ancienne file servait d'abord l'entretien (3), puis une gamme solide,
+   puis les chantiers, puis les paliers 4, et les gammes NEUVES en dernier,
+   le tout coupé à 8. Conséquence mesurée sur 25 jours : Fa avait 23 passages
+   et 2 rechutes, Ré♭ en avait 1 et Fa# 0. Les gammes ratées mangeaient la
+   séance et bloquaient celles qu'il n'avait jamais vues.
+   Nouvelle règle : LE NEUF D'ABORD, l'entretien plafonné, la séance courte.
+   Rien n'est retiré — tout ce qui était servi l'est encore, dans un autre
+   ordre et sur plusieurs jours au lieu d'un seul bloc indigeste. */
+/* ═══════════════════════════════════════════════════════════════════════
+   LE POINT FAIBLE                                 (ajouté le 2026-09-20)
+   L'app avait déjà un système adaptatif — weakSpot() — mais il lisait
+   S.bilan, le questionnaire d'entrée. Bilan jamais passé ⇒ système mort
+   depuis le premier jour. Celui-ci ne demande rien : il lit ce qui s'est
+   RÉELLEMENT passé (réussites/échecs par gamme, rechutes, journal d'erreurs)
+   et désigne la gamme qui saigne. Sur les données du 20/09 il sort Fa
+   majeur : 23 passages, 5 échecs, 2 rechutes, et 15 des 61 erreurs de quiz.
+   ═══════════════════════════════════════════════════════════════════════ */
+const WK_EN={0:'C',7:'G',5:'F',2:'D',10:'Bb',9:'A',3:'Eb',4:'E',8:'Ab',11:'B',1:'Db',6:'F#'};
+/* « Mi » ne doit pas matcher « Mib », « Fa » ne doit pas matcher « Fa# ». */
+const wkRe = n => new RegExp(n.replace(/([#.*+?^${}()|[\]\\])/g,'\\$1')+'(?![b#♭♯])');
+function wkQuizHits(root){
+  const fr=GO_SCALES[root].name, en=WK_EN[root];
+  let n=0;
+  Object.values(S.errLog||{}).forEach(e=>{
+    if(e.kind!=='quiz') return;
+    const lab=String(e.label||'').replace(/<[^>]+>/g,'');
+    const hitFr=wkRe(fr).test(lab);
+    const hitEn=en && new RegExp('En\\s+'+en.replace('#','\\#')+'\\s+majeur').test(lab);
+    if(hitFr||hitEn) n+=e.n;
+  });
+  return n;
+}
+function wkScore(root){
+  const g=gm(root), st=((S.gammes||{}).stats||{})[root]||{s:0,m:0};
+  const tot=(st.s||0)+(st.m||0);
+  const ratio = tot ? (st.m||0)/tot : 0;
+  const q=wkQuizHits(root);
+  /* une gamme jamais ouverte n'est pas « faible » : elle est à faire.
+     Le Grand Œuvre s'en occupe — ici on traque ce qu'il CROIT savoir. */
+  if(g.lvl===0) return {root, score:0, tot, miss:st.m||0, lapses:g.lapses||0, quiz:q, vierge:true};
+  const score = ratio*50 + (g.lapses||0)*20 + q*5;
+  return {root, score, tot, miss:st.m||0, lapses:g.lapses||0, quiz:q};
+}
+function wkRanking(){ return GO_ORDER.map(wkScore).filter(x=>!x.vierge).sort((a,b)=>b.score-a.score); }
+function wkTop(){ const r=wkRanking(); return (r[0] && r[0].score>=15) ? r[0] : null; }
+/* le type d'accord le plus raté, toutes tonalités confondues */
+function wkChordType(){
+  const by={};
+  Object.values(S.errLog||{}).forEach(e=>{ if(e.kind==='chord' && e.meta && e.meta.t) by[e.meta.t]=(by[e.meta.t]||0)+e.n; });
+  const top=Object.entries(by).sort((a,b)=>b[1]-a[1])[0];
+  return top && CHORD_TYPES[top[0]] ? {t:top[0], n:top[1]} : null;
+}
+function wkWhy(x){
+  const bits=[];
+  if(x.tot) bits.push(`${x.tot} passage${x.tot>1?'s':''}, <b style="color:var(--bad)">${x.miss} échec${x.miss>1?'s':''}</b>`);
+  if(x.lapses) bits.push(`<b style="color:var(--bad)">${x.lapses} rechute${x.lapses>1?'s':''}</b> (elle avait été scellée puis perdue)`);
+  if(x.quiz) bits.push(`<b style="color:var(--bad)">${x.quiz} erreur${x.quiz>1?'s':''} de quiz</b> sur cette tonalité`);
+  return bits.join(' · ');
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   LE MÉTRONOME INTÉRIEUR                          (ajouté le 2026-09-20)
+   Le vrai trou de l'app : 46 exercices, tous du même geste — lire une
+   question, taper une réponse. Zéro exercice où le TEMPS compte.
+   Et S.rhythmStats était déclaré dans DEFAULT_STATE depuis le premier jour,
+   exporté dans le rapport… et écrit par personne. Le voilà enfin rempli.
+   Le guide est VISUEL autant que sonore : tout se fait en silence si besoin
+   (le clic est un réglage, jamais une condition).
+   ═══════════════════════════════════════════════════════════════════════ */
+const RHY_EXOS=[
+  {id:'pulse', ic:'🫀', t:'La pulsation', lvl:1, bpm:80, ts:4, bars:4, div:1,
+   sub:'Tape sur chaque temps. Rien d\'autre.',
+   why:'Avant tout le reste : sentir le temps comme un lieu, pas comme un signal auquel on réagit. Si tu tapes APRÈS le clic, tu suis. Il faut tomber DESSUS.'},
+  {id:'croches', ic:'⚡', t:'Les croches', lvl:1, bpm:70, ts:4, bars:4, div:2,
+   sub:'Deux frappes par temps, régulières.',
+   why:'Diviser le temps en deux sans accélérer. C\'est ce qui fait tenir une main droite pendant que la gauche marche.'},
+  {id:'silence', ic:'🤫', t:'Le métronome qui se tait', lvl:2, bpm:80, ts:4, bars:8, div:1, mute:4,
+   sub:'4 mesures guidées, puis le guide DISPARAÎT. Tiens le tempo seul.',
+   why:'L\'épreuve de vérité. Tout le monde tient le tempo avec un métronome ; presque personne sans. C\'est cet exercice, et lui seul, qui fabrique une horloge interne.'},
+  {id:'contre', ic:'🔀', t:'Les contretemps', lvl:2, bpm:76, ts:4, bars:4, div:2, off:true,
+   sub:'Uniquement ENTRE les temps. Le guide marque les temps : ne tape jamais dessus.',
+   why:'Le contretemps, c\'est le groove. Reggae, funk, pop : la guitare et le clavier y vivent en permanence. Et c\'est l\'antidote au jeu « carré ».'},
+  {id:'swing', ic:'🎺', t:'Le swing (ternaire)', lvl:3, bpm:100, ts:4, bars:4, div:'swing',
+   sub:'Deux frappes par temps, mais LONGUE-courte. Pas 50/50 : 2/3 puis 1/3.',
+   why:'La différence entre du jazz et du jazz raté. Tes grilles — Autumn Leaves, l\'anatole — se jouent toutes comme ça.'},
+  {id:'cinq', ic:'🖐', t:'À cinq temps', lvl:3, bpm:110, ts:5, bars:4, div:1,
+   sub:'Cinq temps par mesure. Compte « 1-2-3 · 1-2 ».',
+   why:'Les mesures impaires ne sont pas plus difficiles, elles sont juste moins fréquentées. Une fois le 5 dans le corps, le 4 devient évident. Va ensuite jouer « Le vamp à 5 temps » dans les Morceaux.'},
+];
+const rhyStat = id => { if(!S.rhythmStats) S.rhythmStats={}; return S.rhythmStats[id]||{n:0,best:0}; };
+function rhyPush(id,pct,ms){
+  if(!S.rhythmStats) S.rhythmStats={};
+  const st=S.rhythmStats[id]||{n:0,best:0};
+  st.n=(st.n||0)+1; st.best=Math.max(st.best||0,pct); st.last=pct;
+  if(ms!=null && (st.ms==null || ms<st.ms)) st.ms=ms;
+  st.hist=(st.hist||[]).concat([{d:todayStr(),p:pct,ms}]).slice(-30);
+  S.rhythmStats[id]=st; save();
+}
+function rhyOpen(i){
+  if(i===0) return true;
+  const p=rhyStat(RHY_EXOS[i-1].id);
+  return (p.best||0)>=70;
+}
+const rhyClick = () => S.rhyClick===true;   /* muet par défaut : le guide visuel suffit */
+
+/* grille des frappes attendues, en secondes depuis le départ */
+function rhyGrid(x){
+  const spb=60/x.bpm, out=[];
+  for(let b=0;b<x.bars;b++) for(let t=0;t<x.ts;t++){
+    const t0=(b*x.ts+t)*spb;
+    if(x.div===1) out.push(t0);
+    else if(x.div===2){ if(x.off) out.push(t0+spb/2); else { out.push(t0); out.push(t0+spb/2); } }
+    else if(x.div==='swing'){ out.push(t0); out.push(t0+spb*2/3); }
+  }
+  return out;
+}
+/* NOTATION — isolée exprès : c'est la seule logique non triviale du module,
+   et une logique de timing ne se teste pas à travers l'interface (un onglet
+   masqué bride les setTimeout et fausse tout). Elle est pure : grille
+   attendue + frappes reçues + tolérance → verdict. */
+function rhyScore(grid, taps, tol){
+  const used=new Set(); let hits=0, sumAbs=0, sumSigned=0;
+  grid.forEach(g=>{
+    let bi=-1, bd=1e9;
+    taps.forEach((tp,i)=>{ if(used.has(i)) return; const d=Math.abs(tp-g); if(d<bd){bd=d;bi=i;} });
+    if(bi>-1 && bd<=tol){ used.add(bi); hits++; sumAbs+=bd; sumSigned+=(taps[bi]-g); }
+  });
+  const extra=taps.length-used.size;
+  return {
+    hits, extra,
+    pct: Math.max(0, Math.round(100*hits/grid.length) - Math.min(25, extra*4)),
+    msAbs: hits?Math.round(sumAbs/hits*1000):null,
+    msSig: hits?Math.round(sumSigned/hits*1000):null,
+  };
+}
+function rhyRun(x, el, cb){
+  const spb=60/x.bpm, grid=rhyGrid(x), tol=Math.min(.16, spb*0.28);
+  const COUNTIN=x.ts;                       /* une mesure de décompte */
+  const total=(x.bars*x.ts)*spb;
+  const muteFrom = x.mute!=null ? x.mute*x.ts*spb : null;
+  let t0=null, taps=[], timers=[], done=false;
+
+  el.innerHTML=`<div class="exhead"><div class="target">${x.ic}</div><div class="sub">${x.sub}</div></div>
+    <div id="rhybeat" style="display:flex;gap:6px;justify-content:center;margin:14px 0 6px"></div>
+    <div id="rhypulse" style="height:86px;border-radius:16px;border:2px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:900;transition:background .06s,border-color .06s">—</div>
+    <p id="rhyhint" style="text-align:center;color:var(--dim);font-size:12.5px;margin:8px 0 2px">${x.bpm} BPM · ${x.bars} mesures à ${x.ts} temps${muteFrom?' · le guide s\'arrête à la moitié':''}</p>
+    <button class="btn" id="rhytap" style="height:96px;font-size:19px">👆 TAPER ICI</button>
+    <div class="exrow"><button class="btn ghost" id="rhyclick">${rhyClick()?'🔔 Clic : ON':'🔕 Clic : OFF'}</button><button class="btn ghost" id="rhygo">▶ Départ</button></div>
+    <div class="fb" id="rhyfb"></div>`;
+  const beat=el.querySelector('#rhybeat'), pulse=el.querySelector('#rhypulse'),
+        tap=el.querySelector('#rhytap'), fb=el.querySelector('#rhyfb');
+  for(let i=0;i<x.ts;i++){ const d=document.createElement('i');
+    d.style.cssText='width:12px;height:12px;border-radius:50%;background:var(--line);display:block'; beat.appendChild(d); }
+  const dots=[...beat.children];
+  el.querySelector('#rhyclick').onclick=e=>{ S.rhyClick=!rhyClick(); save(); e.target.textContent=rhyClick()?'🔔 Clic : ON':'🔕 Clic : OFF'; };
+
+  const flash=(strong,guided)=>{
+    pulse.style.background = guided===false ? 'transparent' : (strong?'var(--acc)':'var(--line)');
+    pulse.style.borderColor = guided===false ? 'var(--dim)' : (strong?'var(--acc)':'var(--line)');
+    setTimeout(()=>{ pulse.style.background='transparent'; pulse.style.borderColor='var(--line)'; },90);
+  };
+  const clic=(strong)=>{ if(rhyClick()) playNote(strong?96:91,.04,strong?.5:.3); };
+
+  const start=()=>{
+    timers.forEach(clearTimeout); timers=[]; taps=[]; done=false; fb.textContent=''; fb.className='fb';
+    pulse.textContent='…';
+    const T0=performance.now();
+    /* décompte : une mesure, toujours guidée */
+    for(let i=0;i<COUNTIN;i++) timers.push(setTimeout(()=>{
+      pulse.textContent=String(COUNTIN-i); flash(i===0,true); clic(i===0);
+      dots.forEach((d,j)=>d.style.background = j===i?'var(--acc)':'var(--line)');
+    }, i*spb*1000));
+    /* l'exercice */
+    t0=T0+COUNTIN*spb*1000;
+    for(let b=0;b<x.bars;b++) for(let t=0;t<x.ts;t++){
+      const at=(b*x.ts+t)*spb;
+      const guided = muteFrom==null || at<muteFrom;
+      timers.push(setTimeout(()=>{
+        pulse.textContent = guided ? String(t+1) : '·';
+        flash(t===0, guided); if(guided) clic(t===0);
+        dots.forEach((d,j)=>d.style.background = j===t?(guided?'var(--acc)':'var(--dim)'):'var(--line)');
+        if(!guided && t===0 && b*x.ts*spb===muteFrom) el.querySelector('#rhyhint').innerHTML='<b style="color:var(--acc)">Le guide s\'est tu. Continue.</b>';
+      }, COUNTIN*spb*1000 + at*1000));
+    }
+    timers.push(setTimeout(finish, COUNTIN*spb*1000 + total*1000 + 500));
+  };
+  tap.onclick=()=>{ if(t0==null||done) return;
+    taps.push((performance.now()-t0)/1000);
+    tap.style.transform='scale(.97)'; setTimeout(()=>tap.style.transform='',70);
+  };
+  el.querySelector('#rhygo').onclick=start;
+
+  const finish=()=>{
+    done=true; timers.forEach(clearTimeout);
+    dots.forEach(d=>d.style.background='var(--line)'); pulse.textContent='—';
+    const R=rhyScore(grid, taps, tol);
+    const {hits, extra, pct, msAbs, msSig}=R;
+    rhyPush(x.id,pct,msAbs);
+    const verdict = pct>=90?'Impeccable.' : pct>=70?'Ça tient.' : pct>=45?'C\'est irrégulier.' : 'Le tempo t\'échappe.';
+    const sens = msSig==null?'' : msSig>25 ? `Tu tapes <b style="color:var(--bad)">${msSig} ms APRÈS</b> le temps : tu réagis au guide au lieu de le prévoir. Compte une mesure à vide avant de taper.`
+      : msSig<-25 ? `Tu tapes <b style="color:var(--bad)">${-msSig} ms AVANT</b> : tu précipites. Respire, laisse le temps arriver.`
+      : `Tu tombes <b style="color:var(--ok)">pile sur le temps</b> (${msSig>=0?'+':''}${msSig} ms en moyenne).`;
+    el.innerHTML=`<div class="exhead"><div class="target">${pct>=70?x.ic:'😵'} ${pct}%</div>
+      <div class="sub">${verdict} <b>${hits}/${grid.length}</b> frappes dans la fenêtre${extra?` · ${extra} frappe${extra>1?'s':''} en trop`:''}.</div></div>
+      <p style="text-align:center;font-size:13.5px;line-height:1.55;margin:10px 0">${sens}</p>
+      <p style="text-align:center;color:var(--dim);font-size:12px">Écart moyen : ${msAbs!=null?msAbs+' ms':'—'} · fenêtre tolérée ± ${Math.round(tol*1000)} ms · record ${rhyStat(x.id).best}%</p>`;
+    const again=document.createElement('button'); again.className='btn'; again.textContent='↻ Refaire';
+    again.onclick=()=>rhyRun(x,el,cb); el.appendChild(again);
+    if(pct>=70){ dailyMark('drill'); award(20); chime(); } else buzz();
+    const back=document.createElement('button'); back.className='btn ghost'; back.textContent='← Les exercices';
+    back.onclick=()=>rhythmRoom(); el.appendChild(back);
+    if(cb) cb(pct);
+  };
+}
+function rhythmRoom(){
+  openCustom('🥁 Le métronome intérieur',(inner,close)=>{
+    const p=document.createElement('p');
+    p.style.cssText='color:var(--dim);font-size:13.5px;line-height:1.55;margin:0 0 12px';
+    p.innerHTML='Le seul endroit de l\'app où <b>le temps compte</b>. Tu ne réponds à rien : tu tapes, et on mesure à combien de millisecondes tu tombes. Le guide est <b>visuel</b> — le clic est un bouton, jamais une obligation. Six exercices, du plus simple au 5 temps.';
+    inner.appendChild(p);
+    RHY_EXOS.forEach((x,i)=>{
+      const open=rhyOpen(i), st=rhyStat(x.id);
+      const c=document.createElement('div'); c.className='card';
+      c.style.borderColor = !open?'var(--line)' : (st.best>=70?'var(--ok)':'var(--acc)');
+      c.style.opacity = open?1:.55;
+      c.innerHTML=`<b style="font-size:16px">${x.ic} ${x.t}${st.best>=70?' <span style="color:var(--ok)">✓</span>':''}</b>
+        <p style="color:var(--dim);font-size:13px;margin:4px 0 0">${x.sub}</p>
+        <p style="font-size:12.5px;line-height:1.5;margin:7px 0 0;opacity:.85">💡 ${x.why}</p>
+        ${st.n?`<p style="color:var(--dim);font-size:12px;margin:6px 0 0">Record <b style="color:var(--acc)">${st.best}%</b>${st.ms!=null?` · meilleur écart ${st.ms} ms`:''} · ${st.n} essai${st.n>1?'s':''}</p>`:''}
+        ${!open?'<p style="color:var(--dim);font-size:12px;margin:6px 0 0">🔒 70 % à l\'exercice précédent.</p>':''}`;
+      if(open){
+        const b=document.createElement('button'); b.className='btn'+(st.best>=70?' ghost':'');
+        b.textContent='Lancer'; b.onclick=()=>{ close(); openCustom(x.ic+' '+x.t,(inr)=>{ const box=document.createElement('div'); inr.appendChild(box); rhyRun(x,box); }); };
+        c.appendChild(b);
+      }
+      inner.appendChild(c);
+    });
+  });
+}
+
+function weakRoom(){
+  const rank=wkRanking(), top=rank[0], ct=wkChordType();
+  openCustom('🎯 Mon point faible',(inner,close)=>{
+    const p=document.createElement('p');
+    p.style.cssText='color:var(--dim);font-size:13.5px;line-height:1.55;margin:0 0 12px';
+    p.innerHTML='Cette salle ne te demande rien : elle lit ce que tu as <b>réellement</b> raté — échecs par gamme, rechutes, erreurs de quiz — et te met dessus. Pas de moyenne, pas de note globale : la tonalité qui saigne, et rien d\'autre.';
+    inner.appendChild(p);
+    if(!top || top.score<5){
+      inner.insertAdjacentHTML('beforeend','<div class="exhead"><div class="target">✨</div><div class="sub">Pas encore assez de données pour désigner un point faible. Fais quelques séances du Grand Œuvre et reviens — l\'app t\'attend au tournant.</div></div>');
+      const b=document.createElement('button'); b.className='btn'; b.textContent='Retour'; b.onclick=close; inner.appendChild(b); return;
+    }
+    rank.slice(0,3).forEach((x,i)=>{
+      const sc=GO_SCALES[x.root];
+      const c=document.createElement('div'); c.className='card';
+      c.style.borderColor = i===0?'var(--bad)':'var(--line)';
+      c.innerHTML=`<b style="font-size:16px">${i===0?'🩸':'•'} ${sc.name} majeur</b>
+        <p style="color:var(--dim);font-size:13px;margin:4px 0 0;line-height:1.5">${wkWhy(x)||'Rien de flagrant.'}</p>
+        ${i===0?`<p style="font-size:13px;margin:8px 0 0;line-height:1.5">💡 ${sc.tip}</p>`:''}`;
+      if(i===0){
+        const b=document.createElement('button'); b.className='btn'; b.textContent='▶ La passer au peigne fin (4 épreuves)';
+        b.onclick=()=>{ close(); weakDrill(x.root); }; c.appendChild(b);
+      } else {
+        const b=document.createElement('button'); b.className='btn ghost'; b.textContent='Travailler '+sc.name;
+        b.onclick=()=>{ close(); weakDrill(x.root); }; c.appendChild(b);
+      }
+      inner.appendChild(c);
+    });
+    if(ct){
+      const c=document.createElement('div'); c.className='card'; c.style.borderColor='var(--acc)';
+      c.innerHTML=`<b style="font-size:16px">🎨 Ton accord noir : ${CHORD_TYPES[ct.t].nom}</b>
+        <p style="color:var(--dim);font-size:13px;margin:4px 0 0">Raté <b style="color:var(--bad)">${ct.n} fois</b>, toutes tonalités confondues. Formule : ${CHORD_TYPES[ct.t].fx}</p>`;
+      const b=document.createElement('button'); b.className='btn ghost'; b.textContent='8 de suite, tous les degrés';
+      b.onclick=()=>{ close(); weakChordDrill(ct.t); }; c.appendChild(b);
+      inner.appendChild(c);
+    }
+  });
+}
+
+/* les 4 épreuves : armure → notes → degrés → accords de la gamme */
+function weakDrill(root){
+  const sc=GO_SCALES[root];
+  openCustom('🩸 '+sc.name+' majeur · au peigne fin',(inner,close)=>{
+    let k=0, faux=0;
+    /* ⚠️ les générateurs tirent au sort : on les appelle UNE fois et on garde
+       le résultat, sinon on compare le score à une liste qui n'est pas celle
+       qui a été jouée. */
+    const qArm=goArmureQs(sc), qDeg=goDegQs(sc), qHar=goHarmonyQs(sc).slice(0,4);
+    const etapes=[
+      ['L\'armure', el=>runQuiz(el,{qs:qArm, scored:true},(_,sco)=>{ if(sco<qArm.length) faux++; suite(); })],
+      ['Les notes, dans l\'ordre', el=>runOrder(el,{sc,mode:'spell',sub:'Les 7 notes bien orthographiées. C\'est là que les bémols se perdent.'},(ok,secs,f)=>{ if(f>0) faux++; suite(); })],
+      ['Les degrés', el=>runQuiz(el,{qs:qDeg, scored:true},(_,sco)=>{ if(sco<qDeg.length) faux++; suite(); })],
+      ['Les accords de la gamme', el=>runQuiz(el,{qs:qHar, scored:true},(_,sco)=>{ if(sco<qHar.length) faux++; suite(); })],
+    ];
+    const suite=()=>{
+      inner.querySelectorAll('.wkseg').forEach(x=>x.remove());
+      if(k>=etapes.length){
+        const seg=document.createElement('div'); seg.className='wkseg';
+        seg.innerHTML=`<div class="exhead"><div class="target">${faux?'🩹':'✅'}</div>
+          <div class="sub">${faux? `${faux} épreuve(s) encore fragile(s) sur ${sc.name}. C'est exactement ce qu'on cherchait — reviens demain, pas dans une heure.`
+            : `${sc.name} majeur tient sur les quatre épreuves. Elle n'est plus ton point faible.`}</div></div>
+          <div style="text-align:center;color:var(--dim);font-size:13px;margin-top:8px;line-height:1.5">
+          Le vrai test, maintenant : joue une grille dans cette tonalité. <b>Onglet Morceaux</b>.</div>`;
+        inner.appendChild(seg);
+        goStat(root, faux===0);
+        dailyMark('drill'); award(faux?15:25);
+        toast(faux?'🩹 Point faible travaillé · +15 XP':'✅ Point faible nettoyé · +25 XP');
+        const b=document.createElement('button'); b.className='btn'; b.textContent='Fermer'; b.onclick=close; inner.appendChild(b);
+        return;
+      }
+      const [titre,run]=etapes[k]; k++;
+      const seg=document.createElement('div'); seg.className='wkseg';
+      seg.innerHTML=`<p style="text-align:center;color:var(--acc);font-size:12px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;margin:2px 0 6px">${k}/${etapes.length} · ${titre}</p>`;
+      const box=document.createElement('div'); seg.appendChild(box); inner.appendChild(seg);
+      run(box);
+    };
+    suite();
+  });
+}
+
+/* le type d'accord le plus raté, sur 8 fondamentales tirées au sort */
+function weakChordDrill(t){
+  const roots=[...Array(12).keys()].sort(()=>Math.random()-.5).slice(0,8);
+  openCustom('🎨 '+CHORD_TYPES[t].nom,(inner,close)=>{
+    const tip=document.createElement('div'); tip.className='theory';
+    tip.innerHTML=`<div class="tip" style="margin-bottom:10px">Formule : <b>${CHORD_TYPES[t].fx}</b></div>`;
+    inner.appendChild(tip);
+    const box=document.createElement('div'); inner.appendChild(box);
+    runChord(box,{items:roots.map(r=>({root:r, t})), sub:'Huit fondamentales, le même type. C\'est la formule qu\'on grave, pas l\'accord.'},
+      (ok,score)=>{
+        dailyMark('drill'); award(20); toast('🎨 +20 XP');
+        const b=document.createElement('button'); b.className='btn'; b.textContent='Fermer'; b.onclick=close; inner.appendChild(b);
+      });
+  });
+}
+
 function goSeanceQueue(){
-  const q=[];
-  /* 0) PRIORITÉ ABSOLUE : les gammes scellées dont l'entretien est échu.
-     C'est elles qui décrochent en silence — elles passent avant tout le reste. */
-  goDueList().slice(0,3).forEach(r=>{ if(!q.includes(r)) q.push(r); });
-  /* 1) entretien : 1 gamme déjà solide (palier ≥4) pas revue depuis le plus longtemps */
-  const known=GO_ORDER.filter(r=>gm(r).lvl>=4).sort((a,b)=>((gm(a).last||'')<(gm(b).last||'')?-1:1));
-  if(known.length && !q.includes(known[0])) q.push(known[0]);
-  /* 2) les chantiers en cours (paliers 1-3), du plus bas au plus haut */
-  goInProgress().sort((a,b)=>gm(a).lvl-gm(b).lvl).forEach(r=>{ if(!q.includes(r)) q.push(r); });
-  /* 3) sceller les "par cœur" (palier 4) qui attendent leur 2e jour */
-  GO_ORDER.filter(r=>gm(r).lvl===4).forEach(r=>{ if(!q.includes(r)) q.push(r); });
-  /* 4) ouvrir de nouvelles gammes tant qu'on a moins de 3 chantiers actifs */
+  const q=[], push=r=>{ if(r!=null && !q.includes(r)) q.push(r); };
+  const byLastAsc=(a,b)=>((gm(a).last||'')<(gm(b).last||'')?-1:1);
+
+  /* 1) LE SLOT DÉCOUVERTE, servi en TÊTE et jamais sacrifié :
+        le chantier le plus bas (palier 1-3), sinon une gamme jamais ouverte. */
+  const chantiers=goInProgress().sort((a,b)=>gm(a).lvl-gm(b).lvl);
+  if(chantiers.length) push(chantiers[0]);
+  else push(GO_ORDER.find(r=>gm(r).lvl===0));
+
+  /* 2) l'entretien échu : 2 au plus (était 3, sans plafond réel) */
+  goDueList().slice(0,2).forEach(push);
+
+  /* 3) UN seul sceau par séance — celui qui attend depuis le plus longtemps.
+        Avant, les 4 gammes bloquées au palier « par cœur » passaient toutes
+        le même jour et remplissaient la file à elles seules. */
+  const aSceller=GO_ORDER.filter(r=>gm(r).lvl===4).sort(byLastAsc);
+  if(aSceller.length) push(aSceller[0]);
+
+  /* 4) le 2e chantier, puis on ouvre du neuf tant qu'on reste sous le plafond */
+  if(chantiers.length>1) push(chantiers[1]);
   const activeLearning=()=>GO_ORDER.filter(r=>{const l=gm(r).lvl;return l>=1&&l<=3;}).length + q.filter(r=>gm(r).lvl===0).length;
   for(const r of GO_ORDER){
     if(gm(r).lvl!==0 || q.includes(r)) continue;
     if(activeLearning()>=GO_MAXPROG) break;
-    q.push(r);
+    push(r);
   }
+
+  /* 5) on bouche avec l'entretien des solides, la moins revue d'abord */
+  GO_ORDER.filter(r=>gm(r).lvl>=4).sort(byLastAsc).forEach(push);
+
   /* fallback : tout est maîtrisé → révision de 3 au hasard */
   if(!q.length){ GO_ORDER.slice().sort(()=>Math.random()-.5).slice(0,3).forEach(r=>q.push(r)); }
-  return q.slice(0,8);
+  return q.slice(0,GO_SEANCE_MAX);
 }
 
 /* ---- LA SÉANCE DU JOUR ---- */
