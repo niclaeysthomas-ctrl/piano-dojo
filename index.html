@@ -2193,6 +2193,46 @@ const QC_CARDS=[
   {id:'d1', lvl:3, dir:'down', a:1, b:6, na:'Ré♭', nb:'Sol♭', alt:'Do♯ → Fa♯',
    why:'Ré♭ ↓ = <b>Sol♭</b>. En dièses : <b>Do♯ → Fa♯</b>. C\'est le point de bascule du cercle : le même endroit porte deux noms.'}
 ];
+/* ---------- LE SENS TRAVAILLÉ ----------
+   Demande du 2026-09-21 : « fais en sorte que les quintes ne soient POUR
+   L'INSTANT qu'ascendantes ». On ne supprime pas le niveau 3 — il est
+   écrit, il est bon, et il servira. On l'ÉTEINT, avec l'interrupteur
+   sous les yeux : c'est lui qui décide quand il le rallume.
+   Tant qu'il est éteint, les descendantes sortent de la file du jour,
+   des séries, de la révision libre ET du défi du jour. */
+function qcDescOn(){ return !!S.qcDesc; }
+/* ---------- CE QU'IL CHOISIT DE TRAVAILLER ----------
+   Deuxième et troisième demandes du 2026-09-21 : « qu'on puisse choisir
+   quoi travailler et faire des séries ». La séance du jour reste le dos
+   de l'apprentissage (c'est elle qui porte l'espacement) ; les séries
+   sont de l'entraînement EN PLUS, et elles ne touchent donc pas aux
+   échéances — une carte n'est jugée qu'une fois par jour, c'est ce qui
+   rend l'espacement honnête. On y gagne de la répétition à la demande ;
+   on n'y perd pas la mémoire longue. */
+const QC_FILTRES={
+  tout:     {t:'Tout',           f:(c,s)=>true,
+             d:'Toutes les cartes des niveaux cochés.'},
+  fragiles: {t:'Mal ancrées',    f:(c,s)=>s.box<2,
+             d:'Celles qui ne tiennent pas encore : jamais vues, ou remises à zéro par une faute.'},
+  ratees:   {t:'Ce que je rate', f:(c,s)=>(s.ko||0)>0,
+             d:'Celles que tu as déjà données comme « pas su » au moins une fois. La vraie liste noire.'},
+  pieges:   {t:'Les pièges',     f:(c,s)=>!!c.trap||!!c.alt,
+             d:'Si→Fa♯, et les quintes qui s’écrivent de deux façons. Peu nombreuses, chères en concert.'}
+};
+function qcPick(){
+  if(!S.qcPick) S.qcPick={lvls:[1,2], filt:'tout'};
+  if(!Array.isArray(S.qcPick.lvls)||!S.qcPick.lvls.length) S.qcPick.lvls=[1];
+  if(!QC_FILTRES[S.qcPick.filt]) S.qcPick.filt='tout';
+  return S.qcPick;
+}
+function qcChoix(){
+  const P=qcPick(), F=QC_FILTRES[P.filt];
+  return qcCardsActives().filter(c=>P.lvls.indexOf(c.lvl)>=0 && qcLvlOpen(c.lvl) && F.f(c, qcCardState(c.id)));
+}
+function qcSerieSt(){ if(!S.qcSerie) S.qcSerie={faites:0,best:0,parfaites:0}; return S.qcSerie; }
+
+function qcActive(c){ return c.dir!=="down" || qcDescOn(); }
+function qcCardsActives(){ return QC_CARDS.filter(qcActive); }
 function qcState(){ if(!S.qc) S.qc={}; return S.qc; }
 function qcCardState(id){ return qcState()[id]||{box:0,seen:false,ko:0}; }
 function qcOf(lvl){ return QC_CARDS.filter(c=>c.lvl===lvl); }
@@ -2214,7 +2254,7 @@ const qcEarly=c=>{ const s=qcState()[c.id]; return !!(s&&s.seen&&(s.due||'0000')
 function qcQueue(){
   const t=todayStr(), R=qcR(), due=[], fresh=[], plus=[];
   QC_CARDS.forEach(c=>{
-    if(!qcLvlOpen(c.lvl)) return;
+    if(!qcLvlOpen(c.lvl) || !qcActive(c)) return;
     const s=qcState()[c.id];
     if(!s||!s.seen) fresh.push(c);
     else if((s.due||'0000')<=t) due.push(c);
@@ -2231,7 +2271,7 @@ function qcQueue(){
   return q.concat(plus.slice(0, R.sol-q.length));
 }
 function qcNextDue(){
-  const ds=QC_CARDS.map(c=>qcState()[c.id]).filter(s=>s&&s.seen&&s.due).map(s=>s.due).sort();
+  const ds=qcCardsActives().map(c=>qcState()[c.id]).filter(s=>s&&s.seen&&s.due).map(s=>s.due).sort();
   return ds[0]||null;
 }
 function qcSched(id, ok){
@@ -2280,7 +2320,20 @@ function qcRoom(){
           `<div class="tag${qcR()===QC_RYTHMES[k]?' on':''}" data-r="${k}">${QC_RYTHMES[k].t}</div>`).join('')}</div>
         <div style="color:var(--dim);font-size:12.5px;line-height:1.5;margin-top:9px">${R.d}</div></div>`;
       [1,2,3].forEach(lvl=>{
-        const cards=qcOf(lvl), open=qcLvlOpen(lvl), anc=qcAnchored(lvl), L=QC_LVL[lvl];
+        const cards=qcOf(lvl), anc=qcAnchored(lvl), L=QC_LVL[lvl];
+        /* Le niveau 3 (les descendantes) est en PAUSE tant qu'il ne l'allume pas :
+           ni verrouillé, ni supprimé — il attend. */
+        const enPause = lvl===3 && !qcDescOn();
+        const open=qcLvlOpen(lvl) && !enPause;
+        if(enPause){
+          html+=`<div class="card" style="opacity:.85;border-style:dashed">
+            <div style="display:flex;align-items:baseline;gap:8px">
+              <b style="font-size:14.5px">⏸ Niveau 3 · ${L.t}</b>
+              <span style="margin-left:auto;font-size:12px;font-weight:800;color:var(--dim);white-space:nowrap">en pause</span></div>
+            <div style="color:var(--dim);font-size:12.5px;margin-top:3px">Tu travailles les quintes <b>ascendantes uniquement</b>. Les 12 descendantes sont écrites et t'attendent — elles n'entrent ni dans la séance du jour, ni dans les séries, ni dans le défi.</div>
+            <button class="btn ghost" id="qcDescOn" style="margin-top:10px">Ajouter les descendantes</button></div>`;
+          return;
+        }
         html+=`<div class="card" style="${open?'':'opacity:.62'}">
           <div style="display:flex;align-items:baseline;gap:8px">
             <b style="font-size:14.5px">${open?'':'🔒 '}Niveau ${lvl} · ${L.t}</b>
@@ -2303,10 +2356,34 @@ function qcRoom(){
         html+=`</div>`;
       });
       html+=`<div style="color:var(--dim);font-size:11.5px;text-align:center;margin:-2px 0 12px">
-        contour gris = pas encore vue · orange = en cours · vert = ancrée · pointillé = à revoir aujourd'hui</div>`;
+        contour gris = pas encore vue · orange = en cours · vert = ancrée · pointillé = à revoir aujourd'hui${qcDescOn()?` · <span id="qcDescOff" style="cursor:pointer;text-decoration:underline">remettre les descendantes en pause</span>`:''}</div>`;
+      /* ---------- CHOISIR CE QU'ON TRAVAILLE, ET EN FAIRE DES SÉRIES ---------- */
+      {
+        const P=qcPick(), F=QC_FILTRES[P.filt], choix=qcChoix(), SR=qcSerieSt();
+        const niveaux=[1,2,3].filter(l=>qcLvlOpen(l) && (l!==3||qcDescOn()));
+        html+=`<div class="card" style="border-color:var(--acc)">
+          <div style="display:flex;align-items:baseline;gap:8px">
+            <b style="font-size:14.5px">🎯 Travailler ce que je veux</b>
+            <span style="margin-left:auto;font-size:12px;color:var(--dim)">séries d'entraînement</span></div>
+          <div style="color:var(--dim);font-size:12.5px;margin-top:4px">Tu choisis, tu enchaînes, tu recommences. <b style="color:var(--txt)">Ça ne touche pas aux échéances</b> de la séance du jour : c'est du volume en plus, pas de la mémoire longue en moins.</div>
+          <div style="font-size:12px;color:var(--dim);margin:11px 0 5px;font-weight:700">Quel niveau</div>
+          <div class="selrow">${niveaux.map(l=>
+            `<div class="tag${P.lvls.indexOf(l)>=0?' on':''}" data-ql="${l}">Niveau ${l}${l===3?' ↓':' ↑'}</div>`).join('')}</div>
+          <div style="font-size:12px;color:var(--dim);margin:11px 0 5px;font-weight:700">Quelles cartes</div>
+          <div class="selrow">${Object.keys(QC_FILTRES).map(k=>
+            `<div class="tag${P.filt===k?' on':''}" data-qf="${k}">${QC_FILTRES[k].t}</div>`).join('')}</div>
+          <div style="color:var(--dim);font-size:12.5px;line-height:1.5;margin-top:9px">${F.d}</div>
+          ${choix.length
+            ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px">${choix.map(c=>{const st=qcCardState(c.id);
+                 return `<span style="font-size:12px;font-weight:700;padding:5px 9px;border-radius:9px;background:var(--bg3);border:1.5px solid ${qcBoxCol(st.box)}">${c.na} ${c.dir==='up'?'↑':'↓'}</span>`;}).join('')}</div>
+               <button class="btn" id="qcSerie" style="margin-top:12px">Lancer une série — ${choix.length} carte${choix.length>1?'s':''}</button>`
+            : `<div style="color:var(--acc);font-size:12.5px;margin-top:10px">Aucune carte ne correspond. ${P.filt==='ratees'?'Bonne nouvelle : tu n\'as encore raté aucune de ces cartes.':P.filt==='fragiles'?'Tout est ancré dans cette sélection.':'Coche un niveau.'}</div>`}
+          ${SR.faites?`<div style="color:var(--dim);font-size:12px;margin-top:9px;text-align:center">${SR.faites} série${SR.faites>1?'s':''} faite${SR.faites>1?'s':''} · meilleur score <b style="color:var(--ok)">${SR.best} %</b>${SR.parfaites?` · ${SR.parfaites} sans faute`:''}</div>`:''}
+        </div>`;
+      }
       const nAv=q.filter(qcEarly).length;
       const nNew=q.filter(c=>!qcCardState(c.id).seen).length, nDue=q.length-nNew-nAv;
-      const attente=qcNewLeft()===0 && QC_CARDS.some(c=>qcLvlOpen(c.lvl)&&!qcCardState(c.id).seen);
+      const attente=qcNewLeft()===0 && qcCardsActives().some(c=>qcLvlOpen(c.lvl)&&!qcCardState(c.id).seen);
       html+= q.length
         ? `<button class="btn" id="qcGo">Étudier — ${[nDue?nDue+' à revoir':'', nNew?nNew+' nouvelle'+(nNew>1?'s':''):'', nAv?nAv+' en avance':''].filter(Boolean).join(' · ')}</button>
            ${nAv?`<div style="color:var(--dim);font-size:11.5px;text-align:center;margin:-4px 0 10px">« en avance » = pas encore dues, tirées pour tenir le plancher de ${R.sol}. Les juger avance leur échéance.</div>`:''}`
@@ -2317,8 +2394,101 @@ function qcRoom(){
         ✓ Les 12 quintes montantes sont solides — le <b>⚡ Sprint des quintes</b> est maintenant dans ta séance : passe à la vitesse.</div>`;
       wrap.innerHTML=html;
       wrap.querySelectorAll('[data-r]').forEach(t=>{ t.onclick=()=>{ S.qcRythme=t.dataset.r; save(); home(); }; });
+      wrap.querySelectorAll('[data-ql]').forEach(t=>{ t.onclick=()=>{
+        const P=qcPick(), l=+t.dataset.ql, i=P.lvls.indexOf(l);
+        if(i>=0){ if(P.lvls.length>1) P.lvls.splice(i,1); }   /* jamais zéro niveau coché */
+        else P.lvls.push(l);
+        P.lvls.sort(); save(); home(); }; });
+      wrap.querySelectorAll('[data-qf]').forEach(t=>{ t.onclick=()=>{ qcPick().filt=t.dataset.qf; save(); home(); }; });
+      const dOn=wrap.querySelector('#qcDescOn');
+      if(dOn) dOn.onclick=()=>{ S.qcDesc=true; save(); toast('Les 12 quintes descendantes entrent dans le paquet.'); home(); };
+      const dOff=wrap.querySelector('#qcDescOff');
+      if(dOff) dOff.onclick=()=>{ S.qcDesc=false;
+        const P=qcPick(); P.lvls=P.lvls.filter(l=>l!==3); if(!P.lvls.length) P.lvls=[1];
+        save(); toast('Retour aux ascendantes seules.'); home(); };
+      const sr=wrap.querySelector('#qcSerie'); if(sr) sr.onclick=()=>serie(1,{faites:0,bonnes:0,total:0});
       const go=wrap.querySelector('#qcGo'); if(go) go.onclick=()=>session(qcQueue(),true);
-      const fr=wrap.querySelector('#qcFree'); if(fr) fr.onclick=()=>session(QC_CARDS.filter(c=>qcLvlOpen(c.lvl)&&qcCardState(c.id).seen).sort(()=>Math.random()-.5).slice(0,8), false);
+      const fr=wrap.querySelector('#qcFree'); if(fr) fr.onclick=()=>session(qcCardsActives().filter(c=>qcLvlOpen(c.lvl)&&qcCardState(c.id).seen).sort(()=>Math.random()-.5).slice(0,8), false);
+    };
+
+    /* ---------------- LES SÉRIES ----------------
+       Un paquet choisi, mélangé, enchaîné — et on recommence autant de fois
+       qu'on veut. Aucune échéance n'est touchée (c'est le rôle de la séance
+       du jour) : ici on cherche le réflexe, pas l'espacement. Une carte ratée
+       revient dans la même série, quatre cartes plus loin. Le score d'une
+       série se compte sur les cartes sues DU PREMIER COUP. */
+    const serie=(num, cumul)=>{
+      const base=qcChoix();
+      if(!base.length){ toast('Aucune carte dans ta sélection'); return home(); }
+      const file=base.slice().sort(()=>Math.random()-.5), total=file.length;
+      let i=0, bonnes=0, repasses=0; const ratés=new Set();
+      const fin=()=>{
+        keys=null;
+        const pc=Math.round(bonnes/total*100), parfait=bonnes===total;
+        const SR=qcSerieSt();
+        SR.faites++; SR.best=Math.max(SR.best||0,pc); if(parfait) SR.parfaites=(SR.parfaites||0)+1;
+        cumul.faites=num; cumul.bonnes+=bonnes; cumul.total+=total;
+        /* un peu d'XP, plafonné : c'est de l'entraînement, pas la séance du jour */
+        const xp=Math.min(18, 3+bonnes); if(typeof award==='function') award(xp);
+        save();
+        const moy=cumul.total?Math.round(cumul.bonnes/cumul.total*100):0;
+        wrap.innerHTML=`<div class="exhead"><div class="target">${parfait?'🎯':'🔁'}</div>
+            <div class="sub">Série ${num} · <b style="color:${parfait?'var(--ok)':'var(--acc)'}">${bonnes}/${total}</b> du premier coup · ${pc} %${xp?` · +${xp} XP`:''}</div></div>
+          ${num>1?`<div class="card" style="text-align:center"><b style="font-size:14px">${num} séries d'affilée</b>
+            <div style="color:var(--dim);font-size:13px;margin-top:5px">Moyenne sur l'enchaînement : <b style="color:${moy>=90?'var(--ok)':'var(--acc)'}">${moy} %</b> · ${cumul.bonnes}/${cumul.total} cartes.</div></div>`:''}
+          ${ratés.size?`<div class="card"><b style="font-size:14px">Ce qui a manqué</b>
+            <div style="margin-top:8px;display:flex;flex-direction:column;gap:5px">${[...ratés].map(id=>{const c=QC_CARDS.find(x=>x.id===id);
+              return `<div style="font-size:13px;color:var(--dim)">${c.na} ${c.dir==='up'?'↑':'↓'} → <b style="color:var(--acc)">${c.nb}</b></div>`;}).join('')}</div>
+            <div style="color:var(--dim);font-size:12.5px;margin-top:9px">Passe le filtre sur <b>« Ce que je rate »</b> et relance : tu ne travailleras plus que celles-là.</div></div>`
+          :`<p style="text-align:center;color:var(--ok);font-size:13.5px;margin-top:10px">Série sans faute.${SR.parfaites>1?` C'est ta ${SR.parfaites}<sup>e</sup>.`:''}</p>`}
+          <button class="btn" id="srNext">Série suivante</button>
+          <button class="btn ghost" id="srStop">Arrêter</button>`;
+        wrap.querySelector('#srNext').onclick=()=>serie(num+1, cumul);
+        wrap.querySelector('#srStop').onclick=home;
+      };
+      const carte=()=>{
+        if(i>=file.length) return fin();
+        const c=file[i], reste=file.length-i;
+        wrap.innerHTML=`
+          <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:12px">
+            <b style="font-size:13.5px;color:var(--acc)">Série ${num}</b>
+            <span style="font-size:12.5px;color:var(--dim)">${Math.min(i+1,total)} / ${total}${repasses?` (+${repasses} à repasser)`:''}</span>
+            <span style="margin-left:auto;font-size:12.5px;font-weight:800;color:var(--ok)">${bonnes} ✓</span></div>
+          <div style="background:var(--bg2);border:1px solid var(--line);border-radius:14px;padding:36px 16px 32px;text-align:center">
+            <div style="color:var(--dim);font-size:13.5px">Quinte ${c.dir==='up'?'ascendante ↑':'descendante ↓'} de</div>
+            <div style="font-size:60px;font-weight:900;line-height:1.15;margin-top:4px">${c.na}</div>
+            <div id="srBack"></div>
+          </div>
+          <div id="srAct" style="margin-top:14px"></div>
+          <div style="text-align:center;margin-top:10px"><span id="srQuit" style="cursor:pointer;font-size:12px;color:var(--dim);text-decoration:underline">arrêter la série</span></div>`;
+        const act=wrap.querySelector('#srAct');
+        const rate=ok=>{
+          if(ok && !ratés.has(c.id)) bonnes++;
+          if(!ok){ ratés.add(c.id); file.splice(Math.min(file.length, i+4),0,c); repasses++; }
+          i++; carte(); };
+        const flip=document.createElement('button'); flip.className='btn'; flip.style.margin='0'; flip.textContent='Afficher la réponse';
+        flip.onclick=()=>{
+          wrap.querySelector('#srBack').innerHTML=`
+            <div style="height:1px;background:var(--line);margin:20px 0 18px"></div>
+            <div style="font-size:56px;font-weight:900;color:var(--acc);line-height:1.15">${c.nb}</div>
+            ${c.alt?`<div style="font-size:12.5px;color:var(--dim);margin-top:4px">autre orthographe : <b>${c.alt}</b></div>`:''}
+            <details style="margin-top:18px"><summary style="cursor:pointer;font-size:12.5px;font-weight:700;color:${c.trap?'var(--bad)':'var(--dim)'}">${c.trap?'⚠️ Pourquoi c\'est un piège':'Pourquoi ?'}</summary>
+              <div style="margin-top:9px;font-size:13.5px;line-height:1.6;color:#c9cde0;text-align:left">${c.why}</div></details>`;
+          act.innerHTML='';
+          const row=document.createElement('div'); row.style.cssText='display:grid;grid-template-columns:1fr 1fr;gap:10px';
+          const mk=(lab,ok,col)=>{ const b=document.createElement('button'); b.className='btn ghost';
+            b.style.cssText='border-color:'+col+';color:'+col+';font-weight:800;margin:0'; b.textContent=lab;
+            b.onclick=()=>{ keys=null; rate(ok); }; return b; };
+          row.appendChild(mk('✗ Pas su',false,'var(--bad)'));
+          row.appendChild(mk('✓ Su',true,'var(--ok)'));
+          act.appendChild(row);
+          if(keys) keys.flipped=true;
+        };
+        act.appendChild(flip);
+        keys={flipped:false, flip:()=>flip.onclick(), rate};
+        wrap.querySelector('#srQuit').onclick=()=>{ keys=null; home(); };
+      };
+      carte();
     };
 
     const session=(queue,compte)=>{
@@ -7555,10 +7725,13 @@ function lexiconView(){
 const R12A=[0,1,2,3,4,5,6,7,8,9,10,11];
 /* questions « quinte de X ? » en QCM, tirées du deck des cartes (mêmes orthographes) */
 function genQuinteQs(n){
-  const open=QC_CARDS.filter(c=>qcLvlOpen(c.lvl));
-  const src=(open.length>=n?open:QC_CARDS).slice().sort(()=>Math.random()-.5).slice(0,n);
+  /* le défi suit le sens travaillé : inutile de l'interroger sur des
+     descendantes qu'il a mises en pause dans la salle */
+  const actives=(typeof qcCardsActives==="function"?qcCardsActives():QC_CARDS);
+  const open=actives.filter(c=>qcLvlOpen(c.lvl));
+  const src=(open.length>=n?open:actives).slice().sort(()=>Math.random()-.5).slice(0,n);
   return src.map(c=>{
-    const uniq=[...new Set(QC_CARDS.map(x=>x.nb))].filter(x=>x!==c.nb).sort(()=>Math.random()-.5).slice(0,3);
+    const uniq=[...new Set(actives.map(x=>x.nb))].filter(x=>x!==c.nb).sort(()=>Math.random()-.5).slice(0,3);
     const opts=[c.nb,...uniq].sort(()=>Math.random()-.5);
     return {q:`Quinte ${c.dir==='up'?'ASCENDANTE ↑':'DESCENDANTE ↓'} de <b>${c.na}</b> ?`,
             opts, a:opts.indexOf(c.nb), why:c.why};
