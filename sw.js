@@ -1,6 +1,6 @@
 // Piano Dojo — service worker : network-first, repli cache (100 % hors-ligne)
 // Network-first : en ligne tu as toujours la dernière version, hors-ligne le cache prend le relais.
-const CACHE = "piano-dojo-v21-quintes-series";
+const CACHE = "piano-dojo-v22-quintes-series";
 const ASSETS = ["./", "./index.html"];
 
 self.addEventListener("install", e => {
@@ -16,7 +16,7 @@ self.addEventListener("fetch", e => {
   e.respondWith(
     fetch(e.request).then(res => {
       const copy = res.clone();
-      caches.open(CACHE).then(c => c.put(e.request, copy)).catch(() => {});
+      if (res.ok) caches.open(CACHE).then(c => c.put(e.request, copy)).catch(() => {});
       return res;
     }).catch(() => caches.match(e.request, { ignoreSearch: true }).then(h => h || caches.match("./index.html")))
   );
